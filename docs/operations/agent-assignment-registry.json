@@ -1,0 +1,1207 @@
+{
+  "metadata": {
+    "title": "LifeRescue agent assignment registry (control-plane document)",
+    "generated": "2026-10-03 (IST)",
+    "source": "Jira project KAN (https://liferescue.atlassian.net), live read-back of KAN-4..KAN-55 on 2026-10-03 (read-only); bootstrap docs (HANDOFF.md, pm-reconciliation-report.md, gates-report.md, open-decisions.md, jira-backlog-draft.md) and baseline docs 16-20; ADR-0001. Analysis artifacts: bootstrap/analysis/ (issues.json, pm-review-package.md, dependency-graph.md, readiness-report.md).",
+    "jira_remains_authoritative": "Jira remains authoritative for status, assignee, links and acceptance criteria. This file is a derived routing/readiness proposal, not a source of requirements. If this file and Jira disagree, Jira wins and this file must be regenerated. Nothing here was written to Jira.",
+    "status": "PROPOSAL - requires human review (Ojas) and LR-11 review before use; do not merge without human review. 'readiness' values are the analyst's gate assessment, NOT human approval; Jira label pm-reconciled means agent-checked only.",
+    "numbering_note": "Registered agent numbering is used: LR-01 Orchestrator, LR-02 Product Manager, LR-03 Architect, LR-04 Backend, LR-05 Frontend, LR-06 Agent Engineer, LR-07 QA/Evaluation, LR-08 Security, LR-09 Red Team, LR-10 SRE/DevOps, LR-11 Code Reviewer, LR-12 Documentation, LR-13 Release Manager, LR-14 Autonomous Ops. The originating prompt numbered Release as LR-12 and Documentation as LR-13; the registered numbering (LR-12 = Documentation, LR-13 = Release Manager) is authoritative here.",
+    "wave_naming_note": "execution_wave (0-5) is unrelated to the 'Wave 1' activation list in docs/workforce/agent-registry.md (agents LR-02/03/04/07/08). 0 governance (LR-02/03/08/11/12), 1 foundation (LR-04/05/06/07/10), 2 core product, 3 hardening, 4 release, 5 hackathon submission. KAN-54 is placed in wave 0 (deliberate deviation from 5) because the hackathon intake constrains KAN-38 and KAN-50. Containers (KAN-4..16) carry the lowest wave of their children; they are not execution units.",
+    "field_definitions": {
+      "jira_key": "Issue key.",
+      "primary_agent": "Single agent responsible for the work (no two agents implement the same issue). Non-binding proposal; Jira assignee is currently empty for all 52 issues.",
+      "review_agents": "Ordered independent reviewers (QA, code review, architecture, security as applicable). Never includes the primary agent.",
+      "security_agent": "Agent doing the security review (LR-08) or null if no security trigger.",
+      "red_team_agent": "LR-09 for agentic items with untrusted input, tools, approvals or side effects, else null. Red team attacks; it does not implement.",
+      "dependencies": "Jira 'Blocks' inbound links read live (the blocker issue keys). Exactly what Jira holds today, including links this analysis questions.",
+      "readiness": "One of needs_pm_review, needs_architecture, needs_security, ready, in_progress, blocked, in_review, validation, ready_for_release, released, done. First unmet gate in the order PM -> architecture -> security -> dependency. Containers are needs_pm_review (no AC / Definition of Ready).",
+      "blocked_by": "Open Jira blockers (KAN-nn) plus non-Jira tokens: PM:Qn (PM question n in pm-review-package.md), DECISION:C-nn or DECISION:<name> (open human decision, bootstrap/open-decisions.md), ADR:<name> (ADR to be proposed by LR-03 and approved), DOC:<name> (missing baseline document), EXTERNAL:<name>, HOLD:<name> (standing user hold).",
+      "execution_wave": "0-5, see wave_naming_note.",
+      "parallelizable": "true if the issue has no inbound Jira Blocks link and is not a container, i.e. it could run in parallel with other work once its non-Jira gates clear. It does NOT mean it can start now; see readiness.",
+      "architecture_required": "New service/API/schema/events/integration/auth/agent runtime/model or tool gateway/retention/async/infra boundary: LR-03 design or ADR needed before implementation.",
+      "security_review_required": "Triggers: auth, PII, incident data, external APIs, AI agents, tools, credentials, messaging, side effects, uploads, untrusted content, model I/O, storage.",
+      "notes": "Rationale, risks, open points."
+    },
+    "counts": {
+      "total_entries": 52,
+      "containers_KAN-4_to_16": 13,
+      "work_items_KAN-17_to_55": 39,
+      "readiness": {
+        "needs_pm_review": 28,
+        "ready": 3,
+        "in_review": 1,
+        "needs_architecture": 17,
+        "needs_security": 2,
+        "blocked": 1
+      }
+    }
+  },
+  "assignments": [
+    {
+      "jira_key": "KAN-4",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container (Initiative implemented as Epic + label type-initiative); no AC, scope or owner in Jira (doc 17 s6 Definition of Ready unmet). Progress derived from children; not an execution unit. Primary LR-02 = backlog steward only (doc 16 PM Bot mission)."
+    },
+    {
+      "jira_key": "KAN-5",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container (Initiative implemented as Epic + label type-initiative); no AC, scope or owner in Jira (doc 17 s6 Definition of Ready unmet). Progress derived from children; not an execution unit. Primary LR-02 = backlog steward only (doc 16 PM Bot mission)."
+    },
+    {
+      "jira_key": "KAN-6",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container (Initiative implemented as Epic + label type-initiative); no AC, scope or owner in Jira (doc 17 s6 Definition of Ready unmet). Progress derived from children; not an execution unit. Primary LR-02 = backlog steward only (doc 16 PM Bot mission)."
+    },
+    {
+      "jira_key": "KAN-7",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit."
+    },
+    {
+      "jira_key": "KAN-8",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit."
+    },
+    {
+      "jira_key": "KAN-9",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit. Epic-level Blocks link to KAN-55 (blocks completion of KAN-55; epic status must be closed by a human)."
+    },
+    {
+      "jira_key": "KAN-10",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit. Epic-level Blocks link to KAN-55 (blocks completion of KAN-55; epic status must be closed by a human). C-17: 'Agent Runtime' ambiguous (customer vs workforce); C-18 epic mapping open."
+    },
+    {
+      "jira_key": "KAN-11",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit. Epic-level Blocks link to KAN-55 (blocks completion of KAN-55; epic status must be closed by a human)."
+    },
+    {
+      "jira_key": "KAN-12",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit. Epic-level Blocks link to KAN-55 (blocks completion of KAN-55; epic status must be closed by a human)."
+    },
+    {
+      "jira_key": "KAN-13",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit. Epic-level Blocks link to KAN-55 (blocks completion of KAN-55; epic status must be closed by a human)."
+    },
+    {
+      "jira_key": "KAN-14",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit. Epic-level Blocks link to KAN-55 (blocks completion of KAN-55; epic status must be closed by a human)."
+    },
+    {
+      "jira_key": "KAN-15",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit. Epic-level Blocks link to KAN-55 (blocks completion of KAN-55; epic status must be closed by a human)."
+    },
+    {
+      "jira_key": "KAN-16",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Container epic; no AC/owner in Jira (doc 17 s6 DoR unmet); progress derived from children; not an execution unit."
+    },
+    {
+      "jira_key": "KAN-17",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "ready",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": true,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Ready for LR-02 to DRAFT only: mission, non-goals, target users, safety principles from docs 16-20/HANDOFF; every statement not derivable becomes a question for Ojas (no invented requirements). AC1 'mission approved' needs human approval. Product Constitution is a missing baseline doc."
+    },
+    {
+      "jira_key": "KAN-18",
+      "primary_agent": "LR-03",
+      "review_agents": [
+        "LR-08"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "ready",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": true,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Ready: doc 19 step 8 defines this as the first Architect task. Deliver diagram, service boundaries, ADR index, technology decisions as PROPOSALS incl. ADR proposals for gaps in pm-review-package (transition table, data-model gaps, lifecycle mapping). No code. Overlaps KAN-30 AC2. docs/adr exists only on PR #1 branch, so stack on or wait for PR #1 per human decision."
+    },
+    {
+      "jira_key": "KAN-19",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-20"
+      ],
+      "readiness": "in_review",
+      "blocked_by": [
+        "KAN-20"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "In review: deliverables exist on PR #1 (ojas005/liferescue#1; open, 2 commits, 26 files, 0 reviews at read-back) - pending LR-11 review and human merge; Jira status still To Do (not synchronized). Jira link 'KAN-20 blocks KAN-19' is questioned (dependency analysis). Format/lint/typecheck/test jobs are conditional and skip until code exists."
+    },
+    {
+      "jira_key": "KAN-20",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "DECISION:C-04",
+        "DECISION:C-07",
+        "ADR:branch-naming-and-jira-git-status-mapping"
+      ],
+      "execution_wave": 1,
+      "parallelizable": true,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Needs ADR for branch naming/commit conventions and Jira-Git status mapping. C-04, C-07 open; C-01 decided interim in ADR-0001 (KAN as is; 4 statuses; no REWORK). AC3 'CI status' presupposes KAN-19 CI. Backend hold until ADR approved."
+    },
+    {
+      "jira_key": "KAN-21",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-19"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-19",
+        "ADR:workforce-runtime",
+        "DECISION:C-14",
+        "DECISION:C-17"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Scope (doc 19 step 10 / doc 20 Phase A) far exceeds its 4 given AC, which overlap KAN-24/KAN-25 (umbrella vs parts). Needs ADR workforce runtime (C-14, C-17). Highest-risk workforce item: tools, credentials, untrusted Jira/Git content. Backend hold."
+    },
+    {
+      "jira_key": "KAN-22",
+      "primary_agent": "LR-08",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-19"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-19",
+        "DOC:system-architecture",
+        "DECISION:C-20"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Threat model (AC1) needs no code and is a missing baseline doc; AC2-4 need KAN-19 CI. Proposal for Ojas: pull AC1 into Wave 0 for LR-08 (split). Owner is the security agent: independent review LR-03 + human approval for policy changes (doc 16 s15). Secret scanning/Dependabot disabled on current plan (C-20)."
+    },
+    {
+      "jira_key": "KAN-23",
+      "primary_agent": "LR-12",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "PM:Q1",
+        "DECISION:owner-decisions-on-register"
+      ],
+      "execution_wave": 0,
+      "parallelizable": true,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "Needs PM rewording (PM-Q1): AC hard-codes register counts; ADR-0001 already records interim decisions for C-01/C-09. LR-12 can prepare a decision log without deciding anything; decisions are Ojas's."
+    },
+    {
+      "jira_key": "KAN-24",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-21"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-21",
+        "ADR:workforce-runtime"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC clear and testable (schema validation). Needs ADR workforce runtime and KAN-21. At least 9 of 19 doc 16 s4 fields are TBD in agent-registry (C-22): AC tests field presence only. Backend hold."
+    },
+    {
+      "jira_key": "KAN-25",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-24"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-24",
+        "PM:Q2",
+        "DECISION:C-10",
+        "DECISION:C-07"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q2): doc 16 s6 has no exit from BLOCKED/FAILED/REWORK and 'completed' is not a lifecycle state; bot vs task lifecycle unmapped (C-10), REWORK (C-07). Architect ADR + PM/Ojas approval of transition table needed."
+    },
+    {
+      "jira_key": "KAN-26",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-20"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-20",
+        "DECISION:C-09",
+        "DECISION:C-07",
+        "ADR:jira-sync-design-and-status-mapping"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC testable except 'test project' (undefined; KAN-1..3/SAM1 off limits, KAN is the live backlog). Targets KAN with 4 statuses (ADR-0001). Reads untrusted Jira text (prompt-injection surface); scoped Jira token. Needs KAN-20 and sync-design ADR. Backend hold."
+    },
+    {
+      "jira_key": "KAN-27",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-19",
+        "KAN-24"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-19",
+        "KAN-24",
+        "DECISION:retry-policy-values"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC testable. Needs KAN-24, KAN-19, retry policy values (TBD). Handles untrusted PR/CI content; git credentials need security review; no main push or branch-protection changes (doc 16 s9). Backend hold."
+    },
+    {
+      "jira_key": "KAN-28",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-24",
+        "KAN-25"
+      ],
+      "readiness": "needs_security",
+      "blocked_by": [
+        "KAN-24",
+        "KAN-25",
+        "DOC:threat-model",
+        "DECISION:C-16"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Security-defined controls: needs threat model (KAN-22) and the human-approval list (C-16 superset vs doc 16 s15). Gates must be non-bypassable by agents (red team). Depends KAN-24, KAN-25. Backend hold."
+    },
+    {
+      "jira_key": "KAN-29",
+      "primary_agent": "LR-07",
+      "review_agents": [
+        "LR-03",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-25"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-25",
+        "PM:Q3"
+      ],
+      "execution_wave": 3,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q3): quality/correctness/security metric definitions missing; 'computed from recorded runs' not stated in docs. Depends KAN-25. Owner LR-07: LR-07 must not review it."
+    },
+    {
+      "jira_key": "KAN-30",
+      "primary_agent": "LR-01",
+      "review_agents": [
+        "LR-08"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "PM:Q4",
+        "DECISION:C-03",
+        "DECISION:C-13",
+        "DECISION:C-14"
+      ],
+      "execution_wave": 0,
+      "parallelizable": true,
+      "architecture_required": false,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q4): Wave 1 membership (C-03/C-13/C-14) is Ojas's decision; 'bots exist with registry entries' undefined while at least 9 of 19 required fields are TBD. AC2 duplicates KAN-18 (doc 19 step 8). Owner label LR-01 Orchestrator; human approval required."
+    },
+    {
+      "jira_key": "KAN-31",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-32"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-32",
+        "ADR:identity-provider"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Needs ADR identity provider and KAN-32. Authn: security review + human approval for authn/authz changes (doc 16 s15). Edge cases not in AC: first-login provisioning, disabled users (users.status values undefined). Backend hold."
+    },
+    {
+      "jira_key": "KAN-32",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "ADR:database-and-migration-tool",
+        "DOC:data-model",
+        "DECISION:data-classification-and-retention"
+      ],
+      "execution_wave": 2,
+      "parallelizable": true,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Needs ADR DB/migration tool, data classification and retention (doc 18 s6; not in AC). location_reference may be PII. Doc 18 s5 lacks fields needed by KAN-33 (incident idempotency), KAN-36 (policy version), KAN-37 (approval expiry), KAN-39 (checkpoints), KAN-44 (notifications). No link to KAN-19 (CI before features, doc 19 step 9). Backend hold."
+    },
+    {
+      "jira_key": "KAN-33",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-07",
+        "LR-03",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-31",
+        "KAN-32"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-31",
+        "KAN-32",
+        "PM:Q5",
+        "DOC:api-contracts"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q5): Idempotency-Key for incident creation not specified in doc 18 s7/s5; request body/validation undefined (Product Requirements and API contracts missing). No link to KAN-19. Backend hold."
+    },
+    {
+      "jira_key": "KAN-34",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-32"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-32",
+        "ADR:incident-state-machine-transition-table",
+        "PM:Q6"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q6): doc 18 s8 lists states only; transition table must come from an ADR (LR-03) and be approved. AC1/AC3 circular until then. Blocks KAN-39, KAN-43."
+    },
+    {
+      "jira_key": "KAN-35",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-07",
+        "LR-03",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-32"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-32"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC testable but covers only part of scope (source registration, classification, attachment metadata uncovered; confidence scale undefined). Needs KAN-32. Untrusted external evidence content (red team). Backend hold."
+    },
+    {
+      "jira_key": "KAN-36",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-32"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-32",
+        "ADR:authz-model-and-policy-versioning",
+        "PM:Q7"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q7): 'policy version recorded with each decision' not in docs 16-20 (doc 18 s10 binds approvals only; no field in doc 18 s5). Needs ADR authz model. LLM must not be final authority. Blocks KAN-37, 39, 40, 41, 43, 46."
+    },
+    {
+      "jira_key": "KAN-37",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-36"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-36"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC clear; 'materially different' (AC1) vs doc 18 s10 'exact parameters'; approvals table (doc 18 s5) has no expiration/policy-version/parameter-binding fields. Needs KAN-36 (PM-blocked). Replay/confused-deputy tests; human approval for approval-logic changes."
+    },
+    {
+      "jira_key": "KAN-38",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-03",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "ADR:model-gateway-and-provider",
+        "EXTERNAL:nebius-access"
+      ],
+      "execution_wave": 2,
+      "parallelizable": true,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Needs ADR model gateway/provider; AC4 depends on the precise 'Nebius/NVIDIA path' (KAN-54, no link); Nebius access is external. Model I/O = prompt-injection and leakage surface. Jira owner LR-04; if LR-06 (Agent Engineer) is activated decide ONE owner before start, never both."
+    },
+    {
+      "jira_key": "KAN-39",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-34",
+        "KAN-36",
+        "KAN-38",
+        "KAN-40"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-34",
+        "KAN-36",
+        "KAN-38",
+        "KAN-40",
+        "ADR:agent-orchestrator-checkpointing-and-budgets"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Needs ADR for orchestrator checkpointing/step budgets (no checkpoint table in doc 18 s5; budget values TBD). Depends KAN-34, 36 (PM-blocked), 38, 40. Core agentic item: isolation, untrusted tool output. Same LR-04/LR-06 single-owner rule."
+    },
+    {
+      "jira_key": "KAN-40",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-36"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-36",
+        "ADR:tool-gateway-and-tool-contract"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC clear. Needs ADR tool gateway/contract and KAN-36. Tool outputs untrusted; allowlist enforcement; red team."
+    },
+    {
+      "jira_key": "KAN-41",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-36",
+        "KAN-40"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-36",
+        "KAN-40"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC clear and testable; rate-limit values TBD. Needs KAN-36, KAN-40. Single governed boundary for external actions: bypass tests (red team), egress restrictions."
+    },
+    {
+      "jira_key": "KAN-42",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-07",
+        "LR-03",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-41"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-41"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC clear. Needs KAN-41. Guards against fabricated success (red team); real provider checks out of scope (doc 19 step 13)."
+    },
+    {
+      "jira_key": "KAN-43",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-33",
+        "KAN-34",
+        "KAN-35",
+        "KAN-36",
+        "KAN-37",
+        "KAN-38",
+        "KAN-39",
+        "KAN-40",
+        "KAN-41",
+        "KAN-42"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-33",
+        "KAN-34",
+        "KAN-35",
+        "KAN-36",
+        "KAN-37",
+        "KAN-38",
+        "KAN-39",
+        "KAN-40",
+        "KAN-41",
+        "KAN-42",
+        "DOC:product-requirements",
+        "HOLD:no-vehicle-breakdown-implementation-until-lifted",
+        "PM:Q8"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "BLOCKED: Product Requirements missing; scenario undefined; AC2 refers to KAN-34 (PM-blocked); standing user hold 'no vehicle-breakdown implementation until lifted'. Safety-critical workflow: human approval for changes (doc 16 s15). Proposed missing dependency KAN-17 (safety principles)."
+    },
+    {
+      "jira_key": "KAN-44",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-43"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-43",
+        "PM:Q9",
+        "DOC:notification-data-model"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q9): preferences undefined (users table has none), notification data model missing; sequencing-only dependency on KAN-43 (doc 19 order). Sensitive-data minimization; messaging side effects need security review; mock channels only."
+    },
+    {
+      "jira_key": "KAN-45",
+      "primary_agent": "LR-08",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [],
+      "readiness": "needs_security",
+      "blocked_by": [
+        "ADR:secret-management"
+      ],
+      "execution_wave": 1,
+      "parallelizable": true,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Security-defined: needs ADR secret management and hosting decision (KAN-50) to pick the manager; overlaps KAN-22 AC2. Owner is the security agent: independent review LR-03 + human."
+    },
+    {
+      "jira_key": "KAN-46",
+      "primary_agent": "LR-07",
+      "review_agents": [
+        "LR-08",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": "LR-09",
+      "dependencies": [
+        "KAN-36",
+        "KAN-41"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-36",
+        "KAN-41",
+        "PM:Q10"
+      ],
+      "execution_wave": 3,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q10): access model undefined. Missing deps KAN-31, KAN-33 (cross-user test needs identity + incident entry). Adversarial suite: LR-09 supplies cases, LR-07 owns - do not co-implement; non-production only."
+    },
+    {
+      "jira_key": "KAN-47",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-08",
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-32"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-32",
+        "ADR:audit-immutability-mechanism"
+      ],
+      "execution_wave": 2,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Needs ADR for immutability mechanism (undefined) and KAN-32. May overlap KAN-25 audit events (workforce audit vs customer audit_events: clarify). Backend hold."
+    },
+    {
+      "jira_key": "KAN-48",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-03",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "PM:Q11",
+        "ADR:observability-backend"
+      ],
+      "execution_wave": 2,
+      "parallelizable": true,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q11): literal 'every request carries incident ID and agent run ID' unsatisfiable. Needs observability backend ADR (KAN-50, no link). Log redaction (security)."
+    },
+    {
+      "jira_key": "KAN-49",
+      "primary_agent": "LR-04",
+      "review_agents": [
+        "LR-07",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-48"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-48",
+        "PM:Q12"
+      ],
+      "execution_wave": 3,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q12): dashboards overlap KAN-29 and are Jira/CI-sourced delivery dashboards; 'dashboard exists' undefined. Needs KAN-48."
+    },
+    {
+      "jira_key": "KAN-50",
+      "primary_agent": "LR-03",
+      "review_agents": [
+        "LR-08"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "ready",
+      "blocked_by": [],
+      "execution_wave": 0,
+      "parallelizable": true,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Spike: produces ADR PROPOSALS only (hosting, event bus, object storage, registry, observability backend); human decision is AC2. PM gate = agent-reconciled only, not human approved. Budget/accounts and hackathon rules (KAN-54) may constrain options: record as assumptions. Unblocks KAN-51, 53 and (proposed) 48."
+    },
+    {
+      "jira_key": "KAN-51",
+      "primary_agent": "LR-10",
+      "review_agents": [
+        "LR-08",
+        "LR-03",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-50"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-50",
+        "PM:Q13"
+      ],
+      "execution_wave": 1,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "PM-blocked (Q13): Terraform for 'local' env and 'no state committed' not in docs 16-20. Needs KAN-50. Production apply needs human approval + Change issue. Owner LR-10 (deferred)."
+    },
+    {
+      "jira_key": "KAN-52",
+      "primary_agent": "LR-13",
+      "review_agents": [
+        "LR-08",
+        "LR-10",
+        "LR-11"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-19",
+        "KAN-22",
+        "KAN-51"
+      ],
+      "readiness": "needs_architecture",
+      "blocked_by": [
+        "KAN-19",
+        "KAN-22",
+        "KAN-51",
+        "ADR:ci-platform-and-required-checks"
+      ],
+      "execution_wave": 4,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "AC clear. Needs KAN-19, KAN-22, KAN-51 and ADR CI platform/required checks. Release Manager LR-13 deferred; production deploy only with recorded human approval. Not before hardening."
+    },
+    {
+      "jira_key": "KAN-53",
+      "primary_agent": "LR-03",
+      "review_agents": [
+        "LR-08",
+        "LR-10"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-50"
+      ],
+      "readiness": "blocked",
+      "blocked_by": [
+        "KAN-50",
+        "DECISION:rpo-rto-owner-approval"
+      ],
+      "execution_wave": 3,
+      "parallelizable": false,
+      "architecture_required": true,
+      "security_review_required": true,
+      "notes": "Spike. Blocked by KAN-50. RPO/RTO must be approved by Ojas (doc 18 s15). Title says 'restore test' but AC only requires a procedure definition; no issue executes the restore test (doc 19 step 14 gap)."
+    },
+    {
+      "jira_key": "KAN-54",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-03"
+      ],
+      "security_agent": null,
+      "red_team_agent": null,
+      "dependencies": [],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "PM:Q14",
+        "EXTERNAL:official-hackathon-rules"
+      ],
+      "execution_wave": 0,
+      "parallelizable": true,
+      "architecture_required": false,
+      "security_review_required": false,
+      "notes": "BLOCKED (PM-Q14): official hackathon rules not provided; HANDOFF facts (deadline 2026-10-30 10:30 PM IST) are user-stated and unverified. Information gathering, no code. Constrains KAN-38/50. Recommend pulling forward (27 days to deadline)."
+    },
+    {
+      "jira_key": "KAN-55",
+      "primary_agent": "LR-02",
+      "review_agents": [
+        "LR-08",
+        "LR-13"
+      ],
+      "security_agent": "LR-08",
+      "red_team_agent": null,
+      "dependencies": [
+        "KAN-9",
+        "KAN-10",
+        "KAN-11",
+        "KAN-12",
+        "KAN-13",
+        "KAN-14",
+        "KAN-15"
+      ],
+      "readiness": "needs_pm_review",
+      "blocked_by": [
+        "KAN-9",
+        "KAN-10",
+        "KAN-11",
+        "KAN-12",
+        "KAN-13",
+        "KAN-14",
+        "KAN-15",
+        "PM:Q15",
+        "DECISION:publication-and-deploy-approval"
+      ],
+      "execution_wave": 5,
+      "parallelizable": false,
+      "architecture_required": false,
+      "security_review_required": true,
+      "notes": "BLOCKED (PM-Q15): depends on KAN-54, a coherent product, undefined 'measurable results'/'private data'. Epic-level Blocks from KAN-9..15; no KAN-54 link. Publishing a private repo is irreversible externally: human approval; secret scan."
+    }
+  ]
+}
