@@ -3,7 +3,7 @@
     "title": "LifeRescue agent assignment registry (control-plane document)",
     "generated": "2026-10-03 (IST)",
     "source": "Jira project KAN (https://liferescue.atlassian.net), live read-back of KAN-4..KAN-55 on 2026-10-03 (read-only); bootstrap docs (HANDOFF.md, pm-reconciliation-report.md, gates-report.md, open-decisions.md, jira-backlog-draft.md) and baseline docs 16-20; ADR-0001. Analysis artifacts: bootstrap/analysis/ (issues.json, pm-review-package.md, dependency-graph.md, readiness-report.md).",
-    "jira_remains_authoritative": "Jira remains authoritative for status, assignee, links and acceptance criteria. This file is a derived routing/readiness proposal, not a source of requirements. If this file and Jira disagree, Jira wins and this file must be regenerated. Nothing here was written to Jira.",
+    "jira_remains_authoritative": "Jira remains authoritative for status, assignee, links and acceptance criteria. This file is a derived routing/readiness proposal, not a source of requirements. If this file and Jira disagree, Jira wins and this file must be regenerated. The only Jira writes related to this file are the six Blocks links approved by Ojas on 2026-10-03 (see changelog).",
     "status": "PROPOSAL - requires human review (Ojas) and LR-11 review before use; do not merge without human review. 'readiness' values are the analyst's gate assessment, NOT human approval; Jira label pm-reconciled means agent-checked only.",
     "numbering_note": "Registered agent numbering is used: LR-01 Orchestrator, LR-02 Product Manager, LR-03 Architect, LR-04 Backend, LR-05 Frontend, LR-06 Agent Engineer, LR-07 QA/Evaluation, LR-08 Security, LR-09 Red Team, LR-10 SRE/DevOps, LR-11 Code Reviewer, LR-12 Documentation, LR-13 Release Manager, LR-14 Autonomous Ops. The originating prompt numbered Release as LR-12 and Documentation as LR-13; the registered numbering (LR-12 = Documentation, LR-13 = Release Manager) is authoritative here.",
     "wave_naming_note": "execution_wave (0-5) is unrelated to the 'Wave 1' activation list in docs/workforce/agent-registry.md (agents LR-02/03/04/07/08). 0 governance (LR-02/03/08/11/12), 1 foundation (LR-04/05/06/07/10), 2 core product, 3 hardening, 4 release, 5 hackathon submission. KAN-54 is placed in wave 0 (deliberate deviation from 5) because the hackathon intake constrains KAN-38 and KAN-50. Containers (KAN-4..16) carry the lowest wave of their children; they are not execution units.",
@@ -34,7 +34,13 @@
         "needs_security": 2,
         "blocked": 1
       }
-    }
+    },
+    "changelog": [
+      {
+        "date": "2026-10-03",
+        "change": "Applied six conclusive Blocks links in Jira (approved by Ojas): KAN-19->KAN-32 (link 10063), KAN-19->KAN-38 (10064), KAN-50->KAN-48 (10065), KAN-54->KAN-55 (10066), KAN-31->KAN-46 (10067), KAN-33->KAN-46 (10068). Total Blocks links in KAN-4..55: 59 (was 53). Updated dependencies/blocked_by/parallelizable for KAN-32, 38, 46, 48, 55. Readiness values unchanged. Uncertain proposals (KAN-20/19 reversal, KAN-21/24, KAN-54->38, KAN-17->43, KAN-22->46, KAN-31->36) NOT applied."
+      }
+    ]
   },
   "assignments": [
     {
@@ -614,18 +620,21 @@
       ],
       "security_agent": "LR-08",
       "red_team_agent": null,
-      "dependencies": [],
+      "dependencies": [
+        "KAN-19"
+      ],
       "readiness": "needs_architecture",
       "blocked_by": [
+        "KAN-19",
         "ADR:database-and-migration-tool",
         "DOC:data-model",
         "DECISION:data-classification-and-retention"
       ],
       "execution_wave": 2,
-      "parallelizable": true,
+      "parallelizable": false,
       "architecture_required": true,
       "security_review_required": true,
-      "notes": "Needs ADR DB/migration tool, data classification and retention (doc 18 s6; not in AC). location_reference may be PII. Doc 18 s5 lacks fields needed by KAN-33 (incident idempotency), KAN-36 (policy version), KAN-37 (approval expiry), KAN-39 (checkpoints), KAN-44 (notifications). No link to KAN-19 (CI before features, doc 19 step 9). Backend hold."
+      "notes": "Needs ADR DB/migration tool, data classification and retention (doc 18 s6; not in AC). location_reference may be PII. Doc 18 s5 lacks fields needed by KAN-33 (incident idempotency), KAN-36 (policy version), KAN-37 (approval expiry), KAN-39 (checkpoints), KAN-44 (notifications). No link to KAN-19 (CI before features, doc 19 step 9). Backend hold. Jira Blocks link(s) from KAN-19 added 2026-10-03 (dependency reconciliation, approved by Ojas); readiness unchanged because an earlier gate (PM/architecture) still applies."
     },
     {
       "jira_key": "KAN-33",
@@ -761,17 +770,20 @@
       ],
       "security_agent": "LR-08",
       "red_team_agent": "LR-09",
-      "dependencies": [],
+      "dependencies": [
+        "KAN-19"
+      ],
       "readiness": "needs_architecture",
       "blocked_by": [
+        "KAN-19",
         "ADR:model-gateway-and-provider",
         "EXTERNAL:nebius-access"
       ],
       "execution_wave": 2,
-      "parallelizable": true,
+      "parallelizable": false,
       "architecture_required": true,
       "security_review_required": true,
-      "notes": "Needs ADR model gateway/provider; AC4 depends on the precise 'Nebius/NVIDIA path' (KAN-54, no link); Nebius access is external. Model I/O = prompt-injection and leakage surface. Jira owner LR-04; if LR-06 (Agent Engineer) is activated decide ONE owner before start, never both."
+      "notes": "Needs ADR model gateway/provider; AC4 depends on the precise 'Nebius/NVIDIA path' (KAN-54, no link); Nebius access is external. Model I/O = prompt-injection and leakage surface. Jira owner LR-04; if LR-06 (Agent Engineer) is activated decide ONE owner before start, never both. Jira Blocks link(s) from KAN-19 added 2026-10-03 (dependency reconciliation, approved by Ojas); readiness unchanged because an earlier gate (PM/architecture) still applies."
     },
     {
       "jira_key": "KAN-39",
@@ -972,11 +984,15 @@
       "security_agent": "LR-08",
       "red_team_agent": "LR-09",
       "dependencies": [
+        "KAN-31",
+        "KAN-33",
         "KAN-36",
         "KAN-41"
       ],
       "readiness": "needs_pm_review",
       "blocked_by": [
+        "KAN-31",
+        "KAN-33",
         "KAN-36",
         "KAN-41",
         "PM:Q10"
@@ -985,7 +1001,7 @@
       "parallelizable": false,
       "architecture_required": false,
       "security_review_required": true,
-      "notes": "PM-blocked (Q10): access model undefined. Missing deps KAN-31, KAN-33 (cross-user test needs identity + incident entry). Adversarial suite: LR-09 supplies cases, LR-07 owns - do not co-implement; non-production only."
+      "notes": "PM-blocked (Q10): access model undefined. Missing deps KAN-31, KAN-33 (cross-user test needs identity + incident entry). Adversarial suite: LR-09 supplies cases, LR-07 owns - do not co-implement; non-production only. Jira Blocks link(s) from KAN-31, KAN-33 added 2026-10-03 (dependency reconciliation, approved by Ojas); readiness unchanged because an earlier gate (PM/architecture) still applies."
     },
     {
       "jira_key": "KAN-47",
@@ -1020,17 +1036,20 @@
       ],
       "security_agent": "LR-08",
       "red_team_agent": null,
-      "dependencies": [],
+      "dependencies": [
+        "KAN-50"
+      ],
       "readiness": "needs_pm_review",
       "blocked_by": [
+        "KAN-50",
         "PM:Q11",
         "ADR:observability-backend"
       ],
       "execution_wave": 2,
-      "parallelizable": true,
+      "parallelizable": false,
       "architecture_required": true,
       "security_review_required": true,
-      "notes": "PM-blocked (Q11): literal 'every request carries incident ID and agent run ID' unsatisfiable. Needs observability backend ADR (KAN-50, no link). Log redaction (security)."
+      "notes": "PM-blocked (Q11): literal 'every request carries incident ID and agent run ID' unsatisfiable. Needs observability backend ADR (KAN-50, no link). Log redaction (security). Jira Blocks link(s) from KAN-50 added 2026-10-03 (dependency reconciliation, approved by Ojas); readiness unchanged because an earlier gate (PM/architecture) still applies."
     },
     {
       "jira_key": "KAN-49",
@@ -1183,7 +1202,8 @@
         "KAN-12",
         "KAN-13",
         "KAN-14",
-        "KAN-15"
+        "KAN-15",
+        "KAN-54"
       ],
       "readiness": "needs_pm_review",
       "blocked_by": [
@@ -1194,6 +1214,7 @@
         "KAN-13",
         "KAN-14",
         "KAN-15",
+        "KAN-54",
         "PM:Q15",
         "DECISION:publication-and-deploy-approval"
       ],
@@ -1201,7 +1222,7 @@
       "parallelizable": false,
       "architecture_required": false,
       "security_review_required": true,
-      "notes": "BLOCKED (PM-Q15): depends on KAN-54, a coherent product, undefined 'measurable results'/'private data'. Epic-level Blocks from KAN-9..15; no KAN-54 link. Publishing a private repo is irreversible externally: human approval; secret scan."
+      "notes": "BLOCKED (PM-Q15): depends on KAN-54, a coherent product, undefined 'measurable results'/'private data'. Epic-level Blocks from KAN-9..15; no KAN-54 link. Publishing a private repo is irreversible externally: human approval; secret scan. Jira Blocks link(s) from KAN-54 added 2026-10-03 (dependency reconciliation, approved by Ojas); readiness unchanged because an earlier gate (PM/architecture) still applies."
     }
   ]
 }
