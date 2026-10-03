@@ -1,0 +1,205 @@
+# LifeRescue CI - bootstrap baseline.
+#
+# TARGET pipeline (doc 19 step 9): checkout -> dependency install -> format check -> lint -> type check
+#   -> unit tests -> integration tests -> security scan -> secret scan -> build -> artifact.
+#
+# ACTIVE today (real checks that run on every PR and push to main):
+#   - checkout
+#   - secret scan (gitleaks, full history)
+#   - repository structure validation (scripts/validate-repo-structure.sh)
+#   - Markdown relative-link check (scripts/check-markdown-links.py)
+#
+# CONDITIONAL (jobs run ONLY when matching project files exist; otherwise they are SKIPPED and
+# reported as skipped - they do not pass vacuously). None of them has been exercised yet because
+# the repository contains no application code:
+#   - node-checks    : format, lint, type check, unit, integration (needs package.json + package-lock.json)
+#   - python-checks  : format, lint, type check, unit, integration (needs pyproject.toml or requirements*.txt)
+#   - dependency-scan: npm audit / pip-audit (needs manifests)
+#   - sbom           : CycloneDX SBOM (needs manifests; SBOM tool versions are NOT pinned yet)
+#
+# NOT IMPLEMENTED: build, artifact, container scan, deployment. No job claims them.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: Secret scan (gitleaks) - ACTIVE
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # actions/checkout v7.0.1, pinned by commit SHA (verified via GitHub API 2026-10-03)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install gitleaks v8.30.1 (checksum verified)
+        run: |
+          set -euo pipefail
+          curl -sSfL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+      - name: Scan repository history for secrets
+        run: ./gitleaks detect --source . --redact --verbose --exit-code 1
+
+  repo-validation:
+    name: Repository structure and Markdown links - ACTIVE
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate repository structure
+        run: bash scripts/validate-repo-structure.sh
+      - name: Check relative Markdown links
+        run: python3 scripts/check-markdown-links.py .
+
+  detect:
+    name: Detect project files (decides which conditional jobs run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      node: ${{ steps.d.outputs.node }}
+      python: ${{ steps.d.outputs.python }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: d
+        run: |
+          set -euo pipefail
+          node=false; python=false
+          if [ -n "$(git ls-files '*package.json' | grep -v node_modules || true)" ]; then node=true; fi
+          if [ -n "$(git ls-files '*pyproject.toml' '*requirements*.txt' || true)" ]; then python=true; fi
+          echo "node=$node" >> "$GITHUB_OUTPUT"
+          echo "python=$python" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Conditional stages"
+            echo "- Node project files present: $node"
+            echo "- Python project files present: $python"
+            echo "- Build / artifact / container scan / deploy: NOT IMPLEMENTED"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  node-checks:
+    name: Node format/lint/typecheck/tests - CONDITIONAL (inactive until package.json exists)
+    needs: detect
+    if: needs.detect.outputs.node == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # actions/setup-node v7.0.0, pinned by commit SHA (verified via GitHub API 2026-10-03)
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: lts/*
+      - name: Install dependencies (requires a lockfile)
+        run: npm ci
+      - name: Run stages (a missing npm script is reported as SKIPPED, never as passed)
+        run: |
+          set -uo pipefail
+          rc=0
+          for s in format:check lint typecheck test test:integration; do
+            if node -e "process.exit(((require('./package.json').scripts)||{})['$s']?0:1)"; then
+              echo "::group::npm run $s"
+              npm run "$s" || rc=1
+              echo "::endgroup::"
+            else
+              echo "::warning::npm script '$s' is not defined - stage SKIPPED"
+            fi
+          done
+          exit $rc
+
+  python-checks:
+    name: Python format/lint/typecheck/tests - CONDITIONAL (inactive until Python project files exist)
+    needs: detect
+    if: needs.detect.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # actions/setup-python v7.0.0, pinned by commit SHA (verified via GitHub API 2026-10-03)
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.x"
+      - name: Install tooling and dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install ruff mypy pytest   # versions unpinned - pin via ADR/lockfile when activated
+          for f in requirements*.txt; do [ -f "$f" ] && python -m pip install -r "$f"; done || true
+          [ -f pyproject.toml ] && python -m pip install -e . || true
+      - name: Format check and lint (ruff)
+        run: |
+          ruff format --check .
+          ruff check .
+      - name: Type check (mypy)
+        run: mypy .
+      - name: Unit tests (pytest)
+        run: pytest -m "not integration"
+      - name: Integration tests (pytest -m integration; exit code 5 = none collected -> reported as skipped)
+        run: |
+          set +e
+          pytest -m integration
+          rc=$?
+          if [ $rc -eq 5 ]; then echo "::warning::no integration tests collected - stage SKIPPED"; exit 0; fi
+          exit $rc
+
+  dependency-scan:
+    name: Dependency scan - CONDITIONAL (inactive until manifests exist)
+    needs: [detect]
+    if: needs.detect.outputs.node == 'true' || needs.detect.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: npm audit
+        if: needs.detect.outputs.node == 'true'
+        run: npm audit --audit-level=high
+      - name: pip-audit
+        if: needs.detect.outputs.python == 'true'
+        run: |
+          python -m pip install pip-audit   # unpinned - pin when activated
+          for f in requirements*.txt; do [ -f "$f" ] && pip-audit -r "$f"; done
+
+  sbom:
+    name: SBOM (CycloneDX) - CONDITIONAL (inactive until manifests exist; tool versions unpinned)
+    needs: [detect]
+    if: needs.detect.outputs.node == 'true' || needs.detect.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Node SBOM
+        if: needs.detect.outputs.node == 'true'
+        run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom-node.json
+      - name: Python SBOM
+        if: needs.detect.outputs.python == 'true'
+        run: |
+          python -m pip install cyclonedx-bom
+          [ -f requirements.txt ] && cyclonedx-py requirements requirements.txt -o sbom-python.json || echo "::warning::no requirements.txt - Python SBOM SKIPPED"
+      # actions/upload-artifact v7.0.1, pinned by commit SHA (verified via GitHub API 2026-10-03)
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sbom
+          path: sbom-*.json
+          if-no-files-found: warn
