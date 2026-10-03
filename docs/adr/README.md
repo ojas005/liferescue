@@ -64,4 +64,8 @@ Derived from the baseline documents; see the Confluence page "Open Decisions and
 
 ## Index
 
-No ADRs have been accepted yet.
+| ADR | Title | Status |
+|---|---|---|
+| [ADR-0001](ADR-0001-jira-kan-schema-and-workflow-limitations.md) | Jira project KAN schema and workflow limitations | Accepted (interim), decided by Ojas Sharma 2026-10-03 |
+
+File naming note: ADR-0001 uses the prefix `ADR-NNNN-` as requested by the owner; the naming text above (`NNNN-short-title.md`) is unchanged.
