@@ -1,0 +1,12 @@
+{
+  "name": "LifeRescue Product Documentation",
+  "version": "0.2",
+  "documents": [
+    "16-ENGINEERING-WORKFORCE-SPECIFICATION.md",
+    "17-JIRA-ENGINEERING-OPERATING-MODEL.md",
+    "18-TECHNICAL-ARCHITECTURE-v0_3.md",
+    "19-START-HERE-BOOTSTRAP-GUIDE.md",
+    "20-AGENT-WORKFORCE-IMPLEMENTATION-BACKLOG.md"
+  ],
+  "purpose": "Engineering workforce, Jira operating model, technical architecture and bootstrap guide."
+}
