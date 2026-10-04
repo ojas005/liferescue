@@ -14,6 +14,10 @@ has to read it. Labels and comments are free text in Jira and are never used to 
 a label can only add requirements (for example the rework path) or be required, never unlock a
 transition.
 
+The checker TRUSTS the caller-declared actor_type: it is a consistency check on what the caller says,
+NOT access control. Anyone who can call it can claim to be "human". KAN-26 must derive the actor
+type from an authenticated identity (never from request text) before it calls this module.
+
 Everything fails closed: unknown status/actor/transition, malformed input, unknown evidence
 fields, missing or malformed evidence, a missing comment and an invalid allowlist file all give
 "deny". Python standard library only.
@@ -39,12 +43,16 @@ BRANCH_VALIDATOR_PATH = os.path.join(HERE, "check-branch-name.py")
 # mistaken data file can never let a non-human actor reach Done (defence in depth).
 HUMAN_ACTOR = "human"
 HUMAN_ONLY_STATUSES = frozenset({"Done"})
+# The rework label may only be added or removed by these transitions (P5-2), whatever the data file says.
+REWORK_LABEL = "exec-rework"
+REWORK_LABEL_TRANSITIONS = frozenset({"send_to_rework", "complete_rework", "return_to_todo", "reopen"})
 
 MAX_COMMENT = 1000
 MAX_TEXT = 500
 MAX_URL = 2048
 MAX_LABELS = 50
 MAX_FILE_BYTES = 262144
+MAX_FIELD_VALUE = 300  # longest value of a `key: value` field inside a REWORK:/BLOCKED: comment
 
 _BRANCH_MODULE = None  # branch-name validator, loaded on first use
 
@@ -56,8 +64,12 @@ _URL = re.compile(
     r"(\?[A-Za-z0-9._~%+=:@/&?,-]*)?"
     r"(#[A-Za-z0-9._~%+=:@/&?,-]*)?$"
 )
+_DOMAIN_LABEL = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+_TLD = re.compile(r"^(?:[A-Za-z]{2,63}|xn--[A-Za-z0-9-]{1,59})$")
 _LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$")
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+_COMMENT_KEY = re.compile(r"^[a-z][a-z ]{0,31}$")
+_COMMENT_FIELD_TYPES = ("actor", "text", "url")
 _FIELD = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _STATUS = re.compile(r"^[A-Za-z][A-Za-z ]{0,31}$")
 _ACTOR_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.@-]{0,63}$")
@@ -67,12 +79,13 @@ _ACTOR_KINDS = ("human", "agent", "automation")
 _TOP_KEYS = {
     "schema_version", "title", "approval", "sources", "statuses", "human_only_statuses",
     "actor_types", "labels", "assertion_label_words", "assertion_markers", "evidence_fields",
-    "transitions", "rework_lifecycle", "status_unchanged_events",
+    "transitions", "rework_lifecycle", "status_unchanged_events", "evidence_url_hosts",
 }
+_TOP_KEYS_OPTIONAL = {"evidence_url_hosts"}  # optional host allowlist; absent or [] = off
 _TRANSITION_KEYS = {
     "id", "from", "to", "actors", "approval", "proposed_assumptions", "evidence_requirements",
     "when_labels_before_include", "when_labels_before_exclude", "labels_after_include",
-    "labels_after_exclude", "comment_requirement",
+    "labels_after_exclude", "comment_requirement", "conditional_comment_requirements",
 }
 _TRANSITION_REQUIRED = {"id", "from", "to", "actors", "approval", "proposed_assumptions",
                         "evidence_requirements"}
@@ -118,13 +131,46 @@ def _branch_problem(value):
         return "branch-name validator could not be loaded"
 
 
-def _field_problem(kind, value):
+def _host_problem(host):
+    """A host must be a registered-style domain name: no IP literal in any notation, no bare name."""
+    labels = host.split(".")
+    if len(labels) < 2 or any(_DOMAIN_LABEL.fullmatch(part) is None for part in labels):
+        return "host is not a domain name (IP addresses, bare names and malformed hosts are refused)"
+    if _TLD.fullmatch(labels[-1]) is None:
+        return "host is not a domain name (a numeric or IP-style last label is refused)"
+    return None
+
+
+def _url_problem(value, hosts=()):
+    """Return a reason if `value` is not an acceptable evidence URL, else None.
+
+    https only; no userinfo (user:pass@host); no IP literal (dotted, decimal, hex, octal or [v6]);
+    a plain domain name host; and, only if `hosts` is non-empty (optional allowlist, default off),
+    the host must be one of `hosts`.
+    """
+    if not isinstance(value, str) or len(value) > MAX_URL:
+        return "is not a plain https URL"
+    if not value.startswith("https://"):
+        return "is not a plain https URL (only https is accepted)"
+    authority = re.split(r"[/?#]", value[len("https://"):], maxsplit=1)[0]
+    if "@" in authority:
+        return "is not accepted: a URL with user information (user:pass@host) is refused"
+    if _URL.fullmatch(value) is None:
+        return "is not a plain https URL"
+    host = authority.split(":", 1)[0]
+    why = _host_problem(host)
+    if why:
+        return "is not accepted: " + why
+    if hosts and host.lower() not in hosts:
+        return "is not accepted: host is not in the configured evidence_url_hosts allowlist"
+    return None
+
+
+def _field_problem(kind, value, hosts=()):
     if kind == "text":
         return _text_problem(value, MAX_TEXT)
     if kind == "url":
-        if not isinstance(value, str) or len(value) > MAX_URL or _URL.fullmatch(value) is None:
-            return "is not a plain https URL"
-        return None
+        return _url_problem(value, hosts)
     if kind == "branch":
         return _branch_problem(value)
     if kind == "true":
@@ -217,13 +263,26 @@ def _lifecycle_errors(data):
     return errors
 
 
+def _comment_fields_wellformed(fields):
+    if not isinstance(fields, list) or not fields:
+        return False
+    names = []
+    for f in fields:
+        if (not isinstance(f, dict) or set(f) != {"name", "type"} or not isinstance(f["name"], str)
+                or _COMMENT_KEY.fullmatch(f["name"]) is None or f["name"] != " ".join(f["name"].split())
+                or f["type"] not in _COMMENT_FIELD_TYPES):
+            return False
+        names.append(f["name"])
+    return len(set(names)) == len(names)
+
+
 def validate_allowlist(data):
     """Return a list of error strings (empty list = the allowlist is well formed and safe)."""
     errors = []
     if not isinstance(data, dict):
         return ["allowlist is not a JSON object"]
-    if set(data) != _TOP_KEYS:
-        missing = sorted(_TOP_KEYS - set(data))
+    if not (_TOP_KEYS - _TOP_KEYS_OPTIONAL) <= set(data) or not set(data) <= _TOP_KEYS:
+        missing = sorted((_TOP_KEYS - _TOP_KEYS_OPTIONAL) - set(data))
         extra = sorted(set(data) - _TOP_KEYS)
         return [f"top-level keys wrong: missing {missing}, unexpected {extra}"]
     if data["schema_version"] != 1 or isinstance(data["schema_version"], bool):
@@ -262,6 +321,13 @@ def validate_allowlist(data):
         errors.append("at least one actor type of kind 'agent' is required")
     if not any(s["kind"] == "automation" for s in actors.values()):
         errors.append("an actor type of kind 'automation' is required")
+
+    # optional evidence URL host allowlist (default off: absent or empty list)
+    hosts = data.get("evidence_url_hosts", [])
+    if not isinstance(hosts, list) or not all(
+            isinstance(h, str) and h == h.lower() and _host_problem(h) is None for h in hosts) \
+            or len(set(hosts)) != len(hosts):
+        errors.append("evidence_url_hosts must be a list of unique lowercase domain names (empty = off)")
 
     # evidence fields
     fields = data["evidence_fields"]
@@ -327,10 +393,11 @@ def validate_allowlist(data):
     def check_comment_requirement(owner, cr):
         if cr is None:
             return
-        if (not isinstance(cr, dict) or set(cr) != {"marker", "required_parts"}
+        if (not isinstance(cr, dict) or set(cr) != {"marker", "required_fields"}
                 or not isinstance(cr["marker"], str) or not re.fullmatch(r"[A-Z]{3,20}", cr["marker"])
-                or not _is_str_list(cr["required_parts"], True)):
-            errors.append(f"{owner}: comment_requirement must be {{marker, required_parts}}")
+                or not _comment_fields_wellformed(cr["required_fields"])):
+            errors.append(f"{owner}: comment_requirement must be {{marker, required_fields: [{{name, type}}]}} "
+                          f"with types in {_COMMENT_FIELD_TYPES}")
         elif cr["marker"] in markers:
             errors.append(f"{owner}: comment marker {cr['marker']!r} collides with an assertion marker")
 
@@ -366,6 +433,20 @@ def validate_allowlist(data):
             if key in t and (not _is_str_list(t[key]) or not set(t[key]) <= real_labels):
                 errors.append(f"transition {tid}: {key} must be a list of known labels")
         check_comment_requirement(f"transition {tid}", t.get("comment_requirement"))
+        conds = t.get("conditional_comment_requirements", [])
+        if not isinstance(conds, list) or any(
+                not isinstance(c, dict) or set(c) != {"when_labels_after_include", "comment_requirement"}
+                or not _is_str_list(c["when_labels_after_include"])
+                or not set(c["when_labels_after_include"]) <= real_labels
+                or c["comment_requirement"] is None for c in conds):
+            errors.append(f"transition {tid}: conditional_comment_requirements is malformed")
+        else:
+            for c in conds:
+                check_comment_requirement(f"transition {tid} (conditional)", c["comment_requirement"])
+        if "Done" in t["from"] and "In Progress" in t["to"] and not any(
+                REWORK_LABEL in c.get("when_labels_after_include", []) for c in (conds if isinstance(conds, list) else [])
+                if isinstance(c, dict)):
+            errors.append(f"transition {tid}: reopening to In Progress must require a REWORK comment when exec-rework is present")
         reqs = t["evidence_requirements"]
         if not isinstance(reqs, list) or not reqs:
             errors.append(f"transition {tid}: at least one evidence requirement is mandatory")
@@ -436,6 +517,14 @@ def _deny(reasons, transition_id=None):
     return Decision(False, transition_id, tuple(reasons))
 
 
+def _fold_label(label):
+    """Canonical form used for every label comparison (P5-4): case-folded, with the separators
+    '_', '.' and ':' treated as '-', so 'Exec-Rework', 'EXEC_REWORK' and 'exec.rework' are all
+    'exec-rework'. Input is already limited to ASCII by _LABEL, so look-alike Unicode, spaces and
+    control characters never get this far: they make the whole request malformed (denied)."""
+    return re.sub(r"[_.:]", "-", label.casefold())
+
+
 def _normalise_labels(name, value, problems):
     if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple, set, frozenset)):
         problems.append(f"{name} must be a list of labels")
@@ -448,7 +537,7 @@ def _normalise_labels(name, value, problems):
         if not isinstance(item, str) or _LABEL.fullmatch(item) is None:
             problems.append(f"{name} contains a malformed label")
             return None
-        out.add(item)
+        out.add(_fold_label(item))
     return out
 
 
@@ -456,13 +545,78 @@ def _marker_regex(markers):
     return re.compile(r"(?:^|[;\s])(" + "|".join(sorted(markers)) + r")\s*:", re.IGNORECASE)
 
 
-def _comment_requirement_problems(comment, req):
+def _parse_comment_fields(rest):
+    """Parse the text after 'MARKER:' into {key: [values]}. Fields are separated by ';' and each is
+    'key: value' (split at the FIRST colon, so URLs keep theirs). A segment with no colon is free
+    text and is ignored. Keys are lowercase with single spaces."""
+    fields = {}
+    for segment in rest.split(";"):
+        if ":" not in segment:
+            continue
+        key, value = segment.split(":", 1)
+        fields.setdefault(" ".join(key.lower().split()), []).append(value.strip())
+    return fields
+
+
+def _comment_value_problem(kind, value, hosts):
+    if value == "":
+        return "is empty"
+    if kind == "url":
+        return _url_problem(value, hosts)
+    if len(value) > MAX_FIELD_VALUE:
+        return f"is longer than {MAX_FIELD_VALUE} characters"
+    if re.search(r"[A-Za-z0-9]", value) is None:
+        return "has no letters or digits"
+    if value.startswith("<") and value.endswith(">"):
+        return "is an unfilled template placeholder"
+    if kind == "actor" and _ACTOR_ID.fullmatch(value) is None:
+        return "is not a valid name or id"
+    return None
+
+
+def _comment_requirement_problems(comment, req, hosts=()):
+    """The comment must start with 'MARKER:' and carry every required `key: value` field with a
+    non-empty, well-formed value (P5-1). Substring presence of 'by:' etc. is not enough."""
     if comment is None:
         return [f"a comment starting with '{req['marker']}:' is required"]
     prefix = req["marker"] + ":"
     if not comment.startswith(prefix) or not comment[len(prefix):].strip():
         return [f"comment must start with '{prefix}' followed by text"]
-    return [f"comment lacks the part '{p}'" for p in req["required_parts"] if p not in comment]
+    fields = _parse_comment_fields(comment[len(prefix):])
+    reasons = []
+    for spec in req["required_fields"]:
+        name = spec["name"]
+        values = fields.get(name)
+        if not values:
+            reasons.append(f"comment lacks the field '{name}:'")
+        elif len(values) > 1:
+            reasons.append(f"comment field '{name}:' appears more than once")
+        else:
+            why = _comment_value_problem(spec["type"], values[0], hosts)
+            if why:
+                reasons.append(f"comment field '{name}:' {why}")
+    return reasons
+
+
+def _rework_label_change_problems(transition_id, before, after):
+    """exec-rework may only be added or removed by send_to_rework, complete_rework, return_to_todo
+    and reopen (P5-2). In particular a BLOCKED note (status unchanged) must not add or remove it,
+    or it would be a back door around the rework-complete evidence."""
+    if (REWORK_LABEL in before) == (REWORK_LABEL in after) or transition_id in REWORK_LABEL_TRANSITIONS:
+        return []
+    verb = "add" if REWORK_LABEL in after else "remove"
+    return [f"{transition_id} may not {verb} the label {REWORK_LABEL!r} (only send_to_rework, "
+            f"complete_rework, return_to_todo and reopen change it)"]
+
+
+def _conditional_comment_problems(rule, after, comment, hosts=()):
+    """Extra comment requirements that apply because of labels present after the change (P5-3):
+    for example a reopen that leaves exec-rework on the issue needs a valid REWORK comment."""
+    reasons = []
+    for cond in rule.get("conditional_comment_requirements", []):
+        if {_fold_label(x) for x in cond["when_labels_after_include"]} <= after:
+            reasons += _comment_requirement_problems(comment, cond["comment_requirement"], hosts)
+    return reasons
 
 
 def _evaluate(data, from_status, to_status, actor_type, labels_before, labels_after,
@@ -506,12 +660,13 @@ def _evaluate(data, from_status, to_status, actor_type, labels_before, labels_af
         return _deny([f"{actor_type} may never reopen or change an issue in {from_status}; only a human may"])
 
     # ---- evidence field types (every supplied field must be known and well formed) ----
+    hosts = tuple(data.get("evidence_url_hosts", []))
     for key, value in evidence.items():
         kind = data["evidence_fields"].get(key) if isinstance(key, str) else None
         if kind is None:
             problems.append("unknown evidence field " + ascii(key))
             continue
-        why = _field_problem(kind, value)
+        why = _field_problem(kind, value, hosts)
         if why:
             problems.append(f"evidence field {key} {why}")
     if problems:
@@ -520,14 +675,14 @@ def _evaluate(data, from_status, to_status, actor_type, labels_before, labels_af
     # ---- find the rule ----
     if from_status == to_status:
         return _evaluate_unchanged(data, from_status, actor_type, before, after, evidence,
-                                   comment, actor_id, owner_id)
+                                   comment, actor_id, owner_id, hosts)
     chosen = None
     candidates = [t for t in data["transitions"] if from_status in t["from"] and to_status in t["to"]]
     if not candidates:
         return _deny([f"transition {from_status!r} -> {to_status!r} is not in the allowlist"])
     for t in candidates:
-        if set(t.get("when_labels_before_include", [])) <= before \
-                and not (set(t.get("when_labels_before_exclude", [])) & before):
+        if {_fold_label(x) for x in t.get("when_labels_before_include", [])} <= before \
+                and not ({_fold_label(x) for x in t.get("when_labels_before_exclude", [])} & before):
             chosen = t
             break
     if chosen is None:
@@ -539,22 +694,26 @@ def _evaluate(data, from_status, to_status, actor_type, labels_before, labels_af
 
     reasons = []
     reasons += _label_problems(data, chosen, to_status, before, after, actor_type)
+    reasons += _rework_label_change_problems(tid, before, after)
     reasons += _evidence_problems(data, chosen["evidence_requirements"], evidence)
     if "comment_requirement" in chosen:
-        reasons += _comment_requirement_problems(comment, chosen["comment_requirement"])
+        reasons += _comment_requirement_problems(comment, chosen["comment_requirement"], hosts)
+    reasons += _conditional_comment_problems(chosen, after, comment, hosts)
     reasons += _assertion_problems(data, actor_type, comment, evidence, actor_id, owner_id)
     return Decision(not reasons, tid, tuple(reasons))
 
 
-def _evaluate_unchanged(data, status, actor_type, before, after, evidence, comment, actor_id, owner_id):
+def _evaluate_unchanged(data, status, actor_type, before, after, evidence, comment, actor_id, owner_id,
+                        hosts=()):
     events = [e for e in data["status_unchanged_events"] if status in e["statuses"]]
     if not events:
         return _deny([f"no status-unchanged event is allowed in {status!r}"])
     ev = events[0]
     if actor_type not in ev["actors"]:
         return _deny([f"actor {actor_type!r} may not record {ev['id']} in {status!r}"], ev["id"])
-    reasons = _comment_requirement_problems(comment, ev["comment_requirement"])
+    reasons = _comment_requirement_problems(comment, ev["comment_requirement"], hosts)
     reasons += _label_problems(data, {}, status, before, after, actor_type)
+    reasons += _rework_label_change_problems(ev["id"], before, after)
     reasons += _assertion_problems(data, actor_type, comment, evidence, actor_id, owner_id)
     return Decision(not reasons, ev["id"], tuple(reasons))
 
@@ -562,15 +721,15 @@ def _evaluate_unchanged(data, status, actor_type, before, after, evidence, comme
 def _label_problems(data, rule, to_status, before, after, actor_type):
     reasons = []
     for label in rule.get("labels_after_include", []):
-        if label not in after:
+        if _fold_label(label) not in after:
             reasons.append(f"label {label!r} must be present after this transition")
     for label in rule.get("labels_after_exclude", []):
-        if label in after:
+        if _fold_label(label) in after:
             reasons.append(f"label {label!r} must be removed by this transition")
     for key, entry in data["labels"].items():
         only = entry.get("allowed_only_in_status")
         name = entry.get("label_name", key)
-        if only is not None and name in after and to_status != only:
+        if only is not None and _fold_label(name) in after and to_status != only:
             reasons.append(f"label {name!r} may only be present in status {only!r}")
     # automation and agents may not add labels that assert approval, acceptance or release
     if actor_type != HUMAN_ACTOR:

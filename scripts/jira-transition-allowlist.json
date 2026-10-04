@@ -7,6 +7,7 @@
     "kan-20-implementation-plan.md sections 8, 9, 11 (WI-04-6), 12",
     "ADR-0001 (KAN Jira workflow has four statuses)"
   ],
+  "evidence_url_hosts": [],
   "statuses": ["To Do", "In Progress", "In Review", "Done"],
   "human_only_statuses": ["Done"],
   "actor_types": {
@@ -89,7 +90,9 @@
       "to": ["In Progress"],
       "actors": ["reviewer_agent", "owner_agent", "human", "automation"],
       "labels_after_include": ["exec-rework"],
-      "comment_requirement": {"marker": "REWORK", "required_parts": ["by:", "reason:", "evidence:", "to complete:"]},
+      "comment_requirement": {"marker": "REWORK", "required_fields": [
+        {"name": "by", "type": "actor"}, {"name": "reason", "type": "text"},
+        {"name": "evidence", "type": "url"}, {"name": "to complete", "type": "text"}]},
       "approval": "approved: REWORK = In Progress + label exec-rework + explicit comment",
       "proposed_assumptions": [
         "comment wording 'REWORK: by: ...; reason: ...; evidence: <link>; to complete: ...' (conventions page; ADR-0017 point 8 lists reason, evidence link and what completes the rework; by: from LR 08 review F-5; evidence is a link, never pasted logs)",
@@ -159,6 +162,12 @@
       "from": ["Done"],
       "to": ["To Do", "In Progress", "In Review"],
       "actors": ["human"],
+      "conditional_comment_requirements": [
+        {"when_labels_after_include": ["exec-rework"],
+         "comment_requirement": {"marker": "REWORK", "required_fields": [
+           {"name": "by", "type": "actor"}, {"name": "reason", "type": "text"},
+           {"name": "evidence", "type": "url"}, {"name": "to complete", "type": "text"}]}}
+      ],
       "approval": "PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL (ADR-0017 point 11: Done -> any, human only, reason)",
       "proposed_assumptions": [],
       "evidence_requirements": [
@@ -185,7 +194,8 @@
       "id": "blocked",
       "statuses": ["To Do", "In Progress", "In Review"],
       "actors": ["human", "owner_agent", "reviewer_agent"],
-      "comment_requirement": {"marker": "BLOCKED", "required_parts": ["by:", "reason:"]},
+      "comment_requirement": {"marker": "BLOCKED", "required_fields": [
+        {"name": "by", "type": "actor"}, {"name": "reason", "type": "text"}]},
       "approval": "approved in principle: BLOCKED is a comment/label, status unchanged",
       "proposed_assumptions": [
         "comment form 'BLOCKED: by: <who>; reason: <one line>; ...' (ADR-0017 point 10 gives 'BLOCKED: <reason>'; by: from LR 08 review F-5); automation is not listed and is denied; no label name is decided"
