@@ -63,3 +63,6 @@ terraform.rc
 # Logs and local artifacts
 *.log
 tmp/
+*.db
+*.sqlite
+*.sqlite3
