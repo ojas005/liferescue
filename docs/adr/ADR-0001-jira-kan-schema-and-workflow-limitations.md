@@ -6,6 +6,15 @@
 - Jira: project KAN, backlog KAN-4 to KAN-55 (52 items). Most relevant items: KAN-20 (T-4 Jira/Git Integration), KAN-26 (S-04 Jira API adapter and synchronization), KAN-23 (S-01 Resolve documentation gaps and conflicts register).
 - Confluence: page 196722 "ADR-0001 Jira KAN schema and workflow limitations" (matching page under the LifeRescue root, space SD, https://liferescue.atlassian.net/wiki/spaces/SD/pages/196722) (matching page under the LifeRescue root, space SD); Backlog Draft page 425986; Open Decisions and Conflicts page 229681 (conflicts C-01, C-07, C-09).
 - Revisit when: a Jira project with key `LR` is created (see Exit criteria).
+- Amendment note (2026-10-04): see the section "Amendment note (2026-10-04)" below the metadata. Status unchanged: Accepted (interim).
+
+## Amendment note (2026-10-04)
+
+This note was added after the decision of 2026-10-03; the original text is kept, with bracketed `[Amendment 2026-10-04: ...]` annotations where a statement is out of date. Nothing else in this ADR is changed and its status stays Accepted (interim).
+
+- Ojas Sharma approved the Jira status mapping on 2026-10-04 ([ADR-0017](ADR-0017-jira-git-integration-and-status-mapping.md), which as a whole is still Proposed). The KAN statuses stay To Do, In Progress, In Review and Done. REWORK is not a status: it is In Progress + label `exec-rework` + a comment with an explicit reason, so conflict C-07 is decided. BLOCKED is not a status either.
+- Done is reachable only from In Review, after required review and acceptance evidence; agents never mark their own work Done; sensitive and release-critical completion needs human approval. The mitigation "Humans or reviewer agents confirm DONE" is superseded for the Done transition.
+- Conflict C-09 (types and workflow) and the final workflow state list are not changed by this note.
 
 ## Context
 
@@ -45,7 +54,7 @@ Option 4. Decided by Ojas Sharma on 2026-10-03: "Use KAN as is, mapping missing 
 | Project style | not stated for the project; company-managed is recommended in C-09 | team-managed (next-gen) |
 | Issue types | Initiative, Epic, Story, Task, Sub-task, Bug, Spike, Security, Incident, Change | Epic, Story, Task, Subtask only |
 | Workflow states | 11 (listed below) | 4 (listed below) |
-| REWORK | referenced in doc 17 s8 and s9, absent from doc 17 s4 state list (C-07); present in doc 16 s6 task lifecycle | not a status |
+| REWORK | referenced in doc 17 s8 and s9, absent from doc 17 s4 state list (C-07); present in doc 16 s6 task lifecycle | not a status (since 2026-10-04: In Progress + label `exec-rework` + reason comment, see Amendment note) |
 | Components | doc 17 s2 component list | none exist |
 | Hierarchy | Initiative > Epic > Story/Task | Initiative type missing; Epics cannot be parented under Epics |
 | Required fields (doc 17 s5) | objective, acceptance criteria, owner, reviewer, and others | only summary, issue type, project and reporter are required by Jira; the rest is description convention |
@@ -69,7 +78,7 @@ Mapping used:
 
 ### REWORK
 
-REWORK is not a status in KAN. It is also absent from the state list in doc 17 s4, although doc 17 s8 ("transition to validation/rework") and s9 ("Issue -> REWORK") refer to it. This is the open conflict C-07. This ADR does not decide it. In KAN no REWORK state is used.
+REWORK is not a status in KAN. It is also absent from the state list in doc 17 s4, although doc 17 s8 ("transition to validation/rework") and s9 ("Issue -> REWORK") refer to it. This is the open conflict C-07. This ADR does not decide it. In KAN no REWORK state is used. [Amendment 2026-10-04: C-07 has since been decided by Ojas Sharma; see the Amendment note at the top of this file. The sentences above record the position on 2026-10-03.]
 
 ### Issue type mapping
 
@@ -119,7 +128,7 @@ Initiatives and Epics carry no owner or reviewer labels because the draft does n
 
 - Keep the label scheme above as the single convention and document it here and in Confluence page 425986 section 8.
 - Run a periodic JQL check of the scheme, for example `project = KAN AND issuetype in (Task, Story) AND labels is EMPTY`, and compare counts to the Backlog Draft (52 items; 33 with `needs-pm-review`).
-- Do not use automation that moves tickets without evidence (doc 17 s11). Humans or reviewer agents confirm DONE.
+- Do not use automation that moves tickets without evidence (doc 17 s11). Humans or reviewer agents confirm DONE. [Amendment 2026-10-04: superseded for the Done transition by the approved Jira status mapping: Done is reachable only from In Review, agents never mark their own work Done, and human approval is needed for sensitive and release-critical completion; see the Amendment note.]
 - Record status semantics for the merged and missing states in the issue description or a comment (for example "blocked: <reason>") until BLOCKED exists. This is a convention, not an enforced state.
 - Do not reuse KAN-1 to KAN-3 (pre-existing samples).
 - Treat all Jira-side configuration changes (project, types, workflow, fields) as human actions for a Jira administrator.
@@ -144,7 +153,7 @@ None rejected. Options 1 to 3 remain available and are the path described in the
 Revisit this ADR, and plan the migration, when any of the following is true:
 
 1. A Jira administrator creates a project with key `LR`, with the doc 17 issue types (Initiative, Epic, Story, Task, Bug, Spike, Security, Incident, Change), the 11-state workflow, components and required fields.
-2. The owner decides conflict C-07 (REWORK) and the final workflow state list is fixed.
+2. The owner decides conflict C-07 (REWORK) and the final workflow state list is fixed. [Amendment 2026-10-04: the C-07 part is decided (REWORK is In Progress + label `exec-rework` + reason comment, no new status); the final workflow state list is not fixed, so this criterion is only partly met.]
 3. Enforced gates (IN VALIDATION, READY FOR RELEASE, BLOCKED and so on) are needed before agents beyond Wave 1 are activated, or before any production or release step.
 4. Branch naming and Jira-Git integration (KAN-20, conflict C-04) are implemented and need the final key.
 
@@ -159,7 +168,7 @@ Migration steps (outline, not performed): verify types and workflow in `LR`; cre
 ## Related Confluence
 
 - Jira Backlog Draft (page 425986), section 8 mapping table.
-- Open Decisions and Conflicts (page 229681): C-01 (project key, decided by Ojas Sharma 2026-10-03), C-07 (REWORK, still open), C-09 (types and workflow, still open).
+- Open Decisions and Conflicts (page 229681): C-01 (project key, decided by Ojas Sharma 2026-10-03), C-07 (REWORK; still open on 2026-10-03, decided 2026-10-04: see Amendment note), C-09 (types and workflow, still open).
 - Jira Engineering Operating Model v0.2 (doc 17, page 196658); Start Here Bootstrap Guide (doc 19, page 229664).
 - Numbering note: the Open Decisions page section D proposes an "ADR-002 Jira project key, issue types and workflow (incl. REWORK)". This record is ADR-0001 as requested by the owner and covers only the interim KAN decision; the REWORK and final workflow decisions remain open.
 - File naming note: `docs/adr/README.md` suggests `NNNN-short-title.md`; this file uses `ADR-0001-...` as requested by the owner.
