@@ -1,0 +1,53 @@
+{
+  "name": "@liferescue/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LifeRescue common web shell (one UI for LifeRescue, ScamShield and LifeOS)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "scripts": {
+    "dev": "next dev -p 3005",
+    "dev:mock": "cross-env NEXT_PUBLIC_USE_MOCK=1 next dev -p 3005",
+    "build": "next build",
+    "build:mock": "cross-env NEXT_PUBLIC_USE_MOCK=1 next build",
+    "start": "next start -p 3005",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:api": "openapi-typescript contract/openapi.yaml --default-non-nullable false -o src/lib/api/generated/openapi.d.ts",
+    "check:api": "node scripts/check-contract-types.mjs"
+  },
+  "dependencies": {
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^20.19.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.39.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "jsdom": "^26.1.0",
+    "openapi-typescript": "^7.13.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^3.2.7",
+    "yaml": "^2.9.1"
+  }
+}
