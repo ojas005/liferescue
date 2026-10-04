@@ -19,6 +19,7 @@ class TaskRegistry(Protocol):
 
 class TaskState(Enum):
     RUNNING = "running"
+    ENDING = "ending"  # not live any more; leases are being revoked; not yet finished
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -58,10 +59,13 @@ class InMemoryTaskRegistry:
     def end_task(self, task_id: str, outcome: TaskState, *, broker) -> int:
         """The contract the orchestrator must follow: revoke every lease of the task FIRST,
         verify none is live, and only then mark the task finished (spec 5.2, T-07)."""
-        if outcome is TaskState.RUNNING:
+        if outcome in (TaskState.RUNNING, TaskState.ENDING):
             raise ValueError("outcome must be a terminal state")
-        revoked = broker.revoke_task(task_id, reason_code=_END_REASON[outcome])
-        if broker.live_lease_count(task_id) != 0:
+        with self._lock:  # 1. stop new leases: the task is no longer live
+            if task_id in self._tasks:
+                self._tasks[task_id][2] = TaskState.ENDING
+        revoked = broker.revoke_task(task_id, reason_code=_END_REASON[outcome])  # 2. revoke everything
+        if broker.live_lease_count(task_id) != 0:  # 3. verify, then 4. mark finished
             raise RuntimeError("task still holds a live lease; refusing to mark it finished")
         with self._lock:
             if task_id in self._tasks:
