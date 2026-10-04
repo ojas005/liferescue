@@ -67,5 +67,6 @@ Derived from the baseline documents; see the Confluence page "Open Decisions and
 | ADR | Title | Status |
 |---|---|---|
 | [ADR-0001](ADR-0001-jira-kan-schema-and-workflow-limitations.md) | Jira project KAN schema and workflow limitations | Accepted (interim), decided by Ojas Sharma 2026-10-03 |
+| [ADR-0017](ADR-0017-jira-git-integration-and-status-mapping.md) | Jira/Git integration conventions and Jira status mapping | Proposed (the Jira status mapping was approved by Ojas Sharma 2026-10-04; every other part is Proposed; the ADR as a whole is not Accepted) |
 
 File naming note: ADR-0001 uses the prefix `ADR-NNNN-` as requested by the owner; the naming text above (`NNNN-short-title.md`) is unchanged.

@@ -77,7 +77,7 @@ The engineering workforce (docs 16, 20) is described in [`docs/workforce/agent-r
 
 ## Jira workflow
 
-Doc 17 defines: Initiative > Epic > Story/Task > Sub-task; workflow BACKLOG, READY, IN PROGRESS, IN REVIEW, IN VALIDATION, READY FOR RELEASE, RELEASED, DONE, plus BLOCKED, REJECTED, CANCELLED (REWORK is referenced but not defined). The Jira project key is an **open decision** (docs say `LR`; as of 2026-10-03 the live Jira site has project `KAN` and no `LR`). See the Confluence "Open Decisions and Conflicts" page.
+Doc 17 defines: Initiative > Epic > Story/Task > Sub-task; workflow BACKLOG, READY, IN PROGRESS, IN REVIEW, IN VALIDATION, READY FOR RELEASE, RELEASED, DONE, plus BLOCKED, REJECTED, CANCELLED (REWORK is referenced but not defined in doc 17; in the KAN project it is In Progress + label `exec-rework` + an explicit reason comment, see ADR-0017, whose Jira status mapping was approved by Ojas Sharma on 2026-10-04). The Jira project key is an **open decision** (docs say `LR`; as of 2026-10-03 the live Jira site has project `KAN` and no `LR`). See the Confluence "Open Decisions and Conflicts" page.
 
 ## Contribution workflow
 
