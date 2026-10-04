@@ -9,6 +9,9 @@ Input (environment only; no arguments - any argument is a usage error, exit 2):
   BRANCH_NAME        the PR head ref. Untrusted. The workflow maps ONLY the branch name into this.
   PR_AUTHOR_LOGIN    optional. Login of the PR author, used ONLY to decide the dependabot exemption.
                      Unset or anything other than "dependabot[bot]" means: no dependabot exemption.
+  BRANCH_GATE_MODE   optional. Unset = the normal check above. "exempt-only" = print whether the name is
+                     EXEMPT (exit 0) or NOT-EXEMPT (exit 1) and nothing else; used by the PR-link job to skip
+                     branches that by definition carry no Jira key. Any other value is a usage error (exit 2).
 
 Exemptions (all other names must pass validate()):
   1. EXACT_EXEMPTIONS: the listed legacy names, compared with == on the whole string (no prefix,
@@ -83,9 +86,16 @@ def main(argv=None, environ=None):
     if "BRANCH_NAME" not in environ:
         print("error: no branch name given; set the environment variable BRANCH_NAME", file=sys.stderr)
         return 2
+    mode = environ.get("BRANCH_GATE_MODE", "")
+    if mode not in ("", "exempt-only"):
+        print("error: BRANCH_GATE_MODE must be unset or 'exempt-only'", file=sys.stderr)
+        return 2
     validator = _load_validator()
     name = environ["BRANCH_NAME"]
     verdict, reason = classify(name, environ.get("PR_AUTHOR_LOGIN"), validator)
+    if mode == "exempt-only":
+        print("EXEMPT" if verdict == "exempt" else "NOT-EXEMPT")
+        return 0 if verdict == "exempt" else 1
     if verdict == "exempt":
         print(f"EXEMPT: {reason}")
         return 0

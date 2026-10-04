@@ -31,6 +31,8 @@ name: CI
 
 on:
   pull_request:
+    # `edited` (title/body/base change) is added so the PR-link check re-runs when the PR text is fixed.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
@@ -294,23 +296,36 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      # PLACEHOLDER (TODO LR 10 + LR 04): scripts/check_pr_link.py is not in the repository yet and its CLI
-      # contract is unknown, so it is NOT invented here.
+      # scripts/check_pr_link.py is delivered by LR 04 (open PR #15 at the time of writing; contract in
+      # docs/pr-jira-link-check.md on that branch). Until it is on the ref this step is a PLACEHOLDER:
       #   * script absent  -> fail-OPEN stub: loud notice + summary line that nothing was checked, then pass.
-      #   * script present -> fail CLOSED: the job fails until this step is wired to the real contract, so a
-      #     newly delivered script can never be silently ignored.
-      - name: PR link check (PLACEHOLDER - NOT performed until scripts/check_pr_link.py exists)
+      #   * script present -> the real check runs; any non-zero exit fails the job.
+      # Branches exempted from the naming rule (legacy names, dependabot) carry no Jira key by definition and
+      # skip the real check (the script itself fails them on its branch rule and exempts nothing).
+      - name: PR link check (PLACEHOLDER stub until scripts/check_pr_link.py exists)
+        # SECURITY: title, body and branch are attacker-controlled; they reach the script ONLY through env.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
-          if [ -e scripts/check_pr_link.py ]; then
-            echo "::error title=PR link check::scripts/check_pr_link.py now exists but this job does not call it yet. Wire its CLI in .github/workflows/ci.yml (owner LR 10). Failing closed."
-            exit 1
+          if [ ! -e scripts/check_pr_link.py ]; then
+            echo "::notice title=PLACEHOLDER::PR link check was NOT performed: scripts/check_pr_link.py does not exist on this ref. This stub passes by design (fail-open)."
+            {
+              echo "### PR link check - PLACEHOLDER"
+              echo "NOT performed: scripts/check_pr_link.py does not exist on this ref. A pass here is NOT evidence that the PR links a Jira issue."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-          echo "::notice title=PLACEHOLDER::PR link check was NOT performed: scripts/check_pr_link.py does not exist yet. This stub passes by design (fail-open)."
-          {
-            echo "### PR link check - PLACEHOLDER"
-            echo "NOT performed: scripts/check_pr_link.py does not exist yet. A pass here is NOT evidence that the PR links a Jira issue."
-          } >> "$GITHUB_STEP_SUMMARY"
+          if BRANCH_GATE_MODE=exempt-only python3 scripts/ci_branch_gate.py >/dev/null; then
+            echo "::notice title=PR link check skipped::This branch is exempt from the naming rule (legacy or dependabot) and carries no Jira key. Check skipped."
+            echo "PR link check SKIPPED: exempt branch." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 scripts/check_pr_link.py
 
   ci-gate:
     # The single check to require in branch protection (see PR description). Always runs; fails unless every

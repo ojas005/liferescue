@@ -98,6 +98,23 @@ class WorkflowGuards(unittest.TestCase):
         )
         self.assertIn("if: github.event_name == 'pull_request'", "\n".join(l.strip() for l in block))
 
+    def test_pr_link_job_maps_text_only_through_env(self):
+        block = jobs(read("ci.yml"))["pr-link-check"]
+        mapped = sorted(l.strip() for l in block if "${{" in l)
+        self.assertEqual(mapped, sorted([
+            "PR_TITLE: ${{ github.event.pull_request.title }}",
+            "PR_BODY: ${{ github.event.pull_request.body }}",
+            "PR_BRANCH: ${{ github.event.pull_request.head.ref }}",
+            "BRANCH_NAME: ${{ github.event.pull_request.head.ref }}",
+            "PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}",
+        ]))
+        text = "\n".join(block)
+        self.assertIn("python3 scripts/check_pr_link.py", text)
+        self.assertIn("PLACEHOLDER", text)
+
+    def test_pull_request_types_include_edited(self):
+        self.assertIn("types: [opened, synchronize, reopened, edited]", "\n".join(read("ci.yml")))
+
     def test_no_pull_request_target_no_secrets_no_inputs(self):
         for wf in workflows():
             text = "\n".join(code_lines(read(wf)))

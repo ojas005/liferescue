@@ -200,6 +200,22 @@ class MatrixTests(unittest.TestCase):
         proc = run_cli("chore/bootstrap-repository-baseline", None, self.tmp.name)
         self.assertEqual(proc.stdout, "EXEMPT: legacy: bootstrap baseline branch (PR #1, merged)\n")
 
+    def test_exempt_only_mode(self):
+        def run(name, author, mode):
+            env = {"PATH": os.environ.get("PATH", ""), "BRANCH_NAME": name, "BRANCH_GATE_MODE": mode}
+            if author is not None:
+                env["PR_AUTHOR_LOGIN"] = author
+            return subprocess.run([sys.executable, GATE], env=env, cwd=self.tmp.name, stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, universal_newlines=True)
+        for name, author, verdict, label in ALL:
+            with self.subTest(label=label):
+                proc = run(name, author, "exempt-only")
+                self.assertEqual(proc.returncode, 0 if verdict == "exempt" else 1)
+                self.assertEqual(proc.stdout, "EXEMPT\n" if verdict == "exempt" else "NOT-EXEMPT\n")
+                self.assertEqual(proc.stderr, "")
+        for bad_mode in ("exempt", "EXEMPT-ONLY", "x\n::error::y", "1"):
+            self.assertEqual(run("feature/KAN-20-x", None, bad_mode).returncode, 2, bad_mode)
+
     def test_unset_branch_name_is_usage_error(self):
         proc = subprocess.run([sys.executable, GATE], env={"PATH": os.environ.get("PATH", "")}, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE, universal_newlines=True, cwd=self.tmp.name)
