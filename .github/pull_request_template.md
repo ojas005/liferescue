@@ -27,7 +27,7 @@
 
 ## Tests
 
-<!-- Tests added/updated and how to run them. Paste real results; do not claim checks that did not run. -->
+<!-- Tests added/updated and how to run them. Link to the run or summarize the results (counts, pass/fail); do not paste raw logs (they can contain secrets or personal data). Do not claim checks that did not run. -->
 
 ## Security impact
 
@@ -50,7 +50,8 @@
 - [ ] Branch name matches `<type>/KAN-<number>-<description>` (type: feature, bugfix, security, chore or docs)
 - [ ] Jira issue links to this PR (PR URL placed in the issue)
 - [ ] If this PR returns work after review or failed checks: the Jira issue is In Progress with label `exec-rework` and an explanatory comment
-- [ ] Independent review required before merge. The authoring agent does not merge; Ojas Sharma merges.
+- [ ] Independent review required before merge.
+- [ ] The authoring agent does not merge; Ojas Sharma merges.
 - [ ] CI is green (or failures are explained; no checks were disabled or weakened)
 - [ ] No secrets, tokens or credentials in the diff
 - [ ] Documentation updated (README/docs/ADR as applicable)

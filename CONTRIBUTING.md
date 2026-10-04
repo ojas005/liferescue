@@ -5,7 +5,8 @@ This repository is built by humans and by a governed AI engineering workforce. T
 ## Ground rules
 
 - No direct pushes to `main`. All changes arrive through a pull request (doc 16 s9, doc 19 step 3).
-- Independent review required before merge. No self-approval and no self-merge (doc 16 s9, s11); the reviewer must not rely on the implementer's private reasoning. Separate GitHub identities for agents do not exist yet: agents push through the repository owner's account, so the "Authoring agent" field in the pull request is attribution by statement only, not proof of who wrote the change.
+- Independent review required before merge.
+- No self-approval and no self-merge (doc 16 s9, s11); the reviewer must not rely on the implementer's private reasoning. Separate GitHub identities for agents do not exist yet: agents push through the repository owner's account, so the "Authoring agent" field in the pull request is attribution by statement only, not proof of who wrote the change.
 - Never disable, skip or weaken CI checks (including the secret scan) to get a change through.
 - Never commit secrets, tokens, credentials or production data. See [`SECURITY.md`](SECURITY.md).
 - If requirements conflict, security impact is unclear, scope expands materially, or production access seems necessary: stop and escalate (doc 16 s13).
@@ -25,6 +26,8 @@ Reference regular expression (the validator in `scripts/` uses it as is):
 ```
 ^(feature|bugfix|security|chore|docs)/KAN-[1-9][0-9]*-[a-z0-9]+(-[a-z0-9]+)*$
 ```
+
+The whole name must match: the validator uses `re.fullmatch` (an end-of-string anchor such as `\z` in other engines), because `$` alone accepts a trailing newline in some engines (Perl/PCRE, Python `re.match`/`re.search`, line-based `grep`). The validator does **no Unicode normalization**: full-width digits or letters, look-alike letters and similar are rejected as they are, and any other tool that checks branch names must not normalize (for example NFKC) before matching.
 
 Valid: `feature/KAN-20-jira-git-integration`, `bugfix/KAN-7-fix-typo`, `docs/KAN-50-hosting-event-bus-environments-adr-proposals`.
 Invalid: `feat/KAN-20-x` (the `feat` prefix is no longer allowed), `hotfix/KAN-20-x`, `feature/LR-20-x`, `feature/KAN-20` (no description), `feature/KAN-20-Desc` (uppercase), `feature/KAN-20-x_y` (underscore), `agent/lr04/KAN-20-x`.
@@ -56,7 +59,7 @@ Use the template in [`.github/pull_request_template.md`](.github/pull_request_te
 4. Problem
 5. Solution
 6. Implementation details
-7. Tests (real results only)
+7. Tests (a link to the run or a summary of the real results; no raw logs)
 8. Security impact
 9. Operational impact
 10. Deployment impact
@@ -64,11 +67,12 @@ Use the template in [`.github/pull_request_template.md`](.github/pull_request_te
 
 Put the Jira key (`KAN-<number>`) and the branch name in the PR, and put the PR URL in the Jira issue (comment or remote link) (doc 17 s10, s14: Jira -> branch -> PR -> CI/Security/QA -> release -> observability).
 
-If a PR returns work to its owner after failed checks, requested changes or a failed gate (rework), the Jira issue stays or goes back to **In Progress**, gets the label **`exec-rework`** and an explicit Jira comment giving the reason, the evidence link and what completes the rework. The label is removed when the rework is complete. See [`docs/jira-comment-label-conventions.md`](docs/jira-comment-label-conventions.md) for the comment formats; every format carries a `by:` field (who wrote the comment), and evidence is always a link, never pasted logs or output.
+If a PR returns work to its owner after failed checks, requested changes or a failed gate (rework), the Jira issue is moved from **In Review** back to **In Progress**, gets the label **`exec-rework`** and an explicit Jira comment giving the reason, the evidence link and what completes the rework. The label is removed when the rework is complete. See [`docs/jira-comment-label-conventions.md`](docs/jira-comment-label-conventions.md) for the comment formats; every format carries a `by:` field (who wrote the comment), and evidence is always a link, never pasted logs or output.
 
 ## Review rules
 
-- Independent review required before merge: at least one reviewer who did not write the change. (Enforced branch protection is **not currently available** on this repository plan; see `README`/`docs/overview.md`. Until it is enabled this rule is a process rule.)
+- Independent review required before merge.
+- At least one reviewer who did not write the change. (Enforced branch protection is **not currently available** on this repository plan; see `README`/`docs/overview.md`. Until it is enabled this rule is a process rule.)
 - Required automated checks must pass: see [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Stages that are not yet active are listed in `docs/overview.md`.
 - Recommended chain (doc 16 s11): implementation -> CI -> Security -> QA -> independent reviewer -> human approval where required -> release.
 - Human approval is **always** required for: production deployment; authentication/authorization changes; security-policy changes; model/tool-permission changes; destructive migrations; sensitive-data policy changes; external payment authority; irreversible external actions; safety-critical workflow changes; major-version releases.

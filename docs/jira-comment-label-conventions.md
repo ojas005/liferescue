@@ -1,7 +1,7 @@
 # Jira comment and label conventions (KAN)
 
 **Task:** KAN-20 (Jira/Git integration foundation). **Location:** `docs/`, linked from [`CONTRIBUTING.md`](../CONTRIBUTING.md).
-**Status:** the `exec-rework` convention rests on decisions by Ojas Sharma (2026-10-04). The comment *formats* below are **proposed** (ADR-0017 is not yet accepted) and may change.
+**Status:** the `exec-rework` convention rests on decisions by Ojas Sharma (2026-10-04). The comment *formats* below are **proposed** (ADR-0017 as a whole is not yet accepted) and may change. The status mapping was approved by Ojas Sharma on 2026-10-04; ADR-0017 overall remains Proposed-by-agent.
 
 This page describes how people and agents write Jira comments and use the label `exec-rework` for the `KAN` project. Jira is the system of record for work status (ADR-0001). Jira cannot enforce any of this; it is a convention checked in review.
 
@@ -12,9 +12,12 @@ This page describes how people and agents write Jira comments and use the label 
 | Rework is represented by Jira status **In Progress** + label **`exec-rework`** + an explicit Jira comment (the current Jira workflow has no REWORK status) | Decided (Ojas Sharma, 2026-10-04) |
 | `exec-rework` is removed when the rework is complete | Decided (Ojas Sharma, KAN-20 comment) |
 | The comment formats in this page (including the wording and field names) | PROPOSED (ADR-0017, not accepted) |
-| What counts as "rework complete" (corrected PR has passing checks and a review is re-requested; then the issue returns to In Review and the label is removed) | PROPOSED (ADR-0017 point 8, not accepted) |
+| Rework complete returns the issue to **In Review** (never directly to Done) and removes the label | Decided (Ojas Sharma, 2026-10-04) |
+| The exact completion trigger (corrected PR has passing checks and a review is re-requested) | PROPOSED (ADR-0017 point 8, not accepted) |
 
-Not covered here on purpose, because they depend on parts of ADR-0017 that are still proposed: the status mapping table, the transition allow-list, and the rules about who may set Done or write approval/release evidence. Do not infer them from this page.
+The status mapping, the transition allowlist (which actor may make which transition, with which evidence), and the rules about who may set Done or write approval/release statements are **not** defined on this page. The status mapping was approved by Ojas Sharma on 2026-10-04 (existing four statuses only, Done only from In Review, agents never mark their own work Done); ADR-0017 as a whole remains Proposed-by-agent, so do not infer anything else from this page. The mapping and the allowlist are described in `docs/jira-transition-allowlist.md`, which is added by the allowlist change (PR #5) and is not on this branch.
+
+**Which comments are machine-checked.** Only `REWORK:` and `BLOCKED:` comments are checked by the allowlist checker (`scripts/check_transition.py`, PR #5): it parses their `key: value` fields and requires non-empty values. `STARTED:`, `IN REVIEW:` and `REWORK COMPLETE:` comments are conventions that are **not** machine-checked; reviewers check them, and the checker does not read them. (This page documents the gap rather than adding those formats to the checker.)
 
 ## Label `exec-rework`
 
