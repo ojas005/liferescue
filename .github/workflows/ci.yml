@@ -272,6 +272,7 @@ jobs:
           python3 -W error::ResourceWarning -m unittest -v
           scripts/test_check_branch_name.py
           scripts/test_check_transition.py
+          scripts/test_check_pr_link.py
           scripts/test_branch_name_ci_cases.py
           scripts/test_ci_helpers.py
           scripts/test_workflow_guards.py
@@ -296,8 +297,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      # scripts/check_pr_link.py is delivered by LR 04 (open PR #15 at the time of writing; contract in
-      # docs/pr-jira-link-check.md on that branch). Until it is on the ref this step is a PLACEHOLDER:
+      # scripts/check_pr_link.py is delivered by LR 04 (PR #15; contract in docs/pr-jira-link-check.md). It is on
+      # main now; this job still keeps a PLACEHOLDER stub for refs that do not contain it (e.g. branches cut before it landed):
       #   * script absent  -> fail-OPEN stub: loud notice + summary line that nothing was checked, then pass.
       #   * script present -> the real check runs; any non-zero exit fails the job.
       # Branches exempted from the naming rule (legacy names, dependabot) carry no Jira key by definition and
