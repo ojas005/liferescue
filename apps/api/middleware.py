@@ -70,5 +70,9 @@ class SecurityAndCorrelationMiddleware(BaseHTTPMiddleware):
                     "detail": "An unexpected error occurred. Details have been safely logged.",
                     "request_id": req_id,
                 },
-                headers={"X-Request-ID": req_id},
+                headers={
+                    "X-Request-ID": req_id,
+                    "X-Content-Type-Options": "nosniff",
+                    "X-Frame-Options": "DENY",
+                },
             )

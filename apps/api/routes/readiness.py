@@ -85,6 +85,21 @@ def create_contact(
     return db.create_contact(contact)
 
 
+@router.get("/contacts/{contact_id}", response_model=EmergencyContact)
+def get_contact(
+    contact_id: str,
+    db: Annotated[SQLiteDatabase, Depends(get_db)],
+) -> EmergencyContact:
+    """Get single emergency contact by ID."""
+    contact = db.get_contact(contact_id)
+    if not contact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Contact '{contact_id}' not found",
+        )
+    return contact
+
+
 @router.put("/contacts/{contact_id}", response_model=EmergencyContact)
 def update_contact(
     contact_id: str,

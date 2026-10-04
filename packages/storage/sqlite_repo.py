@@ -14,11 +14,12 @@ Features:
 - Automatic redaction of secrets on persistence using packages.secrets.redaction.
 - Deterministic seeding for demo / local development.
 """
+
 from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -70,7 +71,9 @@ class SQLiteDatabase(
 ):
     """Unified SQLite repository backing all LifeRescue domain entities."""
 
-    def __init__(self, db_path: str | Path = ":memory:", redactor: Redactor | None = None):
+    def __init__(
+        self, db_path: str | Path = ":memory:", redactor: Redactor | None = None
+    ):
         self.db_path = str(db_path)
         self.redactor = redactor or Redactor(patterns=PatternSet.load())
         self._shared_conn: sqlite3.Connection | None = None
@@ -213,7 +216,9 @@ class SQLiteDatabase(
 
     def get(self, user_id: str) -> User | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM users WHERE user_id = ?", (user_id,)
+            ).fetchone()
             if not row:
                 return None
             return User(
@@ -256,7 +261,9 @@ class SQLiteDatabase(
 
     def get_profile(self, user_id: str) -> EmergencyProfile | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM emergency_profiles WHERE user_id = ?", (user_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM emergency_profiles WHERE user_id = ?", (user_id,)
+            ).fetchone()
             if not row:
                 return None
             return EmergencyProfile(
@@ -343,7 +350,9 @@ class SQLiteDatabase(
 
     def get_contact(self, contact_id: str) -> EmergencyContact | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM emergency_contacts WHERE contact_id = ?", (contact_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM emergency_contacts WHERE contact_id = ?", (contact_id,)
+            ).fetchone()
             if not row:
                 return None
             return EmergencyContact(
@@ -410,7 +419,9 @@ class SQLiteDatabase(
 
     def delete_contact(self, contact_id: str) -> bool:
         with self._connect() as conn:
-            cur = conn.execute("DELETE FROM emergency_contacts WHERE contact_id = ?", (contact_id,))
+            cur = conn.execute(
+                "DELETE FROM emergency_contacts WHERE contact_id = ?", (contact_id,)
+            )
             conn.commit()
             return cur.rowcount > 0
 
@@ -419,6 +430,9 @@ class SQLiteDatabase(
     # -------------------------------------------------------------------------
 
     def create(self, incident: Incident) -> Incident:
+        incident.title = self._sanitize(incident.title)
+        incident.description = self._sanitize(incident.description)
+        incident.location = self._sanitize(incident.location)
         with self._connect() as conn:
             conn.execute(
                 """
@@ -430,10 +444,10 @@ class SQLiteDatabase(
                 (
                     incident.incident_id,
                     incident.user_id,
-                    self._sanitize(incident.title),
-                    self._sanitize(incident.description),
+                    incident.title,
+                    incident.description,
                     incident.input_type,
-                    self._sanitize(incident.location),
+                    incident.location,
                     incident.status.value,
                     incident.urgency.value,
                     _iso(incident.created_at),
@@ -446,7 +460,9 @@ class SQLiteDatabase(
 
     def get_incident(self, incident_id: str) -> Incident | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM incidents WHERE incident_id = ?", (incident_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM incidents WHERE incident_id = ?", (incident_id,)
+            ).fetchone()
             if not row:
                 return None
             return Incident(
@@ -463,7 +479,9 @@ class SQLiteDatabase(
                 resolved_at=_parse_dt(row["resolved_at"]),
             )
 
-    def list_incidents(self, limit: int = 50, user_id: str | None = None) -> list[Incident]:
+    def list_incidents(
+        self, limit: int = 50, user_id: str | None = None
+    ) -> list[Incident]:
         with self._connect() as conn:
             if user_id:
                 rows = conn.execute(
@@ -570,7 +588,9 @@ class SQLiteDatabase(
                 immediate_threat=bool(row["immediate_threat"]),
                 extracted_facts=json.loads(row["extracted_facts"]),
                 missing_critical_info=json.loads(row["missing_critical_info"]),
-                recommended_immediate_steps=json.loads(row["recommended_immediate_steps"]),
+                recommended_immediate_steps=json.loads(
+                    row["recommended_immediate_steps"]
+                ),
                 provider_name=row["provider_name"],
                 analyzed_at=_parse_dt(row["analyzed_at"]) or utcnow(),
             )
@@ -720,7 +740,9 @@ class SQLiteDatabase(
             conn.commit()
         return event
 
-    def list_audit(self, limit: int = 100, incident_id: str | None = None) -> list[AuditEvent]:
+    def list_audit(
+        self, limit: int = 100, incident_id: str | None = None
+    ) -> list[AuditEvent]:
         with self._connect() as conn:
             if incident_id:
                 rows = conn.execute(
@@ -869,11 +891,15 @@ class AuditRepoAdapter(AuditRepository):
     def record(self, event: AuditEvent) -> AuditEvent:
         return self.db.record(event)
 
-    def list(self, limit: int = 100, incident_id: str | None = None) -> list[AuditEvent]:
+    def list(
+        self, limit: int = 100, incident_id: str | None = None
+    ) -> list[AuditEvent]:
         return self.db.list_audit(limit, incident_id)
 
 
-def create_repositories(db: SQLiteDatabase) -> tuple[
+def create_repositories(
+    db: SQLiteDatabase,
+) -> tuple[
     IncidentRepoAdapter,
     UserRepoAdapter,
     ProfileRepoAdapter,
@@ -888,4 +914,3 @@ def create_repositories(db: SQLiteDatabase) -> tuple[
         ContactRepoAdapter(db),
         AuditRepoAdapter(db),
     )
-

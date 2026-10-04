@@ -63,7 +63,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "detail": str(exc.detail),
                 "request_id": req_id,
             },
-            headers={"X-Request-ID": req_id},
+            headers={
+                "X-Request-ID": req_id,
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "DENY",
+            },
         )
 
     # 4. Include REST API routers

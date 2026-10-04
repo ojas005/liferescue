@@ -119,6 +119,7 @@ The web interface includes interactive one-click demonstration scenarios:
 | `GET` | `/emergency-profile` | Get emergency medical profile |
 | `PUT` | `/emergency-profile` | Update medical history, allergies, directives |
 | `GET` | `/contacts` | List designated emergency contacts |
+| `GET` | `/contacts/{id}` | Retrieve single emergency contact |
 | `POST` | `/contacts` | Add a new emergency contact |
 | `PUT` | `/contacts/{id}` | Update contact details or primary flag |
 | `DELETE` | `/contacts/{id}` | Delete an emergency contact |
@@ -138,7 +139,7 @@ LifeRescue includes a comprehensive, multi-layer automated test suite:
 # Run Unit Tests (Domain models, safety engine, storage, AI providers)
 python -m unittest discover -s tests/unit
 
-# Run Integration Tests (FastAPI endpoints, middleware, headers)
+# Run Integration Tests (FastAPI endpoints, middleware, headers, audit)
 python -m unittest discover -s tests/integration
 
 # Run End-to-End Workflow Tests (Scenarios 1-3, readiness lifecycle)
@@ -148,7 +149,7 @@ python -m unittest discover -s tests/e2e
 python -m unittest discover -s tests/security
 ```
 
-**Total Passing Tests:** 239 tests passing across all suites.
+**Total Passing Tests:** 248 passed, 0 failures, 1 skipped (249 total).
 
 ---
 

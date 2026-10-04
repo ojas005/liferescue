@@ -146,9 +146,32 @@ class MockAIProvider(AIProvider):
         ):
             extracted = {
                 "incident_type": "motor_vehicle_collision",
-                "injuries_reported": "injur" in text
-                or "bleed" in text
-                or "pain" in text,
+                "injuries_reported": any(
+                    w in text
+                    for w in (
+                        "injur",
+                        "bleed",
+                        "pain",
+                        "lacerat",
+                        "trauma",
+                        "wound",
+                        "fractur",
+                        "head",
+                    )
+                ),
+                "hazards_detected": any(
+                    w in text
+                    for w in (
+                        "smoke",
+                        "fire",
+                        "radiator",
+                        "fuel",
+                        "gas",
+                        "flame",
+                        "spill",
+                        "hazard",
+                    )
+                ),
                 "scene_safety": "roadway_hazard",
             }
             missing = []

@@ -9,6 +9,7 @@ from packages.domain.ai import create_ai_provider
 from packages.domain.models import EmergencyContact, EmergencyProfile, User
 from packages.domain.orchestrator import MockNotificationProvider, ResponseOrchestrator
 from packages.domain.safety_policy import SafetyPolicyEngine
+from packages.secrets.leased_values import LeasedValues
 from packages.secrets.redaction import PatternSet, Redactor
 from packages.storage.sqlite_repo import (
     SQLiteDatabase,
@@ -20,13 +21,21 @@ logger = logging.getLogger("liferescue.deps")
 # Global singleton storage and services
 _db: SQLiteDatabase | None = None
 _orchestrator: ResponseOrchestrator | None = None
+_leased_values: LeasedValues = LeasedValues()
 _redactor: Redactor | None = None
 
 
-def get_redactor() -> Redactor:
+def get_leased_values() -> LeasedValues:
+    global _leased_values
+    return _leased_values
+
+
+def get_redactor(redactor: Redactor | None = None) -> Redactor:
     global _redactor
-    if _redactor is None:
-        _redactor = Redactor(patterns=PatternSet.load())
+    if redactor is not None:
+        _redactor = redactor
+    elif _redactor is None:
+        _redactor = Redactor(leased_values=_leased_values, patterns=PatternSet.load())
     return _redactor
 
 
@@ -142,10 +151,17 @@ def get_orchestrator() -> ResponseOrchestrator:
     return _orchestrator
 
 
-def reset_for_tests(db_path: str = ":memory:") -> ResponseOrchestrator:
+def reset_for_tests(
+    db_path: str = ":memory:",
+    redactor: Redactor | None = None,
+) -> ResponseOrchestrator:
     """Reset singletons with an isolated in-memory database for testing."""
-    global _db, _orchestrator
-    _db = SQLiteDatabase(db_path=db_path, redactor=get_redactor())
+    global _db, _orchestrator, _redactor, _leased_values
+    _leased_values = LeasedValues()
+    _redactor = redactor or Redactor(
+        leased_values=_leased_values, patterns=PatternSet.load()
+    )
+    _db = SQLiteDatabase(db_path=db_path, redactor=_redactor)
     _seed_demo_data(_db)
     inc_repo, user_repo, profile_repo, contact_repo, audit_repo = create_repositories(
         _db

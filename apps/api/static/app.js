@@ -113,7 +113,7 @@ async function loadIncidents() {
             </p>
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <button class="btn-scenario" onclick="viewIncidentTimeline('${inc.incident_id}')">Timeline ↗</button>
+            <button class="btn-scenario" data-incident-id="${escapeHtml(inc.incident_id)}" onclick="viewIncidentTimeline(this.dataset.incidentId)">Timeline ↗</button>
           </div>
         </div>
       `;
@@ -238,7 +238,7 @@ function renderTriageResult(incident, analysis, risk, plan) {
           ${action.result_message ? `<p style="color: var(--accent-safe); font-size: 0.78rem; margin-top: 0.2rem;">✓ ${escapeHtml(action.result_message)}</p>` : ''}
         </div>
         <span class="badge ${action.status === 'executed' || action.status === 'simulated' ? 'badge-low' : 'badge-medium'}">
-          ${action.status}
+          ${escapeHtml(action.status)}
         </span>
       </div>
     `;
@@ -263,7 +263,7 @@ async function loadTimelineDropdown() {
 
     const select = document.getElementById('timeline-incident-select');
     select.innerHTML = '<option value="">Select an Incident...</option>' + 
-      incidents.map(inc => `<option value="${inc.incident_id}" ${inc.incident_id === activeIncidentId ? 'selected' : ''}>${escapeHtml(inc.title)} (${inc.incident_id})</option>`).join('');
+      incidents.map(inc => `<option value="${escapeHtml(inc.incident_id)}" ${inc.incident_id === activeIncidentId ? 'selected' : ''}>${escapeHtml(inc.title)} (${escapeHtml(inc.incident_id)})</option>`).join('');
 
     if (activeIncidentId) {
       loadSelectedTimeline();
@@ -301,11 +301,11 @@ async function loadSelectedTimeline() {
         <div class="timeline-dot"></div>
         <div class="timeline-header">
           <span class="timeline-actor">${escapeHtml(e.actor)}</span>
-          <span class="badge badge-medium" style="font-size: 0.7rem;">${e.event_type}</span>
+          <span class="badge badge-medium" style="font-size: 0.7rem;">${escapeHtml(e.event_type)}</span>
           <span class="timeline-time">${new Date(e.timestamp).toLocaleTimeString()}</span>
         </div>
         <div class="timeline-body">
-          <strong>Step ${e.seq}:</strong> ${escapeHtml(e.summary)}
+          <strong>Step ${parseInt(e.seq, 10)}:</strong> ${escapeHtml(e.summary)}
           ${e.payload && Object.keys(e.payload).length > 0 ? `
             <pre style="margin-top: 0.4rem; font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 0.4rem; border-radius: 4px; overflow-x: auto;">${escapeHtml(JSON.stringify(e.payload, null, 2))}</pre>
           ` : ''}
@@ -313,7 +313,7 @@ async function loadSelectedTimeline() {
       </div>
     `).join('');
   } catch (err) {
-    container.innerHTML = `<p style="color: var(--accent-emergency);">Failed to load timeline: ${err.message}</p>`;
+    container.innerHTML = `<p style="color: var(--accent-emergency);">Failed to load timeline: ${escapeHtml(err.message)}</p>`;
   }
 }
 
@@ -349,7 +349,7 @@ async function loadReadinessAndProfile() {
             </div>
           </div>
           <span class="badge ${chk.passed ? 'badge-low' : 'badge-high'}" style="font-size: 0.65rem;">
-            ${chk.importance}
+            ${escapeHtml(chk.importance)}
           </span>
         </div>
       `).join('');
@@ -397,7 +397,7 @@ async function loadManageContacts() {
             📞 ${escapeHtml(c.phone)} ${c.email ? `| ✉️ ${escapeHtml(c.email)}` : ''}
           </div>
         </div>
-        <button class="btn-scenario" style="color: var(--accent-emergency);" onclick="deleteContact('${c.contact_id}')">Remove</button>
+        <button class="btn-scenario" style="color: var(--accent-emergency);" data-contact-id="${escapeHtml(c.contact_id)}" onclick="deleteContact(this.dataset.contactId)">Remove</button>
       </div>
     `).join('');
   } catch (err) {
@@ -502,16 +502,16 @@ async function loadAuditEvents() {
         </td>
         <td style="padding: 0.6rem 0.5rem;">
           <span class="badge ${e.result === 'success' ? 'badge-low' : 'badge-high'}" style="font-size: 0.7rem;">
-            ${e.result}
+            ${escapeHtml(e.result)}
           </span>
         </td>
         <td style="padding: 0.6rem 0.5rem; font-family: monospace; font-size: 0.75rem; color: var(--text-muted);">
-          ${e.incident_id || '—'}
+          ${escapeHtml(e.incident_id || '—')}
         </td>
       </tr>
     `).join('');
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" style="padding: 1.5rem; text-align: center; color: var(--accent-emergency);">Failed to load audit trail: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="padding: 1.5rem; text-align: center; color: var(--accent-emergency);">Failed to load audit trail: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
