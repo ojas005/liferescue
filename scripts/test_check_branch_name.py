@@ -15,6 +15,7 @@ import sys
 import tempfile
 import types
 import unittest
+import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "check-branch-name.py")
@@ -314,6 +315,218 @@ class ArgumentsAreRefused(unittest.TestCase):
                 self.assertEqual(run_cli([payload]).returncode, 2)
                 self.assertEqual(run_name(payload).returncode, 1)
                 self.assertFalse(os.path.exists(canary), "hostile input was executed")
+
+
+CANARY_NAME = "KAN20_CANARY_ENV_VAR"
+
+
+def canary_value():
+    """A unique secret-looking value generated at test runtime (never present in the source)."""
+    return "canary-" + uuid.uuid4().hex
+
+
+def run_real_cli(env, args=()):
+    """Run the real script in a child process with EXACTLY this environment (bytes or str values)."""
+    return subprocess.run([sys.executable, SCRIPT] + list(args), capture_output=True, env=env,
+                          cwd=tempfile.gettempdir())
+
+
+def clean_env(**extra):
+    """An environment that contains only what the interpreter needs plus `extra` (no inherited variables)."""
+    env = {}
+    for key in ("SYSTEMROOT", "LD_LIBRARY_PATH"):  # needed on some platforms; harmless elsewhere
+        if key in os.environ:
+            env[key] = os.environ[key]
+    env.update(extra)
+    return env
+
+
+# Names that look like variable references, substitutions, options or odd bytes. Every one of them is
+# invalid, and none may cause any variable value to be expanded, read or printed.
+EXPANSION_NAMES = [
+    "$" + CANARY_NAME,
+    "${" + CANARY_NAME + "}",
+    "$(printenv " + CANARY_NAME + ")",
+    "`printenv " + CANARY_NAME + "`",
+    "%" + CANARY_NAME + "%",
+    "!" + CANARY_NAME + "!",
+    "$env:" + CANARY_NAME,
+    "feature/KAN-20-$" + CANARY_NAME,
+    "feature/KAN-20-${" + CANARY_NAME + "}",
+    "feature/KAN-20-$(printenv " + CANARY_NAME + ")",
+    "feature/KAN-20-`printenv " + CANARY_NAME + "`",
+    "feature/KAN-20-%" + CANARY_NAME + "%",
+    "--env-var=" + CANARY_NAME,
+    "--env-var " + CANARY_NAME,
+    "--env=" + CANARY_NAME,
+    "-h",
+    "--help",
+    "--",
+    "feature/KAN-20-x; printenv " + CANARY_NAME,
+    "feature/KAN-20-x && printenv",
+    "feature/KAN-20-x | env",
+    "feature/KAN-20-x > /dev/stdout",
+    "feature/KAN-20-x\nprintenv " + CANARY_NAME,
+    "feature/KAN-20-x\r\n" + CANARY_NAME,
+    "feature/KAN-20-x\x00" + CANARY_NAME,
+    "feature/KAN-20-x\t" + CANARY_NAME,
+    "feature/KAN-20-x " + CANARY_NAME,
+    " feature/KAN-20-x",
+    "\x1b[2Jfeature/KAN-20-x",
+    "\x7f",
+    "\u0085feature/KAN-20-x",
+    "\u2028feature/KAN-20-x",
+    "\u202efeature/KAN-20-x",
+    "feature/KAN-20-x\u200b",
+    "../../etc/passwd",
+    "..\\..\\windows\\system32",
+    "feature/../../KAN-20-x",
+    "feature/KAN-20-../x",
+    "/etc/passwd",
+    "~/.ssh/id_rsa",
+    "feature/KAN-20-x/../../y",
+    "file:///etc/passwd",
+    "feature/KAN-20-\ud800",  # lone surrogate (only possible in-process / via undecodable bytes)
+    "feature/KAN-20-\udcff",
+    "feature/KAN-20-\U0001f4a9",
+    "feature/KAN-20-e\u0301",
+    "\ufeefeature/KAN-20-x",
+]
+# names that cannot be put into a process environment (NUL) are only tested in-process
+IN_PROCESS_ONLY = [n for n in EXPANSION_NAMES if "\x00" in n or any(0xD800 <= ord(c) <= 0xDFFF for c in n)]
+
+
+class NamesAreOnlyData(unittest.TestCase):
+    """Ojas's decision (PR #4 hold): the branch name and any argument are DATA. Nothing is expanded or
+    interpreted and no variable other than BRANCH_NAME is ever read, so no other variable value can
+    appear in the output. The canary variable is created at test runtime with a unique value."""
+
+    def test_hostile_names_in_the_real_cli_never_leak_a_canary_and_always_fail(self):
+        value = canary_value()
+        for name in EXPANSION_NAMES:
+            if name in IN_PROCESS_ONLY:
+                continue
+            for env in (clean_env(BRANCH_NAME=name, **{CANARY_NAME: value}),
+                        dict(os.environ, BRANCH_NAME=name, **{CANARY_NAME: value})):
+                with self.subTest(name=name, clean=len(env) < 10):
+                    result = run_real_cli(env)
+                    out = result.stdout + result.stderr
+                    self.assertEqual(result.returncode, 1, out)
+                    self.assertNotIn(value.encode(), out)
+                    self.assertEqual(result.stdout, b"")
+                    self.assertTrue(out.isascii(), "output must be ASCII only")
+
+    def test_hostile_arguments_in_the_real_cli_are_refused_and_never_leak_a_canary(self):
+        value = canary_value()
+        for name in EXPANSION_NAMES:
+            if name in IN_PROCESS_ONLY:
+                continue
+            for env in (clean_env(**{CANARY_NAME: value}),
+                        clean_env(BRANCH_NAME="feature/KAN-20-x", **{CANARY_NAME: value}),
+                        dict(os.environ, BRANCH_NAME="feature/KAN-20-x", **{CANARY_NAME: value})):
+                with self.subTest(argument=name):
+                    result = run_real_cli(env, [name])
+                    out = result.stdout + result.stderr
+                    self.assertEqual(result.returncode, 2, out)
+                    self.assertNotIn(value.encode(), out)
+                    self.assertEqual(result.stdout, b"")
+                    self.assertEqual(result.stderr.decode(), USAGE_ERROR)  # argument text is not echoed at all
+
+    def test_the_echoed_text_is_the_literal_name_not_an_expansion(self):
+        value = canary_value()
+        name = "$" + CANARY_NAME
+        result = run_real_cli(clean_env(BRANCH_NAME=name, **{CANARY_NAME: value}))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(ascii(name).encode(), result.stderr)  # the text "$KAN20_CANARY_ENV_VAR" itself, as data
+        self.assertNotIn(value.encode(), result.stderr)
+
+    def test_every_hostile_name_in_process(self):
+        value = canary_value()
+        for name in EXPANSION_NAMES:
+            with self.subTest(name=ascii(name)):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+                    code = cbn.main([], environ={"BRANCH_NAME": name, CANARY_NAME: value})
+                self.assertEqual(code, 1)
+                self.assertNotIn(value, out.getvalue())
+                self.assertTrue(out.getvalue().isascii())
+                self.assertIsNotNone(cbn.validate(name))
+
+    def test_undecodable_bytes_in_the_environment(self):
+        value = canary_value()
+        for raw in (b"\xff", b"feature/KAN-20-\xff", b"\xc0\xaf", b"feature/KAN-20-\xed\xa0\x80", b"\x80" * 300):
+            with self.subTest(raw=raw[:20]):
+                env = {b"BRANCH_NAME": raw, CANARY_NAME.encode(): value.encode()}
+                result = run_real_cli(env)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertNotIn(value.encode(), result.stdout + result.stderr)
+                self.assertTrue(result.stderr.isascii())
+                self.assertNotIn(b"Traceback", result.stderr)
+
+    def test_excessively_long_input(self):
+        value = canary_value()
+        for size in (101, 121, 5000, 20000, 100000):
+            for name in ("feature/KAN-20-" + "a" * size, "$" + CANARY_NAME + "x" * size, "\U0001f4a9" * size,
+                         "\n" * size):
+                if len(name.encode()) > 100000:  # the operating system limits one environment string to ~128 KiB
+                    continue
+                with self.subTest(size=size, head=ascii(name[:12])):
+                    result = run_real_cli(clean_env(BRANCH_NAME=name, **{CANARY_NAME: value}))
+                    self.assertEqual(result.returncode, 1)
+                    self.assertLess(len(result.stderr), 3000)
+                    self.assertNotIn(value.encode(), result.stdout + result.stderr)
+
+    def test_long_argument_is_refused_without_echo(self):
+        result = run_real_cli(clean_env(BRANCH_NAME="feature/KAN-20-x"), ["x" * 100000])
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stderr.decode(), USAGE_ERROR)
+
+    def test_shell_metacharacters_do_not_run_anything(self):
+        canary_file = os.path.join(tempfile.mkdtemp(), "ran")
+        for template in ("feature/KAN-20-x;touch {f}", "feature/KAN-20-x$(touch {f})", "feature/KAN-20-x`touch {f}`",
+                         "feature/KAN-20-x&touch {f}", "feature/KAN-20-x|touch {f}", "feature/KAN-20-x\ntouch {f}",
+                         "feature/KAN-20-x>{f}", "feature/KAN-20-x<{f}", "${{IFS}}touch{{IFS}}{f}"):
+            name = template.format(f=canary_file)
+            with self.subTest(name=name):
+                self.assertEqual(run_real_cli(clean_env(BRANCH_NAME=name)).returncode, 1)
+                self.assertEqual(run_real_cli(clean_env(), [name]).returncode, 2)
+                self.assertFalse(os.path.exists(canary_file))
+
+    def test_script_only_ever_reads_the_fixed_variable(self):
+        with open(SCRIPT, encoding="utf-8") as fh:
+            source = fh.read()
+        for forbidden in ("os.getenv", "environ.get(", "environ.items", "environ.keys", "environ.values",
+                          "dict(environ", "print(environ", "os.environ.copy", "printenv"):
+            self.assertNotIn(forbidden, source, forbidden)
+        self.assertEqual(source.count("environ[ENV_VAR]"), 1)
+        self.assertEqual(cbn.ENV_VAR, "BRANCH_NAME")
+
+    def test_main_never_touches_other_variables(self):
+        class Recording(dict):
+            def __init__(self, *a, **k):
+                super().__init__(*a, **k)
+                self.touched = []
+
+            def __getitem__(self, key):
+                self.touched.append(key)
+                return super().__getitem__(key)
+
+            def __contains__(self, key):
+                self.touched.append(key)
+                return super().__contains__(key)
+
+            def get(self, key, default=None):
+                self.touched.append(key)
+                return super().get(key, default)
+
+            def __iter__(self):
+                self.touched.append("<iterated>")
+                return super().__iter__()
+
+        env = Recording({"BRANCH_NAME": "$" + CANARY_NAME, CANARY_NAME: "x", "PATH": "/bin"})
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(cbn.main([], environ=env), 1)
+        self.assertEqual(set(env.touched), {"BRANCH_NAME"})
 
 
 class OutputIsBounded(unittest.TestCase):
