@@ -1,6 +1,8 @@
 # Applies to tests/ only (apps/api has its own [tool.ruff]).
 line-length = 120
 target-version = "py311"
+# tests/security (KAN-45, LR 08) predates this config and keeps its own style; not linted here.
+extend-exclude = ["security"]
 
 [lint]
 select = ["E", "F", "I", "B", "UP"]
