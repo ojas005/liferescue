@@ -55,6 +55,25 @@ Every event payload is redacted at write time and reduced to an allowlist of key
 (`app/db/event_policy.py`); unexpected keys are dropped (names recorded in `_dropped`), real-tool output is reduced to
 key names. See PR-DESCRIPTION.md for the SECURITY-REQUIREMENTS ids (P1, K3, ...).
 
+Stored payload keys per event `type` (anything else is dropped; the engine owner must request additions, LR 04 + LR 08 review):
+
+| type | allowed payload keys |
+|---|---|
+| `state_change` | `from`, `note`, `reason`, `to` |
+| `intent` | `adapter`, `category`, `entities`, `model`, `summary`, `urgency` |
+| `evidence` | `collected`, `missing` |
+| `research` | `queries`, `result_count`, `skipped`, `source_urls` |
+| `plan` | `steps`, `summary` |
+| `policy` | `action_digest`, `outcome`, `policy_version`, `reason`, `risk`, `rule_id`, `step_id`, `tool` |
+| `approval` | `action_digest`, `approval_id`, `decided_by`, `expires_at`, `status`, `step_id`, `summary` |
+| `action` | `action_digest`, `error`, `mocked`, `output`, `simulated`, `status`, `step_id`, `tool` |
+| `verification` | `checks`, `passed` |
+| `audit` | `audit_records`, `chain_head_before_summary` |
+| `error` | `code`, `reason` |
+
+`TimelinePage.terminal` is true only when the run is terminal and no more events remain; poll with `after_seq=next_seq`.
+Simulated writes are labelled by the contract (`mocked: true` on results and `action` events) - the UI must show SIMULATED (T6).
+
 ## Audit
 
 `audit_log` is append-only (no UPDATE/DELETE/TRUNCATE; triggers + least-privilege role) with a SHA-256
