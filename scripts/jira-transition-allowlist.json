@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "title": "KAN Jira transition allowlist (KAN-20, WI-04-6)",
+  "approval": "Approved by Ojas Sharma 2026-10-04 07:28 IST (ADR-0017 status mapping): existing Jira workflow only (To Do / In Progress / In Review / Done); BLOCKED and REWORK are labels/comments, not statuses; agents may move work to In Progress / In Review per evidence; an agent must NEVER declare its own work Done; Done needs validation, required review, acceptance-criteria evidence and merge/release conditions (human approval for sensitive work). Everything listed under proposed_assumptions below is PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL.",
+  "sources": [
+    "ADR-0017 points 8-12 (adr-proposals/ADR-0017-jira-git-integration-and-status-mapping.md)",
+    "kan-20-implementation-plan.md sections 8, 9, 11 (WI-04-6), 12",
+    "ADR-0001 (KAN Jira workflow has four statuses)"
+  ],
+  "statuses": ["To Do", "In Progress", "In Review", "Done"],
+  "human_only_statuses": ["Done"],
+  "actor_types": {
+    "human": {"kind": "human", "description": "A person acting in Jira (for example Ojas Sharma)."},
+    "owner_agent": {"kind": "agent", "description": "The agent that owns the work item (for example LR 04 Backend for KAN-20)."},
+    "reviewer_agent": {"kind": "agent", "description": "A reviewer, QA or security gate agent acting manually (ADR-0017 point 11 'reviewer, QA/security gate')."},
+    "automation": {"kind": "automation", "description": "Webhook, CI step, scheduled job, adapter or script (KAN-26/KAN-27). No such adapter exists yet."}
+  },
+  "labels": {
+    "exec-rework": {
+      "approval": "approved (Ojas Sharma, KAN-20 comments 10108/10113; removal when rework is complete: comment 10108)",
+      "allowed_only_in_status": "In Progress",
+      "meaning": "Work returned to its owner for rework. Always together with status In Progress and an explicit comment. Free text label: never a permission."
+    },
+    "blocked": {
+      "approval": "PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL",
+      "label_name": null,
+      "meaning": "BLOCKED is a label/comment, never a status (approved). ADR-0017 point 10 defines only a comment ('BLOCKED: <reason>', status unchanged); no label name has been decided, so none is written by this allowlist."
+    }
+  },
+  "assertion_label_words": ["approved", "accepted", "released", "done"],
+  "assertion_markers": {
+    "APPROVED": {"actors": ["human", "reviewer_agent"], "requires_evidence": ["review_url"], "distinct_actor_and_owner_for_agents": true},
+    "ACCEPTED": {"actors": ["human"], "requires_evidence": [], "distinct_actor_and_owner_for_agents": false},
+    "DONE": {"actors": ["human"], "requires_evidence": [], "distinct_actor_and_owner_for_agents": false},
+    "RELEASED": {"actors": ["human"], "requires_evidence": [], "distinct_actor_and_owner_for_agents": false}
+  },
+  "evidence_fields": {
+    "claim_record": "text",
+    "branch_name": "branch",
+    "pr_url": "url",
+    "failed_check_or_review_url": "url",
+    "passing_checks_url": "url",
+    "review_rerequested": "true",
+    "reason": "text",
+    "review_url": "url",
+    "validation_url": "url",
+    "review_approval_url": "url",
+    "acceptance_criteria_verified": "true",
+    "acceptance_verified_by": "text",
+    "merged_pr_url": "url",
+    "release_ref": "text",
+    "no_release_required": "true",
+    "sensitive_work": "bool",
+    "human_approval_ref": "text"
+  },
+  "transitions": [
+    {
+      "id": "start_work",
+      "from": ["To Do"],
+      "to": ["In Progress"],
+      "actors": ["owner_agent", "human", "automation"],
+      "approval": "approved in principle (agents may move to In Progress per evidence)",
+      "proposed_assumptions": [
+        "evidence is 'claim record or first branch' (ADR-0017 point 11); field names claim_record/branch_name are this file's choice",
+        "automation may do it only once an adapter exists (KAN-26); until then it is manual"
+      ],
+      "evidence_requirements": [
+        {"description": "claim record or first branch (valid KAN branch name)", "any_of": ["claim_record", "branch_name"]}
+      ]
+    },
+    {
+      "id": "open_for_review",
+      "from": ["In Progress"],
+      "to": ["In Review"],
+      "when_labels_before_exclude": ["exec-rework"],
+      "actors": ["owner_agent", "human", "automation"],
+      "approval": "approved in principle (agents may move to In Review per evidence)",
+      "proposed_assumptions": [
+        "evidence is PR link and valid branch name (ADR-0017 point 11); only https PR URLs accepted by the validator"
+      ],
+      "evidence_requirements": [
+        {"description": "pull request URL", "any_of": ["pr_url"]},
+        {"description": "branch name is valid", "any_of": ["branch_name"]}
+      ]
+    },
+    {
+      "id": "send_to_rework",
+      "from": ["In Review"],
+      "to": ["In Progress"],
+      "actors": ["reviewer_agent", "human", "automation"],
+      "labels_after_include": ["exec-rework"],
+      "comment_requirement": {"marker": "REWORK", "required_parts": ["reason:", "evidence:", "to complete:"]},
+      "approval": "approved: REWORK = In Progress + label exec-rework + explicit comment",
+      "proposed_assumptions": [
+        "comment wording 'REWORK: reason: ...; evidence: ...; to complete: ...' (conventions page; ADR-0017 point 8 lists reason, evidence link and what completes the rework)",
+        "automation only on failed checks; owner_agent is not listed in ADR-0017 point 11 for this transition and is denied"
+      ],
+      "evidence_requirements": [
+        {"description": "failed check or review URL", "any_of": ["failed_check_or_review_url"]}
+      ]
+    },
+    {
+      "id": "complete_rework",
+      "from": ["In Progress"],
+      "to": ["In Review"],
+      "when_labels_before_include": ["exec-rework"],
+      "actors": ["owner_agent", "automation"],
+      "labels_after_exclude": ["exec-rework"],
+      "approval": "approved: exec-rework removed when rework is complete",
+      "proposed_assumptions": [
+        "trigger = corrected PR has passing checks and review is re-requested (ADR-0017 point 8)",
+        "ADR-0017 point 11 writes this row as 'In Review -> In Progress, label removal'; ADR-0017 point 8 and the plan template 4 say the issue returns to In Review. This file follows point 8 (In Progress -> In Review).",
+        "humans are not listed for this row in ADR-0017 point 11; not added here"
+      ],
+      "evidence_requirements": [
+        {"description": "green checks URL", "any_of": ["passing_checks_url"]},
+        {"description": "review re-requested", "any_of": ["review_rerequested"]}
+      ]
+    },
+    {
+      "id": "return_to_todo",
+      "from": ["In Progress", "In Review"],
+      "to": ["To Do"],
+      "actors": ["human"],
+      "approval": "PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL (ADR-0017 point 11: any -> To Do, human, reason)",
+      "proposed_assumptions": ["'any' is enumerated as the non-Done statuses; Done -> To Do is the reopen transition"],
+      "evidence_requirements": [
+        {"description": "reason", "any_of": ["reason"]}
+      ]
+    },
+    {
+      "id": "accept_done",
+      "from": ["In Review"],
+      "to": ["Done"],
+      "actors": ["human"],
+      "approval": "approved: Done only by a human, needing validation, required review, acceptance-criteria evidence and merge/release conditions; human approval for sensitive work",
+      "proposed_assumptions": [
+        "field names and the exact list of evidence fields are this file's choice, derived from the approved decision, plan template 7 and the plan's Definition of Done",
+        "restricted to In Review -> Done (the required review has happened); ADR-0017 point 11 says 'any -> Done' for humans",
+        "release condition = release_ref or an explicit no_release_required=true because no release exists yet (ADR-0017 point 10, RELEASED row)",
+        "sensitive_work must be stated explicitly; when true, human_approval_ref is required"
+      ],
+      "evidence_requirements": [
+        {"description": "validation / CI result URL", "any_of": ["validation_url"]},
+        {"description": "required review approval URL", "any_of": ["review_approval_url"]},
+        {"description": "acceptance criteria verified", "any_of": ["acceptance_criteria_verified"]},
+        {"description": "who verified the acceptance criteria", "any_of": ["acceptance_verified_by"]},
+        {"description": "merged pull request URL", "any_of": ["merged_pr_url"]},
+        {"description": "release condition", "any_of": ["release_ref", "no_release_required"]},
+        {"description": "sensitive work flag stated", "any_of": ["sensitive_work"]},
+        {"description": "human approval for sensitive work", "any_of": ["human_approval_ref"], "only_if_field_true": "sensitive_work"}
+      ]
+    },
+    {
+      "id": "reopen",
+      "from": ["Done"],
+      "to": ["To Do", "In Progress", "In Review"],
+      "actors": ["human"],
+      "approval": "PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL (ADR-0017 point 11: Done -> any, human only, reason)",
+      "proposed_assumptions": [],
+      "evidence_requirements": [
+        {"description": "reason", "any_of": ["reason"]}
+      ]
+    }
+  ],
+  "status_unchanged_events": [
+    {
+      "id": "blocked",
+      "statuses": ["To Do", "In Progress", "In Review"],
+      "actors": ["human", "owner_agent", "reviewer_agent"],
+      "comment_requirement": {"marker": "BLOCKED", "required_parts": []},
+      "approval": "approved in principle: BLOCKED is a comment/label, status unchanged",
+      "proposed_assumptions": [
+        "comment form 'BLOCKED: <reason>' (ADR-0017 point 10); automation is not listed and is denied; no label name is decided"
+      ]
+    }
+  ]
+}
