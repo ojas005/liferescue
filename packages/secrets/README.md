@@ -20,7 +20,7 @@ The agent holds a **handle**, the gateway holds the **value**, and only for the 
 | `clock.py` | Clock protocol; monotonic time enforces expiry, wall time is recorded for audit. |
 | `backend.py`, `memory_backend.py` | `SecretBackend` protocol and the in-memory MOCK backend. |
 | `tasks.py` | Task-liveness protocol and an in-memory mock registry. |
-| `audit.py`, `metrics.py` | Audit event contract and sinks; counters. |
+| `audit.py`, `metrics.py`, `leased_values.py` | Audit event contract and sinks; counters; the in-memory set of currently leased values (input for the redaction PR). |
 | `logging_rules.py`, `telemetry.py` | Logging and telemetry allow-lists. |
 | `broker.py`, `agent_api.py` | `CredentialBroker` (request/use/revoke/sweep) and the request-only agent facade. |
 | `testing.py` | Reusable helpers: random canary generator, `FakeClock` (for KAN-46). |
