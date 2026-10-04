@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "label": "SYNTHETIC - hand-authored by LR 07 QA on 2026-10-04; NOT a real recording or real data",
+    "synthetic": true,
+    "kind": "tavily_search_response",
+    "contains_real_personal_data": false,
+    "schema_status": "model objects validated against platform contract 0.1.0 (IntentResult, PlanProposal, AssessmentResult); tool names follow the LR 04 workflow definitions; Tavily response shape hand-authored",
+    "note": "Hand-authored synthetic Tavily-style search response. Field layout (query, follow_up_questions, answer, images, results[url,title,content,score,raw_content], response_time, request_id) is modelled on the public Tavily Search API from memory and has NOT been checked against a real recording. Replace with captured recordings when available. All URLs use the reserved .example TLD.",
+    "workflow_id": "scam_investigation"
+  },
+  "query": "UPI collect request refund scam enter PIN to receive money",
+  "follow_up_questions": null,
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "url": "https://cybersafety.fixtures.example/upi-collect-scam",
+      "title": "UPI collect-request scams explained (synthetic)",
+      "content": "You never need to enter your UPI PIN to RECEIVE money. A 'collect request' asks you to pay. Fraudsters pose as buyers or refund agents and send collect requests, then pressure you to approve them.",
+      "score": 0.95,
+      "raw_content": null
+    },
+    {
+      "url": "https://cybersafety.fixtures.example/report-cybercrime",
+      "title": "Where to report online financial fraud (synthetic)",
+      "content": "Report online financial fraud promptly through the official national cybercrime reporting portal and inform your bank so the transaction can be flagged. Keep screenshots of the message and transaction reference.",
+      "score": 0.82,
+      "raw_content": null
+    }
+  ],
+  "response_time": 0.42,
+  "request_id": "synthetic-scam_investigation_upi_collect_request"
+}

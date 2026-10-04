@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "label": "SYNTHETIC - hand-authored by LR 07 QA on 2026-10-04; NOT a real recording or real data",
+    "synthetic": true,
+    "kind": "tavily_search_response",
+    "contains_real_personal_data": false,
+    "schema_status": "model objects validated against platform contract 0.1.0 (IntentResult, PlanProposal, AssessmentResult); tool names follow the LR 04 workflow definitions; Tavily response shape hand-authored",
+    "note": "Hand-authored synthetic Tavily-style search response. Field layout (query, follow_up_questions, answer, images, results[url,title,content,score,raw_content], response_time, request_id) is modelled on the public Tavily Search API from memory and has NOT been checked against a real recording. Replace with captured recordings when available. All URLs use the reserved .example TLD.",
+    "workflow_id": "vehicle_breakdown"
+  },
+  "query": "what to do flat tyre expressway safely India",
+  "follow_up_questions": null,
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "url": "https://roadsafety.fixtures.example/flat-tyre-highway",
+      "title": "Flat tyre on a highway: safe steps (synthetic)",
+      "content": "Switch on hazard lights, steer to the shoulder or the nearest safe stopping area, apply the parking brake, and keep all passengers out of the vehicle and behind the barrier. Do not attempt a wheel change on a live carriageway. Call roadside assistance or the emergency number if you cannot reach a safe place.",
+      "score": 0.91,
+      "raw_content": null
+    },
+    {
+      "url": "https://roadsafety.fixtures.example/warning-triangle",
+      "title": "Using a warning triangle (synthetic)",
+      "content": "Place a reflective warning triangle well behind the vehicle only if it is safe to step out. Never stand between the vehicle and traffic.",
+      "score": 0.78,
+      "raw_content": null
+    },
+    {
+      "url": "https://towing.fixtures.example/how-dispatch-works",
+      "title": "How roadside tow dispatch works (synthetic)",
+      "content": "A dispatcher needs your vehicle type, a shareable location, and the problem category. Estimated arrival is confirmed by the dispatcher, not guaranteed.",
+      "score": 0.66,
+      "raw_content": null
+    }
+  ],
+  "response_time": 0.42,
+  "request_id": "synthetic-vehicle_breakdown_flat_tyre_highway"
+}

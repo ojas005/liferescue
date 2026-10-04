@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "label": "SYNTHETIC - hand-authored by LR 07 QA on 2026-10-04; NOT a real recording or real data",
+    "synthetic": true,
+    "kind": "tavily_search_response",
+    "contains_real_personal_data": false,
+    "schema_status": "model objects validated against platform contract 0.1.0 (IntentResult, PlanProposal, AssessmentResult); tool names follow the LR 04 workflow definitions; Tavily response shape hand-authored",
+    "note": "Hand-authored synthetic Tavily-style search response. Field layout (query, follow_up_questions, answer, images, results[url,title,content,score,raw_content], response_time, request_id) is modelled on the public Tavily Search API from memory and has NOT been checked against a real recording. Replace with captured recordings when available. All URLs use the reserved .example TLD.",
+    "workflow_id": "scam_investigation"
+  },
+  "query": "bank KYC update SMS link account blocked scam",
+  "follow_up_questions": null,
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "url": "https://cybersafety.fixtures.example/kyc-sms-phishing",
+      "title": "KYC-expiry SMS phishing (synthetic)",
+      "content": "Banks do not ask you to update KYC by clicking a shortened link in an SMS or by sharing OTP, card number, or PIN. Messages threatening account blocking within hours are a pressure tactic. Verify only through the bank's official app or by visiting a branch.",
+      "score": 0.94,
+      "raw_content": null
+    },
+    {
+      "url": "https://cybersafety.fixtures.example/lookalike-domains",
+      "title": "Lookalike domains (synthetic)",
+      "content": "Phishing sites use domains that resemble a brand with extra words, hyphens, or unusual top-level domains. A short link hides the real destination.",
+      "score": 0.71,
+      "raw_content": null
+    }
+  ],
+  "response_time": 0.42,
+  "request_id": "synthetic-scam_investigation_bank_kyc_sms"
+}

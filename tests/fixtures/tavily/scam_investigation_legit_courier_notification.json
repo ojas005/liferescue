@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "label": "SYNTHETIC - hand-authored by LR 07 QA on 2026-10-04; NOT a real recording or real data",
+    "synthetic": true,
+    "kind": "tavily_search_response",
+    "contains_real_personal_data": false,
+    "schema_status": "model objects validated against platform contract 0.1.0 (IntentResult, PlanProposal, AssessmentResult); tool names follow the LR 04 workflow definitions; Tavily response shape hand-authored",
+    "note": "Hand-authored synthetic Tavily-style search response. Field layout (query, follow_up_questions, answer, images, results[url,title,content,score,raw_content], response_time, request_id) is modelled on the public Tavily Search API from memory and has NOT been checked against a real recording. Replace with captured recordings when available. All URLs use the reserved .example TLD.",
+    "workflow_id": "scam_investigation"
+  },
+  "query": "how to verify courier delivery OTP notification legitimate",
+  "follow_up_questions": null,
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "url": "https://logistics.fixtures.example/delivery-otp",
+      "title": "Delivery OTP: how it works (synthetic)",
+      "content": "Some couriers send a delivery OTP that you read out to the delivery person only when the parcel is physically handed over and you were expecting it. The message does not ask for payment or a link click.",
+      "score": 0.88,
+      "raw_content": null
+    },
+    {
+      "url": "https://cybersafety.fixtures.example/parcel-scam-signs",
+      "title": "Signs of a parcel scam (synthetic)",
+      "content": "Parcel scams ask for a small 'redelivery fee' through a link, or claim customs charges for a parcel you did not order. Check the tracking ID in the courier's official app.",
+      "score": 0.86,
+      "raw_content": null
+    }
+  ],
+  "response_time": 0.42,
+  "request_id": "synthetic-scam_investigation_legit_courier_notification"
+}

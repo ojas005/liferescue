@@ -1,0 +1,13 @@
+# Applies to tests/ only (apps/api has its own [tool.ruff]).
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[lint.isort]
+known-first-party = ["contract", "lr_support", "conf_helpers"]
+
+[lint.per-file-ignores]
+"fixtures/validate_fixtures.py" = ["UP031", "E731", "E701", "E702"]

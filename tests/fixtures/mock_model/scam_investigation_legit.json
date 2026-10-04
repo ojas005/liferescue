@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "label": "SYNTHETIC - hand-authored by LR 07 QA on 2026-10-04; NOT a real recording or real data",
+    "synthetic": true,
+    "kind": "mock_model_outputs",
+    "contains_real_personal_data": false,
+    "schema_status": "model objects validated against platform contract 0.1.0 (IntentResult, PlanProposal, AssessmentResult); tool names follow the LR 04 workflow definitions; Tavily response shape hand-authored",
+    "note": "Read-only plan: approval and mock_write action stages are legitimately skipped (POLICY -> ACTION). E2E must assert their absence. Whether a legit verdict should still require >=1 plan step is Q-C3 (PlanProposal.steps is non-optional in the engine: 1..max_steps).",
+    "workflow_id": "scam_investigation",
+    "golden_case": "SC-006",
+    "conventions": "Targets contract 0.1.0 (bootstrap/analysis/product-sprint/platform-contract): only three structured model outputs exist - IntentResult, PlanProposal, AssessmentResult. Research queries come from WorkflowDefinition.research.queries templates (NOT from the model); policy, approval, action, audit are deterministic non-model stages. CITATION CONVENTION (PROPOSED, contract has no citation field - see README Q-C1): a claim in PlanStepProposal.rationale / PlanProposal.summary cites evidence by suffix markers '[ev:<Evidence.key>]', where key is an EvidenceRequirement.key (e.g. 'description', 'suspicious_content') or 'research:<n>' (n = 1-based index of the research query template, one Evidence per query). SCAM VERDICT (PROPOSED, contract has no verdict schema - README Q-C2): carried in IntentResult.entities {verdict, risk_band, signals[]}; workflow should define intent.entities_schema. Tool names follow the contract fixture (web_search read; dispatch_tow, send_message mock_write) for vehicle_breakdown and LR 04 WIP registries for the other two (report_scam; send_email, create_calendar_event) - those two definitions are not in the contract yet. action_type values for scam/life_admin are ASSUMED ('report', 'schedule') because no definition exists.",
+    "contract_version": "0.1.0"
+  },
+  "outputs": {
+    "IntentResult": {
+      "summary": "Courier delivery notification with a handover OTP, no payment request, no link",
+      "category": "scam_assessment",
+      "urgency": "low",
+      "entities": {
+        "verdict": "legitimate",
+        "risk_band": "low",
+        "signals": [],
+        "channel": "sms"
+      },
+      "missing_fields": [
+        "did_user_order_a_parcel"
+      ]
+    },
+    "PlanProposal": {
+      "summary": "Likely legitimate if you are expecting a parcel: delivery OTPs are shared only at physical handover with no payment or link [ev:research:1]. Verify the tracking ID in the courier's official app [ev:suspicious_content].",
+      "steps": [
+        {
+          "action_type": "lookup",
+          "tool_name": "web_search",
+          "params": {
+            "query": "verify courier tracking ID",
+            "max_results": 1
+          },
+          "rationale": "Optional read-only check [ev:suspicious_content]."
+        }
+      ]
+    },
+    "AssessmentResult": {
+      "satisfied": true,
+      "explanation": "No mock_write action was proposed or executed [ev:suspicious_content]."
+    }
+  }
+}

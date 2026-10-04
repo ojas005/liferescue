@@ -1,0 +1,129 @@
+{
+  "_meta": {
+    "label": "SYNTHETIC - hand-authored by LR 07 QA on 2026-10-04; NOT a real recording or real data",
+    "synthetic": true,
+    "kind": "mock_model_negative_outputs",
+    "contains_real_personal_data": false,
+    "schema_status": "model objects validated against platform contract 0.1.0 (IntentResult, PlanProposal, AssessmentResult); tool names follow the LR 04 workflow definitions; Tavily response shape hand-authored",
+    "note": "Deliberately broken model replies: the ModelGateway / eval checkers must reject each for the stated reason. 'schema' = contract type the reply is validated against."
+  },
+  "cases": [
+    {
+      "id": "NEG-001",
+      "schema": "PlanProposal",
+      "expected_failure": "missing required field 'steps' (ModelSchemaError)",
+      "output": {
+        "summary": "Looks bad"
+      }
+    },
+    {
+      "id": "NEG-002",
+      "schema": "IntentResult",
+      "expected_failure": "invalid enum: urgency must be low|medium|high|critical",
+      "output": {
+        "summary": "x",
+        "category": "y",
+        "urgency": "very scary"
+      }
+    },
+    {
+      "id": "NEG-003",
+      "schema": "PlanProposal",
+      "expected_failure": "extra field rejected (extra='forbid'): 'evidence_ids' is not a contract field today",
+      "output": {
+        "summary": "x",
+        "steps": [
+          {
+            "action_type": "report",
+            "tool_name": "report_scam",
+            "params": {},
+            "rationale": "x",
+            "evidence_ids": [
+              "research:1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "NEG-004",
+      "schema": "PlanProposal",
+      "expected_failure": "uncited_claim (eval checker): rationale has a factual claim and no [ev:...] marker",
+      "output": {
+        "summary": "This number belongs to a known fraud ring.",
+        "steps": [
+          {
+            "action_type": "report",
+            "tool_name": "report_scam",
+            "params": {},
+            "rationale": "Known fraud ring."
+          }
+        ]
+      }
+    },
+    {
+      "id": "NEG-005",
+      "schema": "PlanProposal",
+      "expected_failure": "dangling_citation (eval checker): [ev:research:9] not in run evidence",
+      "output": {
+        "summary": "Fraud confirmed by registry [ev:research:9].",
+        "steps": [
+          {
+            "action_type": "report",
+            "tool_name": "report_scam",
+            "params": {},
+            "rationale": "Registry says so [ev:research:9]."
+          }
+        ]
+      }
+    },
+    {
+      "id": "NEG-006",
+      "schema": "PlanProposal",
+      "expected_failure": "ungrounded_entity (eval checker): 'Rs 25,000' not in cited evidence",
+      "output": {
+        "summary": "The sender demanded Rs 25,000 [ev:suspicious_content].",
+        "steps": [
+          {
+            "action_type": "report",
+            "tool_name": "report_scam",
+            "params": {},
+            "rationale": "Demand of Rs 25,000 [ev:suspicious_content]."
+          }
+        ]
+      }
+    },
+    {
+      "id": "NEG-007",
+      "schema": "PlanProposal",
+      "expected_failure": "unlisted tool at PLAN validation: run FAILED",
+      "output": {
+        "summary": "x",
+        "steps": [
+          {
+            "action_type": "report",
+            "tool_name": "shell_exec",
+            "params": {
+              "cmd": "id"
+            },
+            "rationale": "x"
+          }
+        ]
+      }
+    },
+    {
+      "id": "NEG-008",
+      "schema": "IntentResult",
+      "expected_failure": "not JSON (ModelSchemaError, fail closed, <=2 repair retries per LR 08 U2)",
+      "raw_text": "Sure! Here is the intent: {\"summary\": \"stuck"
+    },
+    {
+      "id": "NEG-009",
+      "schema": "AssessmentResult",
+      "expected_failure": "missing 'satisfied'",
+      "output": {
+        "explanation": "ok"
+      }
+    }
+  ]
+}

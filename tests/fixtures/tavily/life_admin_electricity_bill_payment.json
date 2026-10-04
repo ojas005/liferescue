@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "label": "SYNTHETIC - hand-authored by LR 07 QA on 2026-10-04; NOT a real recording or real data",
+    "synthetic": true,
+    "kind": "tavily_search_response",
+    "contains_real_personal_data": false,
+    "schema_status": "model objects validated against platform contract 0.1.0 (IntentResult, PlanProposal, AssessmentResult); tool names follow the LR 04 workflow definitions; Tavily response shape hand-authored",
+    "note": "Hand-authored synthetic Tavily-style search response. Field layout (query, follow_up_questions, answer, images, results[url,title,content,score,raw_content], response_time, request_id) is modelled on the public Tavily Search API from memory and has NOT been checked against a real recording. Replace with captured recordings when available. All URLs use the reserved .example TLD.",
+    "workflow_id": "life_admin"
+  },
+  "query": "electricity bill due date late fee autopay how it works",
+  "follow_up_questions": null,
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "url": "https://utilities.fixtures.example/late-fee",
+      "title": "Late payment charges on electricity bills (synthetic)",
+      "content": "Paying after the due date may add a late-payment surcharge defined by the distribution company. Autopay mandates are set up in the provider's official app or your bank.",
+      "score": 0.87,
+      "raw_content": null
+    },
+    {
+      "url": "https://utilities.fixtures.example/payment-channels",
+      "title": "Official payment channels (synthetic)",
+      "content": "Pay only through the provider's official site/app or authorised payment partners. Messages asking you to pay an 'outstanding bill' to a personal UPI ID are fraudulent.",
+      "score": 0.89,
+      "raw_content": null
+    }
+  ],
+  "response_time": 0.42,
+  "request_id": "synthetic-life_admin_electricity_bill_payment"
+}
