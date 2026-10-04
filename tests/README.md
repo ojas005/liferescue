@@ -4,4 +4,4 @@
 
 **Source:** doc 19 Step 2 (directory skeleton); doc 19 Steps 9 and 14.
 
-**Status:** empty. Unit tests normally live next to the code they test (TBD, decided with the Repository Bootstrap task).
+**Status:** contains [`security/`](security/README.md) (KAN-45 secret-management slice tests). Unit tests normally live next to the code they test (TBD, decided with the Repository Bootstrap task).
