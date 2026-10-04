@@ -14,6 +14,8 @@ Thumbs.db
 *.p12
 *.pfx
 secrets/
+# KAN-45: the source package packages/secrets/ holds code only (never values); re-include it despite the generic secrets/ rule
+!packages/secrets/
 *.secret
 credentials*.json
 

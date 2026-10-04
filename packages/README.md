@@ -4,4 +4,4 @@
 
 **Source:** directory skeleton from doc 19 Step 2. The baseline does not define the contents of this directory; the purpose above is an interpretation and the layout is **TBD**.
 
-**Status:** empty.
+**Status:** contains [`secrets/`](secrets/README.md), the mock-only KAN-45 secret-management slice. Other packages: none yet.
