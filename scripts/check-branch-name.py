@@ -14,6 +14,11 @@ cannot be made to read or print any other environment variable. The name is trea
 data: it is only compared with a fixed pattern. It is never evaluated, never passed to a shell and
 never used to run a command, and it is printed back only in escaped, length-bounded form.
 
+Matching uses re.fullmatch on the exact string with no normalization. fullmatch is used because a
+"$" anchor alone would accept a trailing newline in some engines (Perl/PCRE, Python re.match and
+re.search, line-based grep); the fullmatch call rejects a name followed by a newline. The pattern keeps its "^" and "$"
+anchors so it stays equal to the reference regular expression in CONTRIBUTING.md.
+
 Uses the Python standard library only; no network access, no subprocess calls.
 Exit code 0 if the name is valid, 1 if it is invalid (an empty value is invalid), 2 if BRANCH_NAME
 is not set or any argument was given. A CI step must treat ANY non-zero exit code as failure.
@@ -38,8 +43,10 @@ def validate(name):
         return "branch name is empty"
     if len(name) > MAX_LENGTH:
         return f"branch name is {len(name)} characters; the maximum is {MAX_LENGTH}"
-    # fullmatch: the whole string must match, so a trailing newline is rejected
-    # (re's "$" alone would accept "name\n").
+    # fullmatch (not match/search): the WHOLE string must match. A "$" anchor alone would
+    # accept a trailing newline in some engines (Perl/PCRE, Python re.match/re.search,
+    # line-based grep), so "feature/KAN-20-x\n" would pass. No Unicode normalization (NFKC
+    # etc.) is applied either: full-width digits/letters and look-alikes are rejected as given.
     if BRANCH.fullmatch(name) is None:
         return "branch name does not match the required pattern"
     return None

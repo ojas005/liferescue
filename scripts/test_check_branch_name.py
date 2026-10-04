@@ -647,6 +647,24 @@ class StaticProperties(unittest.TestCase):
         self.assertEqual(cbn.MAX_LENGTH, 100)
         self.assertEqual(cbn.PREFIXES, ("feature", "bugfix", "security", "chore", "docs"))
 
+    def test_fullmatch_rationale_is_documented_and_used(self):
+        # P4-3: the code uses fullmatch and the docs say why (trailing newline with "$").
+        with open(SCRIPT, encoding="utf-8") as fh:
+            source = fh.read()
+        self.assertIn("BRANCH.fullmatch(name)", source)
+        self.assertNotIn("BRANCH.match(", source)
+        self.assertNotIn("BRANCH.search(", source)
+        self.assertIn("trailing newline", source)
+        readme = os.path.join(os.path.dirname(SCRIPT), "README.md")
+        with open(readme, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("re.fullmatch", text)
+        self.assertIn("trailing newline", text)
+        self.assertIn("no Unicode normalization", text)
+        # and the behaviour the rationale describes
+        self.assertIsNotNone(cbn.validate("feature/KAN-20-x\n"))
+        self.assertIsNotNone(cbn.validate("feature/KAN-20-x\r"))
+
     def test_script_has_no_shell_network_or_eval_use(self):
         with open(SCRIPT, encoding="utf-8") as fh:
             source = fh.read()
