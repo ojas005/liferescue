@@ -15,3 +15,4 @@
 - `test_check_transition.py` - unit tests for both: `python3 -m unittest -v scripts/test_check_transition.py`.
 - `check_pr_link.py` - checks that a pull request is linked to the Jira issue named by its branch (KAN-20): the branch key must be referenced in the title or body, the body must carry the key or an exact `liferescue.atlassian.net` https URL, look-alike hosts and KAN-1..KAN-3 / SAM1 are refused. Input from `PR_TITLE`, `PR_BODY`, `PR_BRANCH` (or `PR_JSON_FILE`); no arguments; exit 0 / 1 / 2. Contract: [`docs/pr-jira-link-check.md`](../docs/pr-jira-link-check.md). Not wired into CI yet.
 - `test_check_pr_link.py` - its unit tests: `python3 -m unittest -v scripts/test_check_pr_link.py`.
+- `dev/` - local development helpers behind the root `Makefile` (`make dev`, `make doctor`, `make env`): `dev.sh`, `doctor.sh`, `init-env.sh`, `common.sh`. See [`docs/dev/local-development.md`](../docs/dev/local-development.md). Checked with `shellcheck -x`.
