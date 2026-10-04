@@ -281,6 +281,7 @@ def register_mock_write(
     description: str,
     *,
     schema: type[BaseModel] | None = None,
+    input_schema: dict[str, Any] | None = None,
     prefix: str = "MOCK",
 ) -> list[dict[str, Any]]:
     """Register a simulated MOCK_WRITE tool. Returns the list that records every execution."""
@@ -300,7 +301,7 @@ def register_mock_write(
             name=name,
             description=description,
             side_effect=SideEffect.MOCK_WRITE,
-            input_schema=strict_schema(schema) if schema else {},
+            input_schema=strict_schema(schema) if schema else dict(input_schema or {}),
         ),
         handler,
     )

@@ -16,25 +16,58 @@ scripts/smoke_nebius.py         one-command live smoke (prints "key not provided
 scripts/run_workflow_demo.py    end-to-end demo on the Mock provider (labelled MOCK)
 ```
 
-## Wiring (composition root, e.g. `app/main.py`, owned by LR 04)
+## Wiring (composition root, `app/main.py`, owned by LR 04)
+
+`app/runtime/wiring.py` is the drop-in for LR 04's `_runtime_engine(ports)`:
 
 ```python
-provider = provider_from_env(workflow=None)            # AI_PROVIDER=mock|nebius (default nebius)
-research = TavilyProvider()                            # key from TAVILY_API_KEY only
-gateway  = RuntimeToolGateway(policy, approvals, audit)
-register_web_search(gateway, research); register_fetch_url(gateway)
-register_mock_write(gateway, "my_tool", "…", schema=MyParams)   # real_write is rejected at register()
-engine = WorkflowEngine(registry=…, store=…, provider=provider, tools=gateway, policy=policy,
-                        approvals=approvals, audit=audit, verifier=RuntimeVerifier(provider),
-                        memory=…, event_sink=…, limits=RunLimits())
+from app.runtime.wiring import Ports, build_engine   # build_engine(ports: Ports | Any) -> RunEngine
+
+engine = build_engine(ports)    # LR 04's own app.ports.Ports works unchanged (duck-typed: store, audit,
+                                # approvals, policy, registry, clock, settings.model_adapter/liferescue_env)
+```
+
+Explicit form (`Ports` is a frozen dataclass; only the first five are required):
+
+```python
+Ports(registry, run_store, audit_log, approval_service, policy_engine,
+      model_gateway=None,      # None -> provider_from_env(env): AI_PROVIDER mock|nebius, guard-checked
+      research_provider=None,  # None -> TavilyProvider() (TAVILY_API_KEY; missing key = research errors, run continues)
+      memory_store=None,       # None -> InMemoryMemory()
+      tools=None,              # pre-built RuntimeToolGateway; None -> web_search + fetch_url + discovered mock tools
+      mock_tools=None,         # None -> discover_mock_tools() = app/workflows/<id>/tools.py::MOCK_TOOLS (contract ToolSpec data)
+      event_sink=None, clock=utcnow, limits=None, env=None,
+      auto_advance=True)       # False: start() only creates the run; schedule advance() yourself
 ```
 
 `WorkflowEngine.__init__` calls `validate_workflow_against_tools` for every registered workflow
-(fail-fast at startup). LR 04 supplies `RunStore`, `AuditLog`, `ApprovalService`, `PolicyEngine`
-(contract ports); the runtime uses them only through the contract Protocols. Everything is `async`
-(FastAPI-friendly). `RunRecord.state` changes **only** via `contract.run_state_machine.apply_transition`.
-Approval pause = run in `APPROVAL` state with a pending approval + `approval` event
-(`payload.pending=True`); resume with `engine.decide_approval(run_id, approval_id, approved, decided_by)`.
+(fail-fast at startup). The runtime uses LR 04's ports only through the contract Protocols.
+Everything is `async`. `RunRecord.state` changes **only** via `contract.run_state_machine.apply_transition`.
+
+### Sync vs background execution (recommended: background)
+
+* **Sync (default, `auto_advance=True`)**: `POST /api/runs` -> `engine.start()` runs every stage inline
+  until the run is terminal or blocked on approval. Fine for the mock provider and demos; with a real
+  model + Tavily this can take 10-60 s, i.e. an HTTP request that long.
+* **Background (recommended with a real model)**: build with `auto_advance=False`. `POST /api/runs`
+  calls `engine.start()` which only validates and persists the run (state `intent`) and returns
+  immediately; then schedule `engine.advance(run.run_id)`:
+
+```python
+run = await c.engine.start(body.workflow_id, body.input, body.workflow_version)
+background_tasks.add_task(c.engine.advance, run.run_id)      # FastAPI BackgroundTasks (or a worker queue)
+return run_response(run)                                    # the UI polls GET /timeline
+```
+
+  After an approval decision call `advance` again the same way: `decide_approval` records the decision
+  and continues the run; if you prefer a fast 200, the same `BackgroundTasks` pattern applies.
+* `advance(run_id)` is **resumable and idempotent**: on a terminal or approval-blocked run it is a no-op
+  that returns the current record (no duplicate events); calls for the same run are serialised
+  in-process (asyncio lock) and a lost optimistic-lock race returns the current record. For several
+  worker processes, make `RunStore.save_run(expected_version=...)` the arbiter (LR 04's store already
+  raises `ConcurrentModification`); the runtime refuses to re-execute an action whose approval was
+  consumed without a recorded result (needs human review).
+* Wall-time (60 s) and token caps apply per `advance` segment; the other caps are cumulative.
 
 Key via credential broker: `NebiusProvider(key_provider=lambda: broker.get("NEBIUS_API_KEY"))`
 (default: env `NEBIUS_API_KEY`). Keys are never logged, stored or put in events (registered with the redactor).

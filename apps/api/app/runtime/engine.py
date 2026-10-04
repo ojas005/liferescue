@@ -138,7 +138,10 @@ class WorkflowEngine:
         event_sink: EventSink | None = None,
         limits: RunLimits | None = None,
         clock: Callable[[], datetime] = utcnow,
+        auto_advance: bool = True,
     ) -> None:
+        self.auto_advance = auto_advance
+        self._locks: dict[str, asyncio.Lock] = {}
         self.registry, self.store, self.provider, self.tools = registry, store, provider, tools
         self.policy, self.approvals, self.audit, self.verifier = policy, approvals, audit, verifier
         self.memory, self.sink = memory, event_sink
@@ -153,6 +156,16 @@ class WorkflowEngine:
     async def start(
         self, workflow_id: str, input: dict[str, Any], workflow_version: str | None = None
     ) -> RunRecord:
+        """Create the run and (when `auto_advance`, the default) advance it until it is terminal or
+        blocked on approval. With `auto_advance=False` it only creates the run (state INTENT) and
+        the caller schedules `advance(run_id)` in a background task/worker."""
+        run = await self.create(workflow_id, input, workflow_version)
+        return await self.advance(run.run_id) if self.auto_advance else run
+
+    async def create(
+        self, workflow_id: str, input: dict[str, Any], workflow_version: str | None = None
+    ) -> RunRecord:
+        """Validate input and persist a new run at INTENT without advancing it."""
         wf = self.registry.get(workflow_id, workflow_version)
         if wf is None:
             raise ce.WorkflowNotFound(workflow_id)
@@ -185,9 +198,21 @@ class WorkflowEngine:
             EventType.STATE_CHANGE,
             {"to": "intent", "note": "run created", "provider": self._provider_info()},
         )
-        return await self.advance(run.run_id)
+        return run
 
     async def advance(self, run_id: str) -> RunRecord:
+        """Advance until terminal or blocked on approval. Resumable and idempotent: calling it on a
+        terminal/blocked run is a no-op that returns the current record; concurrent calls for the
+        same run are serialised in-process, and a lost optimistic-lock race (another worker is
+        advancing) returns the current record instead of failing."""
+        lock = self._locks.setdefault(run_id, asyncio.Lock())
+        async with lock:
+            try:
+                return await self._advance_locked(run_id)
+            except ce.ConcurrentModification:
+                return await self._get(run_id)
+
+    async def _advance_locked(self, run_id: str) -> RunRecord:
         run = await self._get(run_id)
         wf = self._wf(run)
         meter = await self._meter(run)
@@ -841,17 +866,20 @@ class WorkflowEngine:
             )
         if any(a.status == ApprovalStatus.PENDING for a in aps):
             if run.state == S.APPROVAL:
-                await self._emit(
-                    run,
-                    S.APPROVAL,
-                    EventType.APPROVAL,
-                    {
-                        "status": "awaiting_human_decision",
-                        "pending": [
-                            a.approval_id for a in aps if a.status == ApprovalStatus.PENDING
-                        ],
-                    },
+                pend = [a.approval_id for a in aps if a.status == ApprovalStatus.PENDING]
+                seen = any(
+                    e.type == EventType.APPROVAL
+                    and e.payload.get("status") == "awaiting_human_decision"
+                    and e.payload.get("pending") == pend
+                    for e in await self.store.list_events(run.run_id, limit=1000)
                 )
+                if not seen:  # advance()/GET polling must not flood the timeline
+                    await self._emit(
+                        run,
+                        S.APPROVAL,
+                        EventType.APPROVAL,
+                        {"status": "awaiting_human_decision", "pending": pend},
+                    )
             return None
         gated = [
             action_for_step(run.run_id, wf, s, run.owner)

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal, TypeVar
 
@@ -33,43 +34,78 @@ from .base import (
 T = TypeVar("T", bound=BaseModel)
 
 
+def build_from_schema(node: dict[str, Any], defs: dict[str, Any] | None = None) -> Any:
+    """Minimal deterministic value satisfying a JSON Schema (required fields only)."""
+    defs = defs or {}
+    if "$ref" in node:
+        return build_from_schema(defs[node["$ref"].split("/")[-1]], defs)
+    if "default" in node:
+        return node["default"]
+    if "enum" in node:
+        return node["enum"][0]
+    if "const" in node:
+        return node["const"]
+    for key in ("anyOf", "oneOf"):
+        if key in node:
+            options = [o for o in node[key] if o.get("type") != "null"]
+            return build_from_schema(options[0], defs) if options else None
+    t = node.get("type")
+    if t == "object" or "properties" in node:
+        required = set(node.get("required", []))
+        return {
+            k: build_from_schema(v, defs)
+            for k, v in node.get("properties", {}).items()
+            if k in required
+        }
+    if t == "array":
+        return [
+            build_from_schema(node.get("items", {}), defs) for _ in range(node.get("minItems", 0))
+        ]
+    if t == "string":
+        return "mock" * max(1, (node.get("minLength", 0) + 3) // 4)
+    if t == "integer":
+        return int(node.get("minimum", 0))
+    if t == "number":
+        return float(node.get("minimum", 0))
+    if t == "boolean":
+        return False
+    return None
+
+
 def default_instance(schema: type[T]) -> T:
     """Minimal schema-valid instance of any pydantic model (deterministic)."""
-
-    def build(node: dict[str, Any], defs: dict[str, Any]) -> Any:
-        if "$ref" in node:
-            return build(defs[node["$ref"].split("/")[-1]], defs)
-        if "default" in node:
-            return node["default"]
-        if "enum" in node:
-            return node["enum"][0]
-        if "const" in node:
-            return node["const"]
-        for key in ("anyOf", "oneOf"):
-            if key in node:
-                options = [o for o in node[key] if o.get("type") != "null"]
-                return build(options[0], defs) if options else None
-        t = node.get("type")
-        if t == "object" or "properties" in node:
-            required = set(node.get("required", []))
-            return {
-                k: build(v, defs) for k, v in node.get("properties", {}).items() if k in required
-            }
-        if t == "array":
-            n = node.get("minItems", 0)
-            return [build(node.get("items", {}), defs) for _ in range(n)]
-        if t == "string":
-            return "mock" * max(1, (node.get("minLength", 0) + 3) // 4)
-        if t == "integer":
-            return int(node.get("minimum", 0))
-        if t == "number":
-            return float(node.get("minimum", 0))
-        if t == "boolean":
-            return False
-        return None
-
     js = schema.model_json_schema()
-    return schema.model_validate(build(js, js.get("$defs", {})))
+    return schema.model_validate(build_from_schema(js, js.get("$defs", {})))
+
+
+_TOOL_LINE = re.compile(r"^- (\S+) \(mock_write\) params schema: (\{.*\})$", re.MULTILINE)
+_ACTIONS_LINE = re.compile(r"^Allowed action types: (.*)$", re.MULTILINE)
+_MAX_STEPS_LINE = re.compile(r"^At most (\d+) steps", re.MULTILINE)
+
+
+def plan_from_prompt(messages: Sequence[Message]) -> PlanProposal:
+    """Workflow-agnostic mock plan: one step per MOCK_WRITE tool listed in the planning prompt,
+    params built from the tool's JSON schema. Reads only what the engine put in the prompt."""
+    text = "\n".join(m.content for m in messages if m.role == "system")
+    actions_m = _ACTIONS_LINE.search(text)
+    actions = [a.strip() for a in actions_m.group(1).split(",")] if actions_m else ["act"]
+    max_m = _MAX_STEPS_LINE.search(text)
+    limit = int(max_m.group(1)) if max_m else 3
+    steps = []
+    for i, m in enumerate(_TOOL_LINE.finditer(text)):
+        try:
+            params = build_from_schema(json.loads(m.group(2))) or {}
+        except (ValueError, KeyError):
+            params = {}
+        steps.append(
+            PlanStepProposal(
+                action_type=actions[min(i, len(actions) - 1)],
+                tool_name=m.group(1),
+                params=params,
+                rationale="mock rationale (scripted, not real AI)",
+            )
+        )
+    return PlanProposal(steps=steps[:limit], summary="mock plan")
 
 
 class MockAIProvider(ProviderBase):
@@ -104,32 +140,16 @@ class MockAIProvider(ProviderBase):
                 urgency=RiskLevel.MEDIUM,
                 entities={"location": "Pune", "vehicle": "Hyundai i20"},
             ),
-            PlanProposal: self._default_plan(workflow),
+            PlanProposal: self._default_plan(workflow)
+            if workflow is not None
+            else plan_from_prompt,
             AssessmentResult: AssessmentResult(satisfied=True, explanation="mock assessment"),
         }
         self._responders.update(responders or {})
         self.calls: list[dict[str, Any]] = []
 
     @staticmethod
-    def _default_plan(workflow: WorkflowDefinition | None) -> PlanProposal:
-        if workflow is None:
-            return PlanProposal(
-                steps=[
-                    PlanStepProposal(
-                        action_type="request_tow",
-                        tool_name="dispatch_tow",
-                        params={"location": "Pune"},
-                        rationale="Vehicle cannot be driven.",
-                    ),
-                    PlanStepProposal(
-                        action_type="notify_contact",
-                        tool_name="send_message",
-                        params={"to": "emergency-contact", "text": "Tow requested."},
-                        rationale="Let a contact know.",
-                    ),
-                ],
-                summary="mock plan",
-            )
+    def _default_plan(workflow: WorkflowDefinition) -> PlanProposal:
         actions = workflow.planning.allowed_action_types
         steps = [
             PlanStepProposal(
