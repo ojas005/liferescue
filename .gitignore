@@ -64,7 +64,7 @@ terraform.rc
 *.log
 tmp/
 
-# Local development stack (KAN-15): per-developer compose overrides and local data
+# Local development stack (KAN-19): per-developer compose overrides and local data
 docker-compose.override.yml
 infrastructure/docker-compose.override.yml
 .data/

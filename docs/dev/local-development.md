@@ -1,6 +1,6 @@
 # Local development stack
 
-Status: **local development only** (KAN-15, owner LR 10). Nothing here deploys anything. Hosting is undecided and
+Status: **local development only** (KAN-19, owner LR 10). Nothing here deploys anything. Hosting is undecided and
 needs Ojas Sharma's approval; no public deployment, paid resource or account is part of this change.
 
 ## What `make dev` runs
@@ -55,7 +55,7 @@ bash and make (Windows: WSL2). `make install` installs app dependencies once the
 * `DATABASE_URL` is derived from the `POSTGRES_*` values when unset. Set it yourself to choose a driver prefix
   (for example `postgresql+psycopg://...`).
 * `NEBIUS_API_KEY` / `TAVILY_API_KEY` are empty in the template. Real keys belong to the credential broker
-  (`packages/credential_broker`, KAN-45); until it is wired, put a key only in your local `.env`. The default
+  (`packages/secrets`, KAN-45); until it is wired, put a key only in your local `.env`. The default
   `MODEL_PROVIDER=mock` needs no key and no network.
 * Test database: the first start of an empty volume also creates `POSTGRES_TEST_DB` (default `liferescue_test`) so
   automated tests never touch development data.

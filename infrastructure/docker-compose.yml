@@ -1,4 +1,4 @@
-# LifeRescue LOCAL development stack (KAN-15 / LR 10).
+# LifeRescue LOCAL development stack (KAN-19 / LR 10).
 #
 # Scope: local development only. Not a deployment definition: nothing here is for staging or production, and
 # no public deployment is approved. See docs/dev/local-development.md.

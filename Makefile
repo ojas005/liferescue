@@ -1,4 +1,4 @@
-# LifeRescue developer tasks (KAN-15 / LR 10). Run `make help`.
+# LifeRescue developer tasks (KAN-19 / LR 10). Run `make help`.
 # Local development only: nothing here deploys anything. Windows users: use WSL2 or Git Bash.
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
