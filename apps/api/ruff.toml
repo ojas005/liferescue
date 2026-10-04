@@ -1,0 +1,17 @@
+# Ruff config for apps/api (KAN-39). CI runs `ruff format --check .` and `ruff check .` from the repo root.
+target-version = "py311"
+line-length = 100
+# verbatim copy of LR 08's corpus self-check; keep byte-identical
+extend-exclude = ["tests/runtime/corpus/corpus_selfcheck.py"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+ignore = [
+    "S101",  # asserts are used in tests
+    "E501",  # long lines are docstrings/comments/strings; `ruff format` handles code
+    "RUF005",
+]
+
+[lint.per-file-ignores]
+"tests/**" = ["S104", "S105", "S106", "S108", "S311", "RUF012", "RUF015", "UP042"]
+"scripts/**" = ["S101"]
