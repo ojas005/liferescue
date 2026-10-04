@@ -82,9 +82,11 @@ def allowed_fields(event_type: str) -> frozenset:
     return frozenset(EVENT_ALLOW_LIST.get(event_type, ()))
 
 
-def sanitize_fields(event_type: str, fields: Mapping) -> dict:
+def sanitize_fields(event_type: str, fields: Mapping, *, leak_check=None) -> dict:
     """Keep only allow-listed fields; replace values with a wrong shape by ``invalid``.
 
+    ``leak_check`` (optional callable ``str -> bool``, e.g. ``redactor.contains_secret``) additionally
+    replaces any allowed field that holds a currently leased value by ``redacted``.
     An unknown event type has an empty allow-list, so everything is dropped (fail closed).
     """
     allowed = allowed_fields(event_type)
@@ -94,7 +96,12 @@ def sanitize_fields(event_type: str, fields: Mapping) -> dict:
     for key, value in fields.items():
         if not isinstance(key, str) or key not in allowed:
             continue  # dropped by default; the key name is not logged
-        out[key] = value if FIELD_SHAPES[key](value) else "invalid"
+        if not FIELD_SHAPES[key](value):
+            out[key] = "invalid"
+        elif leak_check is not None and isinstance(value, str) and leak_check(value):
+            out[key] = "redacted"
+        else:
+            out[key] = value
     return out
 
 

@@ -27,10 +27,12 @@ from .backend import SecretBackend
 from .clock import Clock, SystemClock
 from .codes import DenialReason, RequestReason, RevokeReason
 from .config import BrokerConfig
-from .errors import ConfigurationError, Denied, InvalidRequest, PolicyError, UnknownRef
+from .errors import ConfigurationError, Denied, InvalidRequest, PolicyError, SecretLeak, UnknownRef
+from .guards import RedactingAuditSink, SINKS
 from .leased_values import LeasedValues
 from .metrics import Metrics
 from .policy import Policy, load_policy
+from .redaction import Redactor
 from .secret_types import (
     CallContext,
     CredentialRequest,
@@ -136,10 +138,15 @@ class CredentialBroker:
         self._tasks = task_registry
         self._config = config
         self._clock = clock if clock is not None else SystemClock()
-        self.audit_sink: AuditSink = audit_sink if audit_sink is not None else InMemoryAuditSink()
         self._alert_handler = alert_handler
         self.leased_values = leased_values if leased_values is not None else LeasedValues()
         self.metrics = metrics if metrics is not None else Metrics()
+        #: known-value + pattern redactor over the currently leased values (spec section 6)
+        self.redactor = Redactor(self.leased_values, metrics=self.metrics)
+        # every audit write goes through the redactor too (spec 6.2: audit writer)
+        self.audit_sink: AuditSink = RedactingAuditSink(
+            audit_sink if audit_sink is not None else InMemoryAuditSink(), self.redactor
+        )
 
         self._lock = threading.RLock()
         self._leases: dict = {}
@@ -153,6 +160,35 @@ class CredentialBroker:
         for gid in gateway_ids:
             self._gateway_tokens[check_id("gateway_id", gid)] = _stdlib_secrets.token_urlsafe(16)
         self._identities_issued = False
+
+    # ------------------------------------------------------------- redaction (spec 4.2, section 6) --
+    def redact(self, text: str) -> str:
+        """Remove currently leased values (and encodings) and key-shaped strings from ``text``."""
+        return self.redactor.redact_text(text, sink="unknown")
+
+    def assert_safe_to_emit(self, text: str, *, sink: str) -> None:
+        """Raise ``SecretLeak`` if ``text`` holds a leased value or a key-shaped string. Audited, counted."""
+        self.assert_safe_to_emit_obj(text, sink=sink)
+
+    def assert_safe_to_emit_obj(self, obj, *, sink: str) -> None:
+        """Like ``assert_safe_to_emit`` for structures (keys, values, denied key names)."""
+        sink_name = sink if sink in SINKS else "unknown"
+        kinds = self.redactor.find_leaks_in(obj)
+        if not kinds:
+            return
+        for kind in kinds:
+            self.metrics.inc("redactions_blocked", f"{kind}:{sink_name}")
+        with self._lock:
+            self._emit_best_effort(
+                make_event(
+                    AuditEventType.REDACTION_BLOCKED,
+                    wall=self._safe_wall(),
+                    outcome="blocked",
+                    reason_code=sink_name,
+                    alert=True,
+                )
+            )
+        raise SecretLeak(sink_name, kinds)
 
     # ------------------------------------------------------------------ public API: wiring --
     def issue_gateway_identities(self) -> dict:

@@ -6,7 +6,7 @@ guard with an exact text replacement, run the named test modules there, and requ
 A mutation that survives (tests still pass) means a guard is not really tested; the script exits 1.
 The working tree is never modified. Standard library only.
 
-Usage (from the repository root):   python3 tests/security/mutation_check.py [-v]
+Usage (from the repository root):   python3 tests/security/mutation_check.py [-v] [--gitleaks-config PATH]
 """
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ class Mutation:
     new: str
     tests: tuple  # test module file names under tests/security
     why: str
+    needs_gitleaks: bool = False  # only killable when a real .gitleaks.toml is supplied (--gitleaks-config)
 
 
 MUTATIONS = [
@@ -82,7 +83,7 @@ MUTATIONS = [
              "    return \"invalid\"", "    return value",
              ("test_audit_logging.py",), "audit fields are shape-checked (I-6)"),
     Mutation("M17-log-field-shape-check-removed", "packages/secrets/logging_rules.py",
-             "out[key] = value if FIELD_SHAPES[key](value) else \"invalid\"", "out[key] = value",
+             "if not FIELD_SHAPES[key](value):", "if False:",
              ("test_audit_logging.py",), "logging allow-list shapes (T-18)"),
     Mutation("M18-free-form-log-records-pass", "packages/secrets/logging_rules.py",
              "        if not isinstance(fields, dict):\n            with self._lock:\n                self.dropped += 1\n            return False",
@@ -94,12 +95,67 @@ MUTATIONS = [
              ("test_audit_logging.py",), "exceptions export class name only (T-18)"),
 ]
 
-# Mutations for later steps are appended by the PR that adds the guarded code.
-EXTRA_MUTATIONS: list = []
+# Mutations for the redaction / guards / parity / conformance code (second PR, spec steps 5 to 7).
+EXTRA_MUTATIONS: list = [
+    Mutation("P01-known-value-redaction-removed", "packages/secrets/redaction.py",
+             "return _merge(self._current_matcher().spans(text) + self._patterns.spans(text))", "return _merge(self._patterns.spans(text))",
+             ("test_redaction.py", "test_guards.py", "test_e2e_sweep.py"), "known-value redaction (T-16, T-19, T-23)"),
+    Mutation("P02-base64-variants-removed", "packages/secrets/redaction.py",
+             "forms |= base64_variants(data)", "pass",
+             ("test_redaction.py",), "base64 forms of a leased value (T-16)"),
+    Mutation("P03-split-form-detection-removed", "packages/secrets/redaction.py",
+             "    if len(value) < MIN_VARIANT_LEN or len(value) > MAX_SPLIT_LEN:\n        return None", "    return None",
+             ("test_redaction.py", "test_guards.py"), "value split across lines (T-16)"),
+    Mutation("P04-key-name-rule-disabled", "packages/secrets/redaction.py",
+             "return any(term in norm for term in DENIED_KEY_TERMS)", "return False",
+             ("test_redaction.py", "test_guards.py"), "key-name rule (T-17)"),
+    Mutation("P05-pattern-redaction-disabled", "packages/secrets/redaction.py",
+             "out.append((start, end, rule.kind))", "pass",
+             ("test_redaction.py", "test_guards.py", "test_e2e_sweep.py", "test_repo_scan.py"), "key-shaped string redaction"),
+    Mutation("P06-prompt-guard-does-not-refuse", "packages/secrets/broker.py",
+             "raise SecretLeak(sink_name, kinds)", "return",
+             ("test_guards.py", "test_e2e_sweep.py"), "prompt guard fails closed (T-19)"),
+    Mutation("P07-persistence-guard-bypassed", "packages/secrets/guards.py",
+             "self._broker.assert_safe_to_emit_obj(record, sink=\"persistence\")", "pass",
+             ("test_guards.py", "test_e2e_sweep.py"), "persistence guard (T-20)"),
+    Mutation("P08-return-path-not-redacted", "packages/secrets/guards.py",
+             "return self._redactor.redact(response, sink=\"return\")", "return response",
+             ("test_guards.py", "test_e2e_sweep.py"), "return path to agent is redacted (T-21)"),
+    Mutation("P09-provider-error-not-redacted", "packages/secrets/guards.py",
+             "\"error\": self._redactor.redact_exception(exc, sink=\"return\")", "\"error\": str(exc)",
+             ("test_guards.py", "test_e2e_sweep.py"), "provider error body reaches agent redacted (T-21)"),
+    Mutation("P10-retry-of-blocked-prompt-allowed", "packages/secrets/guards.py",
+             "if digest in self._blocked:", "if False:",
+             ("test_guards.py",), "no retry with the same blocked text (T-19)"),
+    Mutation("P11-audit-writer-scrub-removed", "packages/secrets/guards.py",
+             "if isinstance(value, str) and self._r.contains_secret(value):", "if False:",
+             ("test_guards.py",), "audit sink never stores a leased value (T-18, T-30)"),
+    Mutation("P12-log-message-not-redacted", "packages/secrets/guards.py",
+             "record.msg = self._r.redact_text(message, sink=\"log\")", "record.msg = message",
+             ("test_guards.py", "test_e2e_sweep.py"), "log lines are redacted (T-16)"),
+    Mutation("P13-exception-text-not-redacted", "packages/secrets/redaction.py",
+             "return self.redact_text(self.redact_exception_raw_text(exc), sink=sink)", "return self.redact_exception_raw_text(exc)",
+             ("test_redaction.py", "test_guards.py", "test_e2e_sweep.py"), "exceptions and chained causes are redacted (spec 6.7)"),
+    Mutation("P14-outgoing-guard-bypassed", "packages/secrets/guards.py",
+             "self._broker.assert_safe_to_emit_obj(text, sink=\"outgoing\")", "pass",
+             ("test_guards.py", "test_e2e_sweep.py"), "PR/Jira/chat text helper refuses secrets"),
+    Mutation("P15-telemetry-known-value-check-ignored", "packages/secrets/logging_rules.py",
+             "elif leak_check is not None and isinstance(value, str) and leak_check(value):", "elif False:",
+             ("test_guards.py",), "telemetry/log allowed fields scrubbed of leased values (T-18)"),
+    Mutation("P16-mock-backend-accepts-zero-ttl", "packages/secrets/memory_backend.py",
+             "if not isinstance(ttl, timedelta) or ttl <= timedelta(0):", "if not isinstance(ttl, timedelta):",
+             ("test_backend_conformance.py", "test_config_backend.py"), "conformance suite catches a TTL-less backend (T-27)"),
+    Mutation("P17-parity-harness-ignores-mismatches", "packages/secrets/parity.py",
+             "if (g is None) != (p is None):", "if (g is None) != (p is None) and kind == \"positive\":",
+             ("test_pattern_parity.py",), "parity harness can fail (T-22)"),
+    Mutation("P18-redactor-xai-pattern-drifts-from-scanner", "packages/secrets/patterns.json",
+             "\\\\bxai-[A-Za-z0-9]{40,}\\\\b", "\\\\bxai-[A-Za-z0-9]{30,}\\\\b",
+             ("test_pattern_parity.py",), "pattern drift vs .gitleaks.toml (T-22)", True),
+]
 
 
-def run_tests(workdir: Path, modules: tuple) -> tuple:
-    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+def run_tests(workdir: Path, modules: tuple, extra_env: dict = None) -> tuple:
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", **(extra_env or {}))
     failed_any, output = False, []
     for module in modules:
         proc = subprocess.run(
@@ -120,19 +176,28 @@ def prepare(workdir: Path) -> None:
 
 def main(argv: list) -> int:
     verbose = "-v" in argv
+    gitleaks_config = None
+    if "--gitleaks-config" in argv:
+        gitleaks_config = argv[argv.index("--gitleaks-config") + 1]
+    extra_env = {"KAN45_GITLEAKS_CONFIG": gitleaks_config} if gitleaks_config else {}
     mutations = MUTATIONS + EXTRA_MUTATIONS
     all_tests = tuple(sorted({t for m in mutations for t in m.tests}))
     with tempfile.TemporaryDirectory(prefix="kan45-mutation-") as tmp:
         base = Path(tmp) / "baseline"
         prepare(base)
-        failed, out = run_tests(base, all_tests)
+        failed, out = run_tests(base, all_tests, extra_env)
         if failed:
             print("BASELINE FAILS: fix the tests before running mutations")
             print(out[-3000:])
             return 2
         print(f"baseline: tests pass ({len(all_tests)} modules)")
         survivors = 0
+        skipped = 0
         for m in mutations:
+            if m.needs_gitleaks and not gitleaks_config:
+                print(f"{m.mutation_id}: NOT RUN (needs --gitleaks-config PATH; the real-config parity test is skipped otherwise) ({m.why})")
+                skipped += 1
+                continue
             work = Path(tmp) / m.mutation_id
             prepare(work)
             target = work / m.path
@@ -142,7 +207,7 @@ def main(argv: list) -> int:
                 survivors += 1
                 continue
             target.write_text(text.replace(m.old, m.new), encoding="utf-8")
-            failed, out = run_tests(work, m.tests)
+            failed, out = run_tests(work, m.tests, extra_env)
             status = "KILLED " if failed else "SURVIVED"
             if not failed:
                 survivors += 1
@@ -151,7 +216,7 @@ def main(argv: list) -> int:
                 lines = [l for l in out.splitlines() if l.startswith(("FAIL:", "ERROR:"))]
                 for l in lines[:4]:
                     print("    " + l)
-        print(f"{len(mutations)} mutations, {len(mutations) - survivors} killed, {survivors} survived/invalid")
+        print(f"{len(mutations)} mutations, {len(mutations) - survivors - skipped} killed, {survivors} survived/invalid, {skipped} not run")
         return 1 if survivors else 0
 
 
