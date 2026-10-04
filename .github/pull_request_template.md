@@ -7,6 +7,12 @@
 
 <!-- Paste the branch name. It must match the rule above (see CONTRIBUTING.md, "Branching"). -->
 
+## Authoring agent
+
+<!-- Who wrote this change: the agent code, e.g. "LR-04", or "human: <name>". Agents currently push through the
+     repository owner's GitHub account, so this field and the commit message are the only attribution. They are
+     NOT authenticated (anyone can type any text here); treat them as a statement of intent, not proof. -->
+
 ## Problem
 
 <!-- What is wrong or missing? Link requirements / ADRs. -->
@@ -44,7 +50,7 @@
 - [ ] Branch name matches `<type>/KAN-<number>-<description>` (type: feature, bugfix, security, chore or docs)
 - [ ] Jira issue links to this PR (PR URL placed in the issue)
 - [ ] If this PR returns work after review or failed checks: the Jira issue is In Progress with label `exec-rework` and an explanatory comment
-- [ ] Author and reviewer are different identities (no self-approval, no self-merge)
+- [ ] Independent review required before merge. The authoring agent does not merge; Ojas Sharma merges.
 - [ ] CI is green (or failures are explained; no checks were disabled or weakened)
 - [ ] No secrets, tokens or credentials in the diff
 - [ ] Documentation updated (README/docs/ADR as applicable)
