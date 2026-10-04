@@ -66,6 +66,7 @@ Everything fails closed: a missing or non-text input, an over-long input, a cont
 
 - It checks the *text*. It does not know whether the issue exists, whether it is the right issue, or whether the PR author may work on it. A reviewer still reads the PR.
 - Case-sensitivity, the stricter body rule and the IDN refusal are decisions, not facts from Jira; see the assumptions above.
+- The scheme-less look-alike scan is deliberately strict and fails closed: any dotted token that contains `liferescue.` (other than the exact Jira host) is refused, so a PR text that mentions, for example, a clone URL ending in `liferescue.git` or a file named `liferescue.md` is reported as `LOOKALIKE_HOST`. Write such names without the dotted suffix (for example `github.com/ojas005/liferescue/pull/9`). Whether to narrow this is for Ojas and LR 10 to decide with the CI job.
 - Branch names created before the KAN rule (for example `chore/bootstrap-repository-baseline`) fail rule 1. How they are grandfathered is for the workflow to decide (ADR-0017 point 7); this script does not exempt anything.
 
 See also: [Jira comment and label conventions](jira-comment-label-conventions.md), [Jira status mapping and transition allowlist](jira-transition-allowlist.md).
