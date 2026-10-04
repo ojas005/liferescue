@@ -87,13 +87,14 @@
       "id": "send_to_rework",
       "from": ["In Review"],
       "to": ["In Progress"],
-      "actors": ["reviewer_agent", "human", "automation"],
+      "actors": ["reviewer_agent", "owner_agent", "human", "automation"],
       "labels_after_include": ["exec-rework"],
       "comment_requirement": {"marker": "REWORK", "required_parts": ["by:", "reason:", "evidence:", "to complete:"]},
       "approval": "approved: REWORK = In Progress + label exec-rework + explicit comment",
       "proposed_assumptions": [
         "comment wording 'REWORK: by: ...; reason: ...; evidence: <link>; to complete: ...' (conventions page; ADR-0017 point 8 lists reason, evidence link and what completes the rework; by: from LR 08 review F-5; evidence is a link, never pasted logs)",
-        "automation only on failed checks; owner_agent is not listed in ADR-0017 point 11 for this transition and is denied"
+        "automation only on failed checks",
+        "DECIDED (Ojas via LR 01, 2026-10-04, ADR-0017 D8): owner_agent is an actor for send-to-rework"
       ],
       "evidence_requirements": [
         {"description": "failed check or review URL", "any_of": ["failed_check_or_review_url"]}
@@ -104,13 +105,13 @@
       "from": ["In Progress"],
       "to": ["In Review"],
       "when_labels_before_include": ["exec-rework"],
-      "actors": ["owner_agent", "automation"],
+      "actors": ["owner_agent", "human", "automation"],
       "labels_after_exclude": ["exec-rework"],
       "approval": "approved: exec-rework removed when rework is complete; the issue goes back to In Review, never to Done",
       "proposed_assumptions": [
         "trigger = corrected PR has passing checks and review is re-requested (ADR-0017 point 8)",
         "DECIDED (Ojas via LR 01, 2026-10-04): rework-complete is In Progress -> In Review with the label removed (ADR-0017 point 8 behavior). The reading 'In Review -> In Progress, label removal' in ADR-0017 point 11 is superseded and is being removed from the ADR by LR 03.",
-        "humans are not listed for this row in ADR-0017 point 11; not added here"
+        "DECIDED (Ojas via LR 01, 2026-10-04, ADR-0017 D8): human is an actor for rework-complete"
       ],
       "evidence_requirements": [
         {"description": "green checks URL", "any_of": ["passing_checks_url"]},

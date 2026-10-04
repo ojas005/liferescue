@@ -36,8 +36,8 @@ Anything not listed is denied. "Evidence" is checked for presence and shape only
 |---|---|---|---|---|
 | `start_work` | To Do -> In Progress | owner_agent, human, automation | `claim_record` or `branch_name` | ADR-0017 pt 11 |
 | `open_for_review` | In Progress -> In Review (label `exec-rework` absent) | owner_agent, human, automation | `pr_url` and a valid `branch_name` | ADR-0017 pt 11 |
-| `send_to_rework` | In Review -> In Progress | reviewer_agent, human, automation | `failed_check_or_review_url` (a link); label `exec-rework` added; comment `REWORK: by: ...; reason: ...; evidence: <link>; to complete: ...` | approved REWORK rule; ADR-0017 pts 8, 11 |
-| `complete_rework` | In Progress -> In Review (label `exec-rework` present) | owner_agent, automation | `passing_checks_url` and `review_rerequested: true`; label `exec-rework` removed | ADR-0017 pts 8, 11 |
+| `send_to_rework` | In Review -> In Progress | reviewer_agent, owner_agent, human, automation | `failed_check_or_review_url` (a link); label `exec-rework` added; comment `REWORK: by: ...; reason: ...; evidence: <link>; to complete: ...` | approved REWORK rule; ADR-0017 pts 8, 11 |
+| `complete_rework` | In Progress -> In Review (label `exec-rework` present) | owner_agent, human, automation | `passing_checks_url` and `review_rerequested: true`; label `exec-rework` removed | ADR-0017 pts 8, 11 |
 | `return_to_todo` | In Progress / In Review -> To Do | human | `reason` | ADR-0017 pt 11 |
 | `accept_done` | In Review -> **Done** (the only way to Done; denied while label `exec-rework` is present) | **human only** | `validation_url`, `review_approval_url`, `acceptance_criteria_verified: true`, `acceptance_verified_by`, `merged_pr_url`, `release_ref` or `no_release_required: true`, explicit `sensitive_work` (and `human_approval_ref` when it is true) | approved Done rule; plan template 7 and section 12 |
 | `reopen` | Done -> To Do / In Progress / In Review | human | `reason` | ADR-0017 pt 11 |
@@ -70,11 +70,10 @@ From code: `check_transition(from_status, to_status, actor_type, labels_before, 
 - Labels and comments are free text; anyone with edit rights can change them. The read-only detection queries from ADR-0017 remain necessary (Done set by a non-human changelog author; `labels = exec-rework AND status != "In Progress"`; PR head branches that fail the pattern).
 - It is not wired into CI or any adapter. That is KAN-26/KAN-27 (and `.github/workflows/*` belongs to LR 10).
 
-## Differences from the ADR-0017 text (to be removed from the ADR by LR 03)
+## Relation to ADR-0017
 
-The decisions of 2026-10-04 supersede these readings in ADR-0017; the exact edits are listed for LR 03 in `evidence/ADR-0017-edits-for-LR03.md` (outside this repository). This page does not edit the ADR.
+ADR-0017 was updated by LR 03 on 2026-10-04 (ref t22u) to carry the decisions below; this page and the data file follow that text (rows T1-T8 of point 11 and points 15-16). This page does not edit the ADR. Remaining differences, all marked PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL and listed for LR 03 in `evidence/ADR-0017-edits-for-LR03.md` (outside this repository):
 
-- ADR-0017 point 11 writes the rework-complete row as "In Review -> In Progress, label removal". **Superseded:** rework-complete is In Progress -> In Review with the label removed (the behavior of ADR-0017 point 8).
-- ADR-0017 point 11 says "any -> Done" for humans. **Superseded:** Done is reachable only from In Review, for every actor.
-- ADR-0017 point 11 does not list `human` or `reviewer_agent` for rework-complete, nor `owner_agent` for sending to rework; the file follows the table literally (still open).
-- ADR-0017 point 8 marked the explicit rework comment as an assumption; it is now part of the approved REWORK rule and is required. The `by:` field is a PROPOSED ASSUMPTION (LR 08 review F-5).
+- Decided and implemented here: Done only from In Review for every actor (ADR D6, rows T5/T6); rework-complete is In Progress -> In Review (D7, T4); `human` is an actor for rework-complete and `owner_agent` for send-to-rework (D8).
+- The ADR does not yet mention the mandatory `by:` field in comments or the rule that evidence is a link (LR 08 findings F-5), nor the full list of acceptance-evidence fields used for `accept_done`, nor the rule that Done is denied while `exec-rework` is present.
+- ADR-0017 T3 treats the failed-check or review URL as proposed evidence; the data file requires it.

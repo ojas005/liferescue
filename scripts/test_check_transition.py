@@ -82,9 +82,9 @@ ALLOWED = [
      {"branch_name": BRANCH}, None),
     ("open_for_review", "In Progress", "In Review", ["owner_agent", "human", "automation"], [], [],
      {"pr_url": PR, "branch_name": BRANCH}, None),
-    ("send_to_rework", "In Review", "In Progress", ["reviewer_agent", "human", "automation"], [],
+    ("send_to_rework", "In Review", "In Progress", ["reviewer_agent", "owner_agent", "human", "automation"], [],
      ["exec-rework"], {"failed_check_or_review_url": RUN}, REWORK_COMMENT),
-    ("complete_rework", "In Progress", "In Review", ["owner_agent", "automation"], ["exec-rework"], [],
+    ("complete_rework", "In Progress", "In Review", ["owner_agent", "human", "automation"], ["exec-rework"], [],
      {"passing_checks_url": RUN, "review_rerequested": True}, None),
     ("return_to_todo", "In Progress", "To Do", ["human"], [], [], {"reason": "descoped"}, None),
     ("return_to_todo", "In Review", "To Do", ["human"], [], [], {"reason": "descoped"}, None),
@@ -154,10 +154,10 @@ class ExhaustiveDenial(unittest.TestCase):
         self.assertEqual(checked, (64 - len(ALLOWED_TRIPLES)) * 27)
 
     def test_allowed_triples_count_is_as_documented(self):
-        # distinct (from, to, actor) triples: start 3, open 3, rework 3, to-do 2, done 1, reopen 3,
-        # blocked 9 = 24; rework-complete adds none because it shares In Progress -> In Review with
-        # open_for_review for owner_agent and automation (the labels decide which rule applies)
-        self.assertEqual(len(ALLOWED_TRIPLES), 3 + 3 + 3 + 2 + 1 + 3 + 9)
+        # distinct (from, to, actor) triples: start 3, open 3, rework 4, to-do 2, done 1, reopen 3,
+        # blocked 9 = 25; rework-complete adds none because it shares In Progress -> In Review with
+        # open_for_review for owner_agent, human and automation (the labels decide which rule applies)
+        self.assertEqual(len(ALLOWED_TRIPLES), 3 + 3 + 4 + 2 + 1 + 3 + 9)
 
 
 class DoneIsHumanOnly(unittest.TestCase):
@@ -326,11 +326,8 @@ class DenyReasons(unittest.TestCase):
         self.assertTrue(ct.check_transition(**case("To Do", "To Do", "human", comment="BLOCKED: by: a; reason: x")).allowed)
 
     def test_wrong_actor_for_listed_transition(self):
-        d = ct.check_transition(**case("In Review", "In Progress", "owner_agent", after=["exec-rework"],
-                                       evidence={"failed_check_or_review_url": RUN}, comment=REWORK_COMMENT))
-        self.assertFalse(d.allowed)
-        self.assertEqual(d.transition_id, "send_to_rework")
         self.assertFalse(ct.check_transition(**case("In Progress", "To Do", "owner_agent", evidence={"reason": "x"})).allowed)
+        self.assertFalse(ct.check_transition(**case("In Progress", "To Do", "automation", evidence={"reason": "x"})).allowed)
         self.assertFalse(ct.check_transition(**case("In Progress", "In Review", "reviewer_agent", evidence=dict(RICH))).allowed)
 
     def test_missing_evidence_for_every_requirement_of_every_allowed_transition(self):
@@ -422,8 +419,19 @@ class ReworkRules(unittest.TestCase):
         self.assertFalse(self.send(evidence={}).allowed)
         self.assertFalse(self.send(evidence={"reason": "x"}).allowed)
 
-    def test_owner_agent_cannot_send_own_work_to_rework(self):
-        self.assertFalse(self.send(actor="owner_agent").allowed)
+    def test_owner_agent_may_send_its_own_work_to_rework_but_never_to_done(self):
+        # ADR-0017 D8 (Ojas, 2026-10-04): owner_agent is an actor for send-to-rework
+        self.assertTrue(self.send(actor="owner_agent").allowed)
+        self.assertFalse(ct.check_transition(**case("In Review", "Done", "owner_agent", evidence=dict(DONE_EVIDENCE))).allowed)
+
+    def test_human_may_complete_rework_but_evidence_still_applies(self):
+        # ADR-0017 D8: human is an actor for rework-complete
+        ev = {"passing_checks_url": RUN, "review_rerequested": True}
+        d = ct.check_transition(**case("In Progress", "In Review", "human", ["exec-rework"], [], ev))
+        self.assertTrue(d.allowed, d.reasons)
+        self.assertEqual(d.transition_id, "complete_rework")
+        self.assertFalse(ct.check_transition(**case("In Progress", "In Review", "human", ["exec-rework"], [], {})).allowed)
+        self.assertFalse(ct.check_transition(**case("In Progress", "In Review", "human", ["exec-rework"], ["exec-rework"], ev)).allowed)
 
     def test_rework_complete_must_remove_label(self):
         ev = {"passing_checks_url": RUN, "review_rerequested": True}
