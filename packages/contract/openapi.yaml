@@ -1,0 +1,716 @@
+openapi: 3.1.0
+info:
+  title: LifeRescue Run API
+  version: 0.1.0
+  description: One generic run API for every workflow. No authentication in the sprint (PROPOSED ASSUMPTION - REQUIRES HUMAN
+    APPROVAL).
+servers:
+- url: http://localhost:8000
+paths:
+  /api/workflows:
+    get:
+      operationId: listWorkflows
+      summary: List available workflows
+      responses:
+        '200':
+          description: Workflows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowSummary'
+  /api/runs:
+    post:
+      operationId: createRun
+      summary: Create a run; the runtime starts at INTENT and advances until done or blocked on approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRunRequest'
+      responses:
+        '201':
+          description: Run created (snapshot at response time)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResponse'
+        '404': &id001
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422': &id003
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/runs/{run_id}:
+    get:
+      operationId: getRun
+      summary: Get a run snapshot with its approvals
+      parameters:
+      - &id002
+        name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResponse'
+        '404': *id001
+  /api/runs/{run_id}/timeline:
+    get:
+      operationId: getTimeline
+      summary: Poll timeline events with seq > after_seq (polling chosen over SSE; PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL)
+      parameters:
+      - *id002
+      - name: after_seq
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 200
+      responses:
+        '200':
+          description: Events (payloads redacted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimelinePage'
+        '404': *id001
+  /api/runs/{run_id}/approvals/{approval_id}:
+    post:
+      operationId: decideApproval
+      summary: Approve or deny one pending approval (bound to the action digest, single use)
+      parameters:
+      - *id002
+      - name: approval_id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecisionRequest'
+      responses:
+        '200':
+          description: Run after the decision (may have advanced)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResponse'
+        '404': *id001
+        '409': &id004
+          description: Conflict (illegal transition, approval not pending, concurrent change)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422': *id003
+  /api/runs/{run_id}/cancel:
+    post:
+      operationId: cancelRun
+      summary: Cancel a run (only before ACTION starts)
+      parameters:
+      - *id002
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRunRequest'
+      responses:
+        '200':
+          description: Cancelled run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResponse'
+        '404': *id001
+        '409': *id004
+  /api/health:
+    get:
+      operationId: health
+      summary: Liveness and contract/model-adapter info (PROPOSED ASSUMPTION)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+components:
+  schemas:
+    Approval:
+      additionalProperties: false
+      properties:
+        approval_id:
+          title: Approval Id
+          type: string
+        run_id:
+          title: Run Id
+          type: string
+        step_id:
+          title: Step Id
+          type: string
+        bound_digest:
+          title: Bound Digest
+          type: string
+        status:
+          $ref: '#/components/schemas/ApprovalStatus'
+          default: pending
+        risk:
+          $ref: '#/components/schemas/RiskLevel'
+        summary:
+          title: Summary
+          type: string
+        policy_version:
+          title: Policy Version
+          type: string
+        requested_at:
+          format: date-time
+          title: Requested At
+          type: string
+        expires_at:
+          format: date-time
+          title: Expires At
+          type: string
+        decided_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Decided By
+        decided_at:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          default: null
+          title: Decided At
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Reason
+      required:
+      - approval_id
+      - run_id
+      - step_id
+      - bound_digest
+      - risk
+      - summary
+      - policy_version
+      - requested_at
+      - expires_at
+      title: Approval
+      type: object
+    ApprovalDecisionRequest:
+      additionalProperties: false
+      properties:
+        decision:
+          enum:
+          - approve
+          - deny
+          title: Decision
+          type: string
+        reason:
+          anyOf:
+          - maxLength: 500
+            type: string
+          - type: 'null'
+          default: null
+          title: Reason
+      required:
+      - decision
+      title: ApprovalDecisionRequest
+      type: object
+    ApprovalStatus:
+      enum:
+      - pending
+      - approved
+      - denied
+      - expired
+      - consumed
+      - revoked
+      title: ApprovalStatus
+      type: string
+    CancelRunRequest:
+      additionalProperties: false
+      properties:
+        reason:
+          anyOf:
+          - maxLength: 500
+            type: string
+          - type: 'null'
+          default: null
+          title: Reason
+      title: CancelRunRequest
+      type: object
+    CheckResult:
+      additionalProperties: false
+      properties:
+        check_id:
+          title: Check Id
+          type: string
+        passed:
+          title: Passed
+          type: boolean
+        detail:
+          title: Detail
+          type: string
+      required:
+      - check_id
+      - passed
+      - detail
+      title: CheckResult
+      type: object
+    CreateRunRequest:
+      additionalProperties: false
+      properties:
+        workflow_id:
+          title: Workflow Id
+          type: string
+        input:
+          additionalProperties: true
+          title: Input
+          type: object
+        workflow_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Workflow Version
+      required:
+      - workflow_id
+      - input
+      title: CreateRunRequest
+      type: object
+    ErrorResponse:
+      additionalProperties: false
+      properties:
+        error:
+          title: Error
+          type: string
+        message:
+          title: Message
+          type: string
+      required:
+      - error
+      - message
+      title: ErrorResponse
+      type: object
+    EventType:
+      description: Timeline event types. The first nine are the brief's; the last two are ASSUMPTIONS.
+      enum:
+      - intent
+      - evidence
+      - research
+      - plan
+      - policy
+      - approval
+      - action
+      - verification
+      - audit
+      - state_change
+      - error
+      title: EventType
+      type: string
+    HealthResponse:
+      additionalProperties: false
+      properties:
+        status:
+          const: ok
+          title: Status
+          type: string
+        contract_version:
+          title: Contract Version
+          type: string
+        model_adapter:
+          enum:
+          - nebius
+          - mock
+          title: Model Adapter
+          type: string
+      required:
+      - status
+      - contract_version
+      - model_adapter
+      title: HealthResponse
+      type: object
+    IntentResult:
+      additionalProperties: false
+      description: Structured output of the INTENT stage (platform-generic; domain data goes in `entities`).
+      properties:
+        summary:
+          title: Summary
+          type: string
+        category:
+          title: Category
+          type: string
+        urgency:
+          $ref: '#/components/schemas/RiskLevel'
+          default: low
+        entities:
+          additionalProperties: true
+          title: Entities
+          type: object
+        missing_fields:
+          items:
+            type: string
+          title: Missing Fields
+          type: array
+      required:
+      - summary
+      - category
+      title: IntentResult
+      type: object
+    PlanStep:
+      additionalProperties: false
+      properties:
+        step_id:
+          title: Step Id
+          type: string
+        action_type:
+          title: Action Type
+          type: string
+        tool_name:
+          title: Tool Name
+          type: string
+        params:
+          additionalProperties: true
+          title: Params
+          type: object
+        rationale:
+          title: Rationale
+          type: string
+      required:
+      - step_id
+      - action_type
+      - tool_name
+      - rationale
+      title: PlanStep
+      type: object
+    PolicyDecision:
+      additionalProperties: false
+      properties:
+        step_id:
+          title: Step Id
+          type: string
+        outcome:
+          $ref: '#/components/schemas/PolicyOutcome'
+        risk:
+          $ref: '#/components/schemas/RiskLevel'
+        rule_id:
+          title: Rule Id
+          type: string
+        reason:
+          title: Reason
+          type: string
+        policy_version:
+          title: Policy Version
+          type: string
+        action_digest:
+          title: Action Digest
+          type: string
+      required:
+      - step_id
+      - outcome
+      - risk
+      - rule_id
+      - reason
+      - policy_version
+      - action_digest
+      title: PolicyDecision
+      type: object
+    PolicyOutcome:
+      enum:
+      - allow
+      - needs_approval
+      - deny
+      title: PolicyOutcome
+      type: string
+    RiskLevel:
+      enum:
+      - low
+      - medium
+      - high
+      - critical
+      title: RiskLevel
+      type: string
+    RunRecord:
+      additionalProperties: false
+      properties:
+        run_id:
+          title: Run Id
+          type: string
+        workflow_id:
+          title: Workflow Id
+          type: string
+        workflow_version:
+          title: Workflow Version
+          type: string
+        contract_version:
+          title: Contract Version
+          type: string
+        owner:
+          default: demo-user
+          title: Owner
+          type: string
+        state:
+          $ref: '#/components/schemas/RunState'
+          default: intent
+        input:
+          additionalProperties: true
+          title: Input
+          type: object
+        intent:
+          anyOf:
+          - $ref: '#/components/schemas/IntentResult'
+          - type: 'null'
+          default: null
+        plan:
+          items:
+            $ref: '#/components/schemas/PlanStep'
+          title: Plan
+          type: array
+        decisions:
+          items:
+            $ref: '#/components/schemas/PolicyDecision'
+          title: Decisions
+          type: array
+        results:
+          items:
+            $ref: '#/components/schemas/ToolResult'
+          title: Results
+          type: array
+        verification:
+          anyOf:
+          - $ref: '#/components/schemas/VerificationResult'
+          - type: 'null'
+          default: null
+        terminal_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Terminal Reason
+        version:
+          default: 0
+          title: Version
+          type: integer
+        created_at:
+          format: date-time
+          title: Created At
+          type: string
+        updated_at:
+          format: date-time
+          title: Updated At
+          type: string
+      required:
+      - run_id
+      - workflow_id
+      - workflow_version
+      - contract_version
+      - input
+      - created_at
+      - updated_at
+      title: RunRecord
+      type: object
+    RunResponse:
+      additionalProperties: false
+      description: Current snapshot. `state` is the pipeline stage; `pending_approvals` is what the UI must show for a decision.
+      properties:
+        run:
+          $ref: '#/components/schemas/RunRecord'
+        approvals:
+          items:
+            $ref: '#/components/schemas/Approval'
+          title: Approvals
+          type: array
+        last_seq:
+          default: 0
+          title: Last Seq
+          type: integer
+      required:
+      - run
+      title: RunResponse
+      type: object
+    RunState:
+      description: Run lifecycle. The first nine are the brief's pipeline; the last four are terminal (ASSUMPTION).
+      enum:
+      - intent
+      - evidence
+      - research
+      - plan
+      - policy
+      - approval
+      - action
+      - verification
+      - audit
+      - completed
+      - failed
+      - denied
+      - cancelled
+      title: RunState
+      type: string
+    TimelineEvent:
+      additionalProperties: false
+      properties:
+        event_id:
+          title: Event Id
+          type: string
+        run_id:
+          title: Run Id
+          type: string
+        seq:
+          title: Seq
+          type: integer
+        ts:
+          format: date-time
+          title: Ts
+          type: string
+        step:
+          $ref: '#/components/schemas/RunState'
+        type:
+          $ref: '#/components/schemas/EventType'
+        payload:
+          additionalProperties: true
+          title: Payload
+          type: object
+      required:
+      - event_id
+      - run_id
+      - seq
+      - ts
+      - step
+      - type
+      title: TimelineEvent
+      type: object
+    TimelinePage:
+      additionalProperties: false
+      properties:
+        run_id:
+          title: Run Id
+          type: string
+        events:
+          items:
+            $ref: '#/components/schemas/TimelineEvent'
+          title: Events
+          type: array
+        next_seq:
+          title: Next Seq
+          type: integer
+        terminal:
+          title: Terminal
+          type: boolean
+      required:
+      - run_id
+      - events
+      - next_seq
+      - terminal
+      title: TimelinePage
+      type: object
+    ToolResult:
+      additionalProperties: false
+      properties:
+        tool_name:
+          title: Tool Name
+          type: string
+        status:
+          enum:
+          - ok
+          - error
+          title: Status
+          type: string
+        output:
+          additionalProperties: true
+          title: Output
+          type: object
+        mocked:
+          default: false
+          title: Mocked
+          type: boolean
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Error
+        action_digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          title: Action Digest
+      required:
+      - tool_name
+      - status
+      title: ToolResult
+      type: object
+    VerificationResult:
+      additionalProperties: false
+      properties:
+        passed:
+          title: Passed
+          type: boolean
+        checks:
+          items:
+            $ref: '#/components/schemas/CheckResult'
+          title: Checks
+          type: array
+      required:
+      - passed
+      - checks
+      title: VerificationResult
+      type: object
+    WorkflowSummary:
+      additionalProperties: false
+      properties:
+        workflow_id:
+          title: Workflow Id
+          type: string
+        version:
+          title: Version
+          type: string
+        title:
+          title: Title
+          type: string
+        description:
+          title: Description
+          type: string
+        input_schema:
+          additionalProperties: true
+          title: Input Schema
+          type: object
+      required:
+      - workflow_id
+      - version
+      - title
+      - description
+      - input_schema
+      title: WorkflowSummary
+      type: object
