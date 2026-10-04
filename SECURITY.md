@@ -27,7 +27,8 @@ LifeRescue handles emergency-incident data and runs an AI engineering workforce,
 | Secret scanning (platform) | doc 19 step 3 | Disabled in repository settings at creation time |
 | Dependency alerts (platform) | doc 19 step 3 | Disabled in repository settings at creation time |
 | Secret scan in CI | doc 19 step 9 | Active (`.github/workflows/ci.yml`, gitleaks) |
-| Dependency scanning, SBOM, container scanning | doc 16 s17, doc 18 s12 | Conditional CI steps; inactive until project manifests exist |
+| Dependency scanning | doc 16 s17, doc 18 s12 | Active, report-only (`dependency-audit` in `.github/workflows/ci.yml`: pip-audit / npm audit over tracked lock files; findings never block yet) |
+| SBOM, container scanning | doc 16 s17, doc 18 s12 | Not implemented |
 | Signed commits where practical | doc 19 step 3 | Not enforced |
 | Least-privilege CI token (`contents: read`) | engineering practice | Active |
 | Independent review, no self-merge | doc 16 s9, s11 | Process rule (CODEOWNERS present) |

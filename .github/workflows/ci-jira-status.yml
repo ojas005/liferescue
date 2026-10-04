@@ -55,7 +55,7 @@ jobs:
           CI_RUN_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           DRYRUN_OUT_DIR: jira-dryrun
         run: python3 scripts/ci_jira_status_dryrun.py
-      # actions/upload-artifact v7.0.1, pinned by commit SHA (same pin as the sbom job in ci.yml)
+      # actions/upload-artifact v7.0.1, pinned by commit SHA (SHA verified via the GitHub API 2026-10-04)
       - name: Upload the dry-run record
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

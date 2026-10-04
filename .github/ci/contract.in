@@ -1,0 +1,14 @@
+# Inputs for the hash-locked CI environment of packages/contract (see README.md in this directory).
+# Ranges mirror packages/contract/pyproject.toml ([project].dependencies + the `dev` extra); the lock pins exact versions.
+# `pip check` in the contract-tests job fails when the package's declared ranges and the lock disagree.
+pydantic>=2.6,<3
+PyYAML>=6
+jsonschema>=4.20
+pytest>=8
+openapi-spec-validator>=0.7
+mypy>=1.10
+types-PyYAML
+types-jsonschema
+# CI-only tools and build backend (pip --no-build-isolation needs it present, pyproject: setuptools>=68)
+ruff
+setuptools>=68

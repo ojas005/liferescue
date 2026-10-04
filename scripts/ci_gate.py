@@ -13,9 +13,14 @@ Rules:
   * ALWAYS jobs must have result "success" on every event.
   * PR_ONLY jobs (`if: github.event_name == 'pull_request'`) must be "success" on pull_request and
     "skipped" on any other event.
-  * CONDITIONAL jobs run only when the `detect` job found project files. They must be "success"
-    when detect says "true" and "skipped" when detect says "false". Any other detect output
-    (missing, empty, odd) is a failure, and so is a detect job that did not succeed.
+  * CONDITIONAL jobs are the per-package jobs. They run only when the `detect` job found the package
+    (e.g. packages/contract/pyproject.toml). They must be "success" when detect says "true" and
+    "skipped" when detect says "false". Any other detect output (missing, empty, odd) is a failure,
+    and so is a detect job that did not succeed. Adding a pyproject.toml / package.json anywhere else
+    turns NOTHING on: only jobs listed here exist, each bound to one explicit package path.
+  * REPORT_ONLY jobs (dependency audits) are informational: any of the four runner result words is
+    accepted, so a finding or an audit-tool outage never blocks a merge. They must still be present in
+    `needs` with a recognised result (a removed or renamed job is a failure, not a silent pass).
   * A job id that is missing from `needs`, or present but not known here, is a failure (adding a job
     to `needs:` without teaching the gate must not be silently accepted).
 Exit code: 0 all rules hold; 1 otherwise; 2 bad input.
@@ -25,14 +30,13 @@ import json
 import os
 import sys
 
-ALWAYS = ("secret-scan", "repo-validation", "detect", "python-unit-tests")
+ALWAYS = ("secret-scan", "repo-validation", "detect", "python-unit-tests", "security-corpus")
 PR_ONLY = ("branch-name", "pr-link-check")
+REPORT_ONLY = ("dependency-audit",)
 # job id -> detect outputs of which at least one must be "true" for the job to run
 CONDITIONAL = {
-    "node-checks": ("node",),
-    "python-checks": ("python",),
-    "dependency-scan": ("node", "python"),
-    "sbom": ("node", "python"),
+    "contract-tests": ("contract",),
+    "arch-check": ("contract",),
 }
 RESULTS = {"success", "failure", "cancelled", "skipped"}
 
@@ -54,6 +58,9 @@ def evaluate(needs, event_name):
         check(job, "success", _result(needs, job))
     for job in PR_ONLY:
         check(job, "success" if event_name == "pull_request" else "skipped", _result(needs, job))
+    for job in REPORT_ONLY:
+        res = _result(needs, job)
+        rows.append((job, "any result (report-only)", res if res else "missing/unknown", res is not None))
     detect = needs.get("detect") if isinstance(needs.get("detect"), dict) else {}
     outputs = detect.get("outputs") if isinstance(detect.get("outputs"), dict) else {}
     for job, keys in CONDITIONAL.items():
@@ -62,7 +69,7 @@ def evaluate(needs, event_name):
             rows.append((job, "detect succeeded with true/false outputs", "detect unusable", False))
             continue
         check(job, "success" if "true" in values else "skipped", _result(needs, job))
-    known = set(ALWAYS) | set(PR_ONLY) | set(CONDITIONAL)
+    known = set(ALWAYS) | set(PR_ONLY) | set(REPORT_ONLY) | set(CONDITIONAL)
     for job in sorted(set(needs) - known):
         rows.append(("<unknown job id>", "listed in ci_gate.py", "present in needs", False))
     return all(r[3] for r in rows), rows
