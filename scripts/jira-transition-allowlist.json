@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "title": "KAN Jira transition allowlist (KAN-20, WI-04-6)",
-  "approval": "Approved by Ojas Sharma 2026-10-04 07:28 IST (ADR-0017 status mapping): existing Jira workflow only (To Do / In Progress / In Review / Done); BLOCKED and REWORK are labels/comments, not statuses; agents may move work to In Progress / In Review per evidence; an agent must NEVER declare its own work Done; Done needs validation, required review, acceptance-criteria evidence and merge/release conditions (human approval for sensitive work). Everything listed under proposed_assumptions below is PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL.",
+  "approval": "Approved by Ojas Sharma 2026-10-04 07:28 IST (ADR-0017 status mapping): existing Jira workflow only (To Do / In Progress / In Review / Done); BLOCKED and REWORK are labels/comments, not statuses; agents may move work to In Progress / In Review per evidence; an agent must NEVER declare its own work Done; Done needs validation, required review, acceptance-criteria evidence and merge/release conditions (human approval for sensitive work). AUTHORITATIVE STATUS MODEL (Ojas Sharma via LR 01, 2026-10-04): Done is reachable ONLY from In Review, for every actor; a human approves completion but the transition rules and acceptance evidence still apply; rework is In Review -> REWORK REQUIRED -> In Progress (+ label exec-rework + explicit reason comment) -> fix -> In Review -> review -> Done, and rework is never sent directly to Done and never read as completed work. Everything listed under proposed_assumptions below is PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL.",
   "sources": [
     "ADR-0017 points 8-12 (adr-proposals/ADR-0017-jira-git-integration-and-status-mapping.md)",
     "kan-20-implementation-plan.md sections 8, 9, 11 (WI-04-6), 12",
@@ -89,10 +89,10 @@
       "to": ["In Progress"],
       "actors": ["reviewer_agent", "human", "automation"],
       "labels_after_include": ["exec-rework"],
-      "comment_requirement": {"marker": "REWORK", "required_parts": ["reason:", "evidence:", "to complete:"]},
+      "comment_requirement": {"marker": "REWORK", "required_parts": ["by:", "reason:", "evidence:", "to complete:"]},
       "approval": "approved: REWORK = In Progress + label exec-rework + explicit comment",
       "proposed_assumptions": [
-        "comment wording 'REWORK: reason: ...; evidence: ...; to complete: ...' (conventions page; ADR-0017 point 8 lists reason, evidence link and what completes the rework)",
+        "comment wording 'REWORK: by: ...; reason: ...; evidence: <link>; to complete: ...' (conventions page; ADR-0017 point 8 lists reason, evidence link and what completes the rework; by: from LR 08 review F-5; evidence is a link, never pasted logs)",
         "automation only on failed checks; owner_agent is not listed in ADR-0017 point 11 for this transition and is denied"
       ],
       "evidence_requirements": [
@@ -106,10 +106,10 @@
       "when_labels_before_include": ["exec-rework"],
       "actors": ["owner_agent", "automation"],
       "labels_after_exclude": ["exec-rework"],
-      "approval": "approved: exec-rework removed when rework is complete",
+      "approval": "approved: exec-rework removed when rework is complete; the issue goes back to In Review, never to Done",
       "proposed_assumptions": [
         "trigger = corrected PR has passing checks and review is re-requested (ADR-0017 point 8)",
-        "ADR-0017 point 11 writes this row as 'In Review -> In Progress, label removal'; ADR-0017 point 8 and the plan template 4 say the issue returns to In Review. This file follows point 8 (In Progress -> In Review).",
+        "DECIDED (Ojas via LR 01, 2026-10-04): rework-complete is In Progress -> In Review with the label removed (ADR-0017 point 8 behavior). The reading 'In Review -> In Progress, label removal' in ADR-0017 point 11 is superseded and is being removed from the ADR by LR 03.",
         "humans are not listed for this row in ADR-0017 point 11; not added here"
       ],
       "evidence_requirements": [
@@ -132,11 +132,13 @@
       "id": "accept_done",
       "from": ["In Review"],
       "to": ["Done"],
+      "when_labels_before_exclude": ["exec-rework"],
       "actors": ["human"],
-      "approval": "approved: Done only by a human, needing validation, required review, acceptance-criteria evidence and merge/release conditions; human approval for sensitive work",
+      "approval": "approved: Done only by a human, only from In Review, needing validation, required review, acceptance-criteria evidence and merge/release conditions; human approval for sensitive work; never while exec-rework is present",
       "proposed_assumptions": [
         "field names and the exact list of evidence fields are this file's choice, derived from the approved decision, plan template 7 and the plan's Definition of Done",
-        "restricted to In Review -> Done (the required review has happened); ADR-0017 point 11 says 'any -> Done' for humans",
+        "DECIDED (Ojas via LR 01, 2026-10-04): Done is reachable only from In Review for every actor, including a human; the 'any -> Done' wording of ADR-0017 point 11 is superseded. A human cannot skip the evidence below.",
+        "Done is denied while the label exec-rework is present (rework is never read as completed work)",
         "release condition = release_ref or an explicit no_release_required=true because no release exists yet (ADR-0017 point 10, RELEASED row)",
         "sensitive_work must be stated explicitly; when true, human_approval_ref is required"
       ],
@@ -163,15 +165,29 @@
       ]
     }
   ],
+  "rework_lifecycle": {
+    "steps": [
+      {"state": "REWORK REQUIRED", "jira_status": "In Review", "note": "outcome of a review, gate or failed check; it is not a Jira status and moves nothing by itself"},
+      {"state": "REWORK", "jira_status": "In Progress", "transition": "send_to_rework", "note": "label exec-rework + explicit reason comment"},
+      {"state": "FIX", "jira_status": "In Progress", "note": "the owner corrects the work"},
+      {"state": "RE-REVIEW", "jira_status": "In Review", "transition": "complete_rework", "note": "label exec-rework removed; review re-requested"},
+      {"state": "ACCEPTED", "jira_status": "Done", "transition": "accept_done", "note": "human only, after review, with the acceptance evidence"}
+    ],
+    "never": [
+      "rework is sent directly to Done",
+      "rework is read as completed work",
+      "Done is set while exec-rework is present"
+    ]
+  },
   "status_unchanged_events": [
     {
       "id": "blocked",
       "statuses": ["To Do", "In Progress", "In Review"],
       "actors": ["human", "owner_agent", "reviewer_agent"],
-      "comment_requirement": {"marker": "BLOCKED", "required_parts": []},
+      "comment_requirement": {"marker": "BLOCKED", "required_parts": ["by:", "reason:"]},
       "approval": "approved in principle: BLOCKED is a comment/label, status unchanged",
       "proposed_assumptions": [
-        "comment form 'BLOCKED: <reason>' (ADR-0017 point 10); automation is not listed and is denied; no label name is decided"
+        "comment form 'BLOCKED: by: <who>; reason: <one line>; ...' (ADR-0017 point 10 gives 'BLOCKED: <reason>'; by: from LR 08 review F-5); automation is not listed and is denied; no label name is decided"
       ]
     }
   ]

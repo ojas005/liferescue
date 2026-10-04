@@ -38,7 +38,8 @@ PR = "https://github.com/example-org/example-repo/pull/12"
 RUN = "https://github.com/example-org/example-repo/actions/runs/1"
 REVIEW = "https://github.com/example-org/example-repo/pull/12#pullrequestreview-1"
 BRANCH = "feature/KAN-20-transition-allowlist"
-REWORK_COMMENT = "REWORK: reason: checks failed; evidence: " + RUN + "; to complete: fix and re-run; owner: LR 04"
+REWORK_COMMENT = "REWORK: by: LR-04; reason: checks failed; evidence: " + RUN + "; to complete: fix and re-run; owner: LR-04"
+BLOCKED_COMMENT = "BLOCKED: by: LR-04; reason: waiting for a decision; needs: Ojas Sharma"
 
 # every evidence field with a valid value: used to prove that rich evidence alone never helps
 RICH = {
@@ -92,7 +93,7 @@ ALLOWED = [
     ("reopen", "Done", "In Progress", ["human"], [], [], {"reason": "regression"}, None),
     ("reopen", "Done", "In Review", ["human"], [], [], {"reason": "regression"}, None),
 ] + [
-    ("blocked", s, s, ["human", "owner_agent", "reviewer_agent"], [], [], {}, "BLOCKED: waiting for a decision")
+    ("blocked", s, s, ["human", "owner_agent", "reviewer_agent"], [], [], {}, BLOCKED_COMMENT)
     for s in ("To Do", "In Progress", "In Review")
 ]
 
@@ -137,7 +138,7 @@ class ExhaustiveDenial(unittest.TestCase):
     """Every (from, to, actor) not in the allowed table is denied, whatever evidence/labels/comment."""
 
     def test_every_other_combination_is_denied_even_with_all_evidence(self):
-        comments = [None, REWORK_COMMENT, "BLOCKED: x"]
+        comments = [None, REWORK_COMMENT, BLOCKED_COMMENT]
         label_sets = [[], ["exec-rework"], ["exec-rework", "other"]]
         checked = 0
         for frm, to, actor in itertools.product(STATUSES, STATUSES, ACTORS):
@@ -201,6 +202,110 @@ def tampered_agent_done():
     return data
 
 
+class AuthoritativeStatusModel(unittest.TestCase):
+    """Ojas's decision (via LR 01, 2026-10-04): Done only from In Review, for every actor; rework is
+    never sent directly to Done and never read as completed work; a human cannot skip the evidence."""
+
+    def test_done_is_denied_from_every_status_but_in_review_for_every_actor(self):
+        label_sets = [[], ["exec-rework"], ["comp-integrations"]]
+        checked = 0
+        for frm, actor, before, after in itertools.product(STATUSES, ACTORS, label_sets, label_sets):
+            if frm == "In Review":
+                continue
+            with self.subTest(frm=frm, actor=actor, before=before, after=after):
+                d = ct.check_transition(**case(frm, "Done", actor, before, after, dict(RICH, **DONE_EVIDENCE),
+                                               "DONE: by: x", actor_id="a", owner_id="b"))
+                self.assertFalse(d.allowed, (frm, actor))
+                checked += 1
+        self.assertEqual(checked, 3 * 4 * 9)
+
+    def test_the_data_file_has_exactly_one_way_to_done(self):
+        data = ct.load_allowlist()
+        to_done = [(t["id"], t["from"], t["actors"]) for t in data["transitions"] if "Done" in t["to"]]
+        self.assertEqual(to_done, [("accept_done", ["In Review"], ["human"])])
+
+    def test_only_a_human_in_review_with_complete_evidence_reaches_done(self):
+        allowed = [(a, f) for a, f in itertools.product(ACTORS, STATUSES)
+                   if ct.check_transition(**case(f, "Done", a, evidence=dict(DONE_EVIDENCE))).allowed]
+        self.assertEqual(allowed, [("human", "In Review")])
+
+    def test_a_human_cannot_skip_the_acceptance_evidence(self):
+        for evidence in (None, {}, {"reason": "I say so"}, {"acceptance_criteria_verified": True},
+                         dict(RICH, review_approval_url=None)):
+            with self.subTest(evidence=evidence):
+                self.assertFalse(ct.check_transition(**case("In Review", "Done", "human", evidence=evidence)).allowed)
+        # nothing in the comment replaces evidence either
+        d = ct.check_transition(**case("In Review", "Done", "human", evidence={}, comment="DONE: by: Ojas Sharma; approved"))
+        self.assertFalse(d.allowed)
+
+    def test_in_progress_with_exec_rework_cannot_go_to_done_for_anyone(self):
+        for actor in ACTORS:
+            for after in ([], ["exec-rework"]):
+                with self.subTest(actor=actor, after=after):
+                    d = ct.check_transition(**case("In Progress", "Done", actor, ["exec-rework"], after,
+                                                   dict(RICH, **DONE_EVIDENCE)))
+                    self.assertFalse(d.allowed)
+
+    def test_done_acceptance_is_denied_while_exec_rework_is_present(self):
+        for before, after in ((["exec-rework"], []), (["exec-rework"], ["exec-rework"]), ([], ["exec-rework"]),
+                              (["exec-rework", "x"], ["x"])):
+            with self.subTest(before=before, after=after):
+                d = ct.check_transition(**case("In Review", "Done", "human", before, after, dict(DONE_EVIDENCE)))
+                self.assertFalse(d.allowed)
+        # the same acceptance without the label is allowed (control)
+        self.assertTrue(ct.check_transition(**case("In Review", "Done", "human", [], [], dict(DONE_EVIDENCE))).allowed)
+
+    def test_rework_complete_goes_back_to_in_review_not_done(self):
+        ev = {"passing_checks_url": RUN, "review_rerequested": True}
+        d = ct.check_transition(**case("In Progress", "In Review", "owner_agent", ["exec-rework"], [], ev))
+        self.assertTrue(d.allowed)
+        self.assertEqual(d.transition_id, "complete_rework")
+        for actor in ACTORS:
+            self.assertFalse(ct.check_transition(**case("In Progress", "Done", actor, ["exec-rework"], [],
+                                                        dict(ev, **DONE_EVIDENCE))).allowed)
+
+    def test_in_review_to_in_progress_with_label_removal_is_not_rework_complete(self):
+        # the superseded reading of ADR-0017 point 11 ('In Review -> In Progress, label removal')
+        ev = {"failed_check_or_review_url": RUN, "passing_checks_url": RUN, "review_rerequested": True}
+        for actor in ACTORS:
+            for before in ([], ["exec-rework"]):
+                with self.subTest(actor=actor, before=before):
+                    d = ct.check_transition(**case("In Review", "In Progress", actor, before, [], ev, REWORK_COMMENT))
+                    self.assertFalse(d.allowed)
+
+    def test_full_rework_lifecycle_in_order(self):
+        steps = [
+            case("In Review", "In Progress", "reviewer_agent", [], ["exec-rework"], {"failed_check_or_review_url": RUN}, REWORK_COMMENT),
+            case("In Progress", "In Review", "owner_agent", ["exec-rework"], [], {"passing_checks_url": RUN, "review_rerequested": True}),
+            case("In Review", "Done", "human", [], [], dict(DONE_EVIDENCE)),
+        ]
+        self.assertEqual([ct.check_transition(**c).transition_id for c in steps],
+                         ["send_to_rework", "complete_rework", "accept_done"])
+        # an agent can never take the last step, and the first step can never be the last
+        self.assertFalse(ct.check_transition(**dict(steps[2], actor_type="owner_agent")).allowed)
+        self.assertFalse(ct.check_transition(**dict(steps[0], to_status="Done")).allowed)
+
+    def test_lifecycle_in_the_data_file(self):
+        life = ct.load_allowlist()["rework_lifecycle"]
+        self.assertEqual([s["state"] for s in life["steps"]],
+                         ["REWORK REQUIRED", "REWORK", "FIX", "RE-REVIEW", "ACCEPTED"])
+        self.assertEqual([s["jira_status"] for s in life["steps"]],
+                         ["In Review", "In Progress", "In Progress", "In Review", "Done"])
+        self.assertIn("rework is sent directly to Done", life["never"])
+        self.assertIn("rework is read as completed work", life["never"])
+
+    def test_comments_need_by_and_are_links_not_logs(self):
+        for bad in (REWORK_COMMENT.replace("by: LR-04; ", ""), BLOCKED_COMMENT.replace("by: LR-04; ", "")):
+            frm, to, before, after, ev = (("In Review", "In Progress", [], ["exec-rework"], {"failed_check_or_review_url": RUN})
+                                          if bad.startswith("REWORK") else ("To Do", "To Do", [], [], None))
+            self.assertFalse(ct.check_transition(**case(frm, to, "human", before, after, ev, bad)).allowed, bad)
+        # evidence fields only take plain https links: pasted log text is rejected
+        for log in ("Traceback (most recent call last): boom", "ERROR build failed\n at x.py:3", "token=abc123"):
+            d = ct.check_transition(**case("In Review", "In Progress", "reviewer_agent", [], ["exec-rework"],
+                                           {"failed_check_or_review_url": log}, REWORK_COMMENT))
+            self.assertFalse(d.allowed, log)
+
+
 class DenyReasons(unittest.TestCase):
     def test_unknown_actor(self):
         for actor in ("admin", "Human", "HUMAN", "agent", "root", "human "):
@@ -218,7 +323,7 @@ class DenyReasons(unittest.TestCase):
         d = ct.check_transition(**case("To Do", "In Review", "human", evidence=dict(RICH)))
         self.assertFalse(d.allowed)
         self.assertIn("not in the allowlist", d.reasons[0])
-        self.assertTrue(ct.check_transition(**case("To Do", "To Do", "human", comment="BLOCKED: x")).allowed)
+        self.assertTrue(ct.check_transition(**case("To Do", "To Do", "human", comment="BLOCKED: by: a; reason: x")).allowed)
 
     def test_wrong_actor_for_listed_transition(self):
         d = ct.check_transition(**case("In Review", "In Progress", "owner_agent", after=["exec-rework"],
@@ -305,10 +410,11 @@ class ReworkRules(unittest.TestCase):
         self.assertTrue(any("comment" in r for r in d.reasons))
 
     def test_rework_comment_must_have_marker_and_parts(self):
-        for bad in ("please fix", "rework: reason: a; evidence: b; to complete: c",
-                    "REWORK:", "REWORK:   ", "REWORK: reason: a; evidence: b",
-                    "REWORK: reason: a; to complete: c", "REWORK: evidence: b; to complete: c",
-                    " REWORK: reason: a; evidence: b; to complete: c"):
+        for bad in ("please fix", "rework: by: a; reason: a; evidence: b; to complete: c",
+                    "REWORK:", "REWORK:   ", "REWORK: by: a; reason: a; evidence: b",
+                    "REWORK: by: a; reason: a; to complete: c", "REWORK: by: a; evidence: b; to complete: c",
+                    "REWORK: reason: a; evidence: b; to complete: c",  # no by: (who wrote it)
+                    " REWORK: by: a; reason: a; evidence: b; to complete: c"):
             with self.subTest(bad=bad):
                 self.assertFalse(self.send(comment=bad).allowed)
 
@@ -347,7 +453,7 @@ class ReworkRules(unittest.TestCase):
         d = ct.check_transition(**case("In Review", "Done", "human", ["exec-rework"], ["exec-rework"], DONE_EVIDENCE))
         self.assertFalse(d.allowed)
         d = ct.check_transition(**case("In Review", "In Review", "human", ["exec-rework"], ["exec-rework"],
-                                       None, "BLOCKED: x"))
+                                       None, "BLOCKED: by: a; reason: x"))
         self.assertFalse(d.allowed)
         # removing it on the way out is fine
         d = ct.check_transition(**case("In Progress", "To Do", "human", ["exec-rework"], [], {"reason": "x"}))
@@ -355,11 +461,12 @@ class ReworkRules(unittest.TestCase):
 
     def test_blocked_is_a_comment_not_a_status(self):
         self.assertFalse(ct.check_transition(**case("In Progress", "Blocked", "human", evidence=dict(RICH))).allowed)
-        self.assertTrue(ct.check_transition(**case("In Progress", "In Progress", "owner_agent", comment="BLOCKED: waiting")).allowed)
-        for comment in (None, "waiting", "BLOCKED:", "BLOCKED:  ", "blocked: x"):
+        self.assertTrue(ct.check_transition(**case("In Progress", "In Progress", "owner_agent", comment="BLOCKED: by: a; reason: waiting")).allowed)
+        for comment in (None, "waiting", "BLOCKED:", "BLOCKED:  ", "blocked: by: a; reason: x",
+                        "BLOCKED: reason: x", "BLOCKED: by: a"):
             self.assertFalse(ct.check_transition(**case("In Progress", "In Progress", "owner_agent", comment=comment)).allowed, comment)
-        self.assertFalse(ct.check_transition(**case("In Progress", "In Progress", "automation", comment="BLOCKED: x")).allowed)
-        self.assertFalse(ct.check_transition(**case("Done", "Done", "human", comment="BLOCKED: x")).allowed)
+        self.assertFalse(ct.check_transition(**case("In Progress", "In Progress", "automation", comment="BLOCKED: by: a; reason: x")).allowed)
+        self.assertFalse(ct.check_transition(**case("Done", "Done", "human", comment="BLOCKED: by: a; reason: x")).allowed)
 
 
 class AssertionsAndSelfApproval(unittest.TestCase):
@@ -368,8 +475,8 @@ class AssertionsAndSelfApproval(unittest.TestCase):
 
     def test_automation_and_owner_cannot_assert_approval_acceptance_or_release(self):
         for actor in ("automation", "owner_agent"):
-            for text in ("BLOCKED: x; APPROVED: yes", "BLOCKED: x; approved: yes", "BLOCKED: x; DONE: yes",
-                         "BLOCKED: x; done : yes", "BLOCKED: x; RELEASED: v1", "BLOCKED: x; ACCEPTED: ok"):
+            for text in ("BLOCKED: by: a; reason: x; APPROVED: yes", "BLOCKED: by: a; reason: x; approved: yes", "BLOCKED: by: a; reason: x; DONE: yes",
+                         "BLOCKED: by: a; reason: x; done : yes", "BLOCKED: by: a; reason: x; RELEASED: v1", "BLOCKED: by: a; reason: x; ACCEPTED: ok"):
                 with self.subTest(actor=actor, text=text):
                     self.assertFalse(self.blocked(actor, text, dict(RICH), actor_id="a", owner_id="b").allowed)
 
@@ -380,7 +487,7 @@ class AssertionsAndSelfApproval(unittest.TestCase):
         self.assertFalse(d.allowed)
 
     def test_reviewer_agent_approval_needs_review_url_and_a_different_owner(self):
-        text = "BLOCKED: waiting; APPROVED: design"
+        text = "BLOCKED: by: a; reason: waiting; APPROVED: design"
         self.assertFalse(self.blocked("reviewer_agent", text, {"review_url": REVIEW}, actor_id="lr03", owner_id="lr03").allowed)
         self.assertFalse(self.blocked("reviewer_agent", text, {"review_url": REVIEW}, actor_id="LR03", owner_id="lr03").allowed)
         self.assertFalse(self.blocked("reviewer_agent", text, {"review_url": REVIEW}).allowed)
@@ -388,11 +495,11 @@ class AssertionsAndSelfApproval(unittest.TestCase):
         self.assertTrue(self.blocked("reviewer_agent", text, {"review_url": REVIEW}, actor_id="lr03", owner_id="lr04").allowed)
 
     def test_reviewer_agent_cannot_write_done_or_released(self):
-        for text in ("BLOCKED: x; DONE: y", "BLOCKED: x; RELEASED: y", "BLOCKED: x; ACCEPTED: y"):
+        for text in ("BLOCKED: by: a; reason: x; DONE: y", "BLOCKED: by: a; reason: x; RELEASED: y", "BLOCKED: by: a; reason: x; ACCEPTED: y"):
             self.assertFalse(self.blocked("reviewer_agent", text, {"review_url": REVIEW}, actor_id="a", owner_id="b").allowed)
 
     def test_human_may_write_assertions(self):
-        self.assertTrue(self.blocked("human", "BLOCKED: x; DONE: y").allowed)
+        self.assertTrue(self.blocked("human", "BLOCKED: by: a; reason: x; DONE: y").allowed)
 
     def test_agents_cannot_add_labels_that_assert_approval_or_release(self):
         for label in ("approved", "Approved", "released", "exec-approved", "ready.accepted", "done", "status:done"):
@@ -633,6 +740,32 @@ class AllowlistFileSchema(unittest.TestCase):
             errs = self.errors()
             self.assertTrue(any("human-only" in e for e in errs), (actor, errs))
 
+    def test_done_from_any_status_but_in_review_is_rejected(self):
+        for sources in (["In Review", "In Progress"], ["To Do"], ["In Progress"], ["Done"], ["In Review", "To Do"]):
+            self.data = copy.deepcopy(ct.load_allowlist())
+            self.transition("accept_done")["from"] = sources
+            self.assertTrue(self.errors(), sources)
+
+    def test_done_without_the_exec_rework_exclusion_is_rejected(self):
+        del self.transition("accept_done")["when_labels_before_exclude"]
+        self.assertTrue(any("exec-rework" in e for e in self.errors()))
+
+    def test_lifecycle_must_agree_with_the_transitions(self):
+        mutations = [
+            lambda d: d["rework_lifecycle"]["steps"].pop(),
+            lambda d: d["rework_lifecycle"]["steps"][4].update(jira_status="In Review"),
+            lambda d: d["rework_lifecycle"]["steps"][1].update(transition="open_for_review"),
+            lambda d: d["rework_lifecycle"]["steps"][3].update(transition="accept_done"),
+            lambda d: d["rework_lifecycle"]["steps"][2].update(jira_status="Done"),
+            lambda d: d["rework_lifecycle"].update(extra=1),
+            lambda d: d["rework_lifecycle"].__setitem__("steps", "x"),
+            lambda d: d["rework_lifecycle"]["steps"][0].update(state="DONE"),
+        ]
+        for i, mutate in enumerate(mutations):
+            data = copy.deepcopy(self.data)
+            mutate(data)
+            self.assertTrue(ct.validate_allowlist(data), i)
+
     def test_new_transition_to_done_for_an_agent_is_rejected(self):
         self.data["transitions"].append({
             "id": "sneaky", "from": ["In Progress"], "to": ["Done"], "actors": ["owner_agent"],
@@ -736,6 +869,7 @@ class AllowlistFileSchema(unittest.TestCase):
 
 TO_DONE_GUARD = "    if to_status in HUMAN_ONLY_STATUSES and actor_type != HUMAN_ACTOR:\n"
 SCHEMA_GUARD = "def _done_guard_errors(data):\n"
+SOURCE_GUARD = "def _done_source_errors(data):\n"
 EVIDENCE_GUARD = '        if not any(f in evidence for f in req["any_of"]):\n'
 
 
@@ -766,6 +900,14 @@ def assert_schema_done_guard_holds(test, module):
     test.assertTrue(any("human-only" in e for e in errors), errors)
 
 
+def assert_schema_done_source_guard_holds(test, module):
+    data = copy.deepcopy(ct.load_allowlist())
+    for t in data["transitions"]:
+        if t["id"] == "accept_done":
+            t["from"] = ["In Review", "In Progress"]
+    test.assertTrue(any("only be reached from In Review" in e for e in module.validate_allowlist(data)))
+
+
 def assert_missing_evidence_is_denied(test, module):
     data = module.load_allowlist()
     d = module._evaluate(data, "In Progress", "In Review", "owner_agent", [], [], {})
@@ -776,6 +918,7 @@ class MutationChecks(unittest.TestCase):
     def test_unmutated_module_passes_all_guard_tests(self):
         assert_runtime_done_guard_holds(self, ct)
         assert_schema_done_guard_holds(self, ct)
+        assert_schema_done_source_guard_holds(self, ct)
         assert_missing_evidence_is_denied(self, ct)
 
     def test_removing_the_runtime_done_guard_makes_its_test_fail(self):
@@ -787,6 +930,24 @@ class MutationChecks(unittest.TestCase):
         mutant = load_mutant([(SCHEMA_GUARD, SCHEMA_GUARD + "    return []\n\n\ndef _unused_original(data):\n")])
         with self.assertRaises(AssertionError):
             assert_schema_done_guard_holds(self, mutant)
+
+    def test_removing_the_done_source_guard_makes_its_test_fail(self):
+        mutant = load_mutant([(SOURCE_GUARD, SOURCE_GUARD + "    return []\n\n\ndef _unused_original_source(data):\n")])
+        with self.assertRaises(AssertionError):
+            assert_schema_done_source_guard_holds(self, mutant)
+
+    def test_removing_the_exec_rework_label_exclusion_makes_its_test_fail(self):
+        # the data-file rule behind 'Done is denied while exec-rework is present'
+        def check(allowlist):
+            d = ct._evaluate(allowlist, "In Review", "Done", "human", ["exec-rework"], [], dict(DONE_EVIDENCE))
+            self.assertFalse(d.allowed)
+        check(ct.load_allowlist())
+        weakened = copy.deepcopy(ct.load_allowlist())
+        for t in weakened["transitions"]:
+            if t["id"] == "accept_done":
+                del t["when_labels_before_exclude"]
+        with self.assertRaises(AssertionError):
+            check(weakened)
 
     def test_removing_the_evidence_check_makes_its_test_fail(self):
         mutant = load_mutant([(EVIDENCE_GUARD, "        if False:\n")])

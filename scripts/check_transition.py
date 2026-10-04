@@ -67,7 +67,7 @@ _ACTOR_KINDS = ("human", "agent", "automation")
 _TOP_KEYS = {
     "schema_version", "title", "approval", "sources", "statuses", "human_only_statuses",
     "actor_types", "labels", "assertion_label_words", "assertion_markers", "evidence_fields",
-    "transitions", "status_unchanged_events",
+    "transitions", "rework_lifecycle", "status_unchanged_events",
 }
 _TRANSITION_KEYS = {
     "id", "from", "to", "actors", "approval", "proposed_assumptions", "evidence_requirements",
@@ -168,6 +168,52 @@ def _done_guard_errors(data):
         reachable_targets = {to for t in data["transitions"] if actor in t["actors"] for to in t["to"]}
         if human_only & reachable_targets:
             errors.append(f"actor {actor!r} can reach a human-only status")
+    return errors
+
+
+def _done_source_errors(data):
+    """Done is reachable only from In Review, only by a human, and never while exec-rework is present."""
+    errors = []
+    for t in data["transitions"]:
+        if "Done" in t["to"]:
+            if t["from"] != ["In Review"]:
+                errors.append(f"transition {t['id']}: Done may only be reached from In Review")
+            if t["to"] != ["Done"]:
+                errors.append(f"transition {t['id']}: a transition to Done must not have other targets")
+            if "exec-rework" not in t.get("when_labels_before_exclude", []):
+                errors.append(f"transition {t['id']}: Done must be denied while exec-rework is present")
+    if not any("Done" in t["to"] for t in data["transitions"]):
+        errors.append("the allowlist must contain the human accept_done transition")
+    return errors
+
+
+def _lifecycle_errors(data):
+    """The rework lifecycle is documentation that must agree with the transitions."""
+    errors = []
+    life = data["rework_lifecycle"]
+    if not isinstance(life, dict) or set(life) != {"steps", "never"} or not isinstance(life["steps"], list) \
+            or not life["steps"] or not _is_str_list(life["never"]):
+        return ["rework_lifecycle must be {steps, never}"]
+    by_id = {t["id"]: t for t in data["transitions"]}
+    states = []
+    for step in life["steps"]:
+        if (not isinstance(step, dict) or not {"state", "jira_status", "note"} <= set(step)
+                or not set(step) <= {"state", "jira_status", "note", "transition"}
+                or not all(isinstance(step[k], str) for k in step) or step["jira_status"] not in data["statuses"]):
+            return ["rework_lifecycle has a malformed step"]
+        states.append(step["state"])
+        tid = step.get("transition")
+        if tid is not None and (tid not in by_id or step["jira_status"] not in by_id[tid]["to"]):
+            errors.append(f"rework_lifecycle step {step['state']!r}: transition {tid!r} does not lead to {step['jira_status']!r}")
+    expected = ["REWORK REQUIRED", "REWORK", "FIX", "RE-REVIEW", "ACCEPTED"]
+    if states != expected:
+        errors.append(f"rework_lifecycle states must be {expected}")
+        return errors
+    statuses = [s["jira_status"] for s in life["steps"]]
+    if statuses != ["In Review", "In Progress", "In Progress", "In Review", "Done"]:
+        errors.append("rework_lifecycle must go In Review, In Progress, In Progress, In Review, Done")
+    if [s.get("transition") for s in life["steps"]] != [None, "send_to_rework", None, "complete_rework", "accept_done"]:
+        errors.append("rework_lifecycle must use send_to_rework, complete_rework and accept_done")
     return errors
 
 
@@ -366,6 +412,8 @@ def validate_allowlist(data):
 
     # the central rule: no agent / automation path to Done (or any human-only status)
     errors.extend(_done_guard_errors(data))
+    errors.extend(_done_source_errors(data))
+    errors.extend(_lifecycle_errors(data))
     return errors
 
 
