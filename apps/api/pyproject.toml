@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "liferescue-api"
+version = "0.1.0"
+description = "LifeRescue backend API (FastAPI): one generic workflow runtime for LifeRescue, ScamShield and LifeOS."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+  "pydantic>=2.7,<3",
+  "pydantic-settings>=2.4,<3",
+  "sqlalchemy>=2.0.30,<3",
+  "alembic>=1.13,<2",
+  "psycopg[binary]>=3.2,<4",
+  "jsonschema>=4.21,<5",
+  # `contract` (packages/contract, import name `contract`) is installed from the repo: pip install -e packages/contract
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "ruff>=0.6",
+  "mypy>=1.10",
+  "types-jsonschema",
+  "types-PyYAML",
+  "httpx>=0.27,<1",  # FastAPI TestClient only (tests); app code must not import it (arch_check R2)
+  "PyYAML>=6",
+  "openapi-spec-validator>=0.7",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
+markers = [
+  "live: calls a real external service; skipped unless the matching LIVE_* env flag is set",
+  "postgres: needs a real PostgreSQL (runs when DATABASE_URL points at one)",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = ["S101", "E501"]  # E501: long docstring/comment lines are fine; ruff format handles code
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106", "S311", "E501"]
+"app/workflows/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = ["../../packages/contract"]  # `contract` is untyped-marker-free source; resolve it from the repo
+exclude = ["alembic/versions/"]
+
+[[tool.mypy.overrides]]
+module = ["packages.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests"]
+known-third-party = ["alembic"]

@@ -1,0 +1,22 @@
+# Minimal DEV-ONLY PostgreSQL for apps/api. (CI/deploy compose lives in infrastructure/, owned by LR 10.)
+# Usage: docker compose -f apps/api/docker-compose.yml up -d
+# The password is a throwaway local default; override with POSTGRES_PASSWORD. Never reuse it anywhere real.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: liferescue
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-liferescue_dev}
+      POSTGRES_DB: liferescue
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - lr_pgdata:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U liferescue -d liferescue"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  lr_pgdata:
