@@ -7,16 +7,17 @@ Rule: <type>/KAN-<number>-<description>
   - <description> is lowercase letters and digits, words separated by single hyphens
   - total length is at most 100 characters
 
-The branch name is read from the first command-line argument or, if there is no
-argument, from the environment variable BRANCH_NAME (or the variable named with
---env-var). The name is treated as untrusted data: it is only compared with a fixed
-pattern. It is never evaluated, never passed to a shell and never used to run a
-command, and it is printed back only in escaped form.
+The branch name is read ONLY from the environment variable BRANCH_NAME. The script has no
+command-line options and takes no arguments: any argument (including -h, --help and --) is a
+usage error (exit 2) and is never echoed. The variable name is fixed in the code, so the script
+cannot be made to read or print any other environment variable. The name is treated as untrusted
+data: it is only compared with a fixed pattern. It is never evaluated, never passed to a shell and
+never used to run a command, and it is printed back only in escaped, length-bounded form.
 
 Uses the Python standard library only; no network access, no subprocess calls.
-Exit code 0 if the name is valid, 1 if it is invalid, 2 if no name was given.
+Exit code 0 if the name is valid, 1 if it is invalid (an empty value is invalid), 2 if BRANCH_NAME
+is not set or any argument was given. A CI step must treat ANY non-zero exit code as failure.
 """
-import argparse
 import os
 import re
 import sys
@@ -25,7 +26,8 @@ PREFIXES = ("feature", "bugfix", "security", "chore", "docs")
 MAX_LENGTH = 100
 PATTERN = r"^(feature|bugfix|security|chore|docs)/KAN-[1-9][0-9]*-[a-z0-9]+(-[a-z0-9]+)*$"
 BRANCH = re.compile(PATTERN)
-DEFAULT_ENV_VAR = "BRANCH_NAME"
+ENV_VAR = "BRANCH_NAME"  # fixed on purpose: never configurable from the command line
+ECHO_LIMIT = 120  # at most this many characters of a name are echoed back
 
 
 def validate(name):
@@ -44,33 +46,26 @@ def validate(name):
 
 
 def escaped(name):
-    """Printable, single-line, ASCII-only form of untrusted text (no control chars)."""
+    """Printable, single-line, ASCII-only, length-bounded form of untrusted text (no control chars)."""
+    if len(name) > ECHO_LIMIT:
+        return ascii(name[:ECHO_LIMIT]) + f"... [truncated; {len(name)} characters in total]"
     return ascii(name)
 
 
 def main(argv=None, environ=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
     environ = os.environ if environ is None else environ
-    parser = argparse.ArgumentParser(
-        description="Validate a branch name: <type>/KAN-<number>-<description>."
-    )
-    parser.add_argument("branch", nargs="?", help="branch name to check")
-    parser.add_argument(
-        "--env-var",
-        default=DEFAULT_ENV_VAR,
-        help=f"environment variable to read when no argument is given (default {DEFAULT_ENV_VAR})",
-    )
-    args = parser.parse_args(argv)
 
-    if args.branch is not None:
-        name = args.branch
-    elif args.env_var in environ:
-        name = environ[args.env_var]
-    else:
-        print(
-            f"error: no branch name given; pass it as an argument or set {args.env_var}",
-            file=sys.stderr,
-        )
+    # No option parsing at all. Any argument is refused without being looked at or printed, so an
+    # option-like argument (for example -h, --help or "--") can neither redirect the script to
+    # another environment variable nor produce a success exit code.
+    if argv:
+        print(f"error: this script takes no arguments; set the environment variable {ENV_VAR}", file=sys.stderr)
         return 2
+    if ENV_VAR not in environ:
+        print(f"error: no branch name given; set the environment variable {ENV_VAR}", file=sys.stderr)
+        return 2
+    name = environ[ENV_VAR]
 
     reason = validate(name)
     if reason is None:
