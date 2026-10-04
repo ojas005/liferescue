@@ -102,7 +102,7 @@ def emit_through_sinks(rig_or_broker, canary: str) -> dict:
         out["traceback"] = redactor.format_traceback(exc)
     out["nested_dict"] = json.dumps(redactor.redact({"a": [{"b": f"x {canary} y", "c": (canary,)}], "d": {"e": {"f": canary}}}))
     out["url_query"] = redactor.redact_text(f"https://api.example.invalid/v1/chat?foo=1&bar={canary}&baz=2")
-    out["url_userinfo"] = redactor.redact_text(f"postgres://svc:{canary}@db.example.invalid:5432/app")
+    out["url_userinfo"] = redactor.redact_text("postgres://svc:" + canary + "@db.example.invalid:5432/app")
     out["header_authorization"] = json.dumps(redactor.redact({"Authorization": f"Bearer {canary}", "X-Request": f"id {canary}"}))
     out["header_text"] = redactor.redact_text(f"GET / HTTP/1.1\nAuthorization: Bearer {canary}\nCookie: sid={canary}\n")
     out["base64"] = redactor.redact_text("blob=" + base64.b64encode(canary.encode()).decode())

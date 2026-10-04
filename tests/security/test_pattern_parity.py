@@ -71,6 +71,8 @@ class HarnessSelfTest(unittest.TestCase):
         report = run_parity(self.write(drifted), self.patterns)
         self.assertFalse(report.ok)
         self.assertTrue(any("xai" in m for m in report.mismatches), report.mismatches)
+        # the scanner would flag a shorter token that the redactor lets through: reported as a real divergence, not a corpus bug
+        self.assertTrue(any("xai" in m and "gitleaks=match python=no match" in m for m in report.mismatches), report.mismatches)
 
     def test_looser_and_tighter_url_rule_is_detected(self):
         loose = toml_from_patterns(self.patterns, regex_override={"liferescue-url-embedded-password": r"""(?i)\b(?:postgres|https?)://[^\s:/@]+:([^\s@]{1,})@[^\s]+"""})

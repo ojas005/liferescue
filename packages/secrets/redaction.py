@@ -123,6 +123,10 @@ class PatternSet:
             raise ConfigurationError("patterns file unreadable or invalid")
         return cls.from_mapping(doc)
 
+    def scanner_mirrored(self) -> "PatternSet":
+        """Only the rules that mirror a ``.gitleaks.toml`` rule (what the CI scanner would flag)."""
+        return PatternSet(r for r in self.rules if r.gitleaks_rule)
+
     def spans(self, text: str) -> list:
         out = []
         for rule in self.rules:

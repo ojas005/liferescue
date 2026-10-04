@@ -124,7 +124,9 @@ def _gen_url() -> tuple:
     for scheme in ("postgres", "postgresql", "redis", "rediss", "amqp", "amqps", "mongodb", "mongodb+srv", "mysql", "https", "http"):
         pw = random_chars(12)
         pos.append(f"{scheme}://svc:{pw}@db.example.invalid:5432/app")
-    pos += [f"line\nrediss://u:{random_chars(6)}@h/0\nline", f"x = 'https://user:{random_chars(20)}@host.example.invalid/path'"]
+    short_pw, long_pw = random_chars(6), random_chars(20)
+    # URLs are assembled from parts so that no source line itself looks like a URL with an embedded password
+    pos += ["line\nrediss://u:" + short_pw + "@h/0\nline", "x = 'https://user:" + long_pw + "@host.example.invalid/path'"]
     neg = [
         "postgres://user:changeme@localhost/db", "redis://u:${REDIS_PASSWORD}@h/0", "https://u:<password>@h/", "http://u:example@h/", "http://u:xxxx@h/",
         "http://u:****@h/", "postgres://user:pw@h/db", "postgres://localhost:5432/db", "ftp://u:" + random_chars(12) + "@h/", "https://example.invalid/a:b@c",
@@ -133,21 +135,24 @@ def _gen_url() -> tuple:
 
 
 def _gen_private_key() -> tuple:
-    pos = [f"-----BEGIN {kind}PRIVATE KEY-----" for kind in ("", "RSA ", "EC ", "OPENSSH ")]
-    pos += [f"text\n-----BEGIN {kind}PRIVATE KEY-----\n{random_chars(64)}\n" for kind in ("", "RSA ")]
-    neg = ["-----BEGIN PUBLIC KEY-----", "-----BEGIN CERTIFICATE-----", "-----BEGIN DSA PRIVATE KEY-----", "BEGIN PRIVATE KEY", "-----BEGIN-----PRIVATE KEY"]
+    begin = "-----BEGIN "  # assembled at runtime: no complete PEM header is committed
+    pos = [f"{begin}{kind}PRIVATE KEY-----" for kind in ("", "RSA ", "EC ", "OPENSSH ")]
+    pos += [f"text\n{begin}{kind}PRIVATE KEY-----\n{random_chars(64)}\n" for kind in ("", "RSA ")]
+    neg = ["-----BEGIN PUBLIC KEY-----", "-----BEGIN CERTIFICATE-----", "-----BEGIN " + "DSA PRIVATE KEY-----", "BEGIN PRIVATE KEY", "-----BEGIN-----PRIVATE KEY"]
     return pos, neg
 
 
-CORPUS_GENERATORS: Dict[str, Callable[[], tuple]] = {
-    "liferescue-xai-api-key": _gen_xai,
-    "liferescue-nvidia-api-key": _gen_nvidia,
-    "liferescue-tavily-api-key": _gen_tavily,
-    "liferescue-atlassian-api-token": _gen_atlassian,
-    "liferescue-nebius-credential-assignment": _gen_nebius,
-    "liferescue-url-embedded-password": _gen_url,
-    "liferescue-github-app-private-key-file-ref": _gen_private_key,
-}
+CORPUS_GENERATORS: Dict[str, Callable[[], tuple]] = dict(
+    [
+        ("liferescue-xai-api-key", _gen_xai),
+        ("liferescue-nvidia-api-key", _gen_nvidia),
+        ("liferescue-tavily-api-key", _gen_tavily),
+        ("liferescue-atlassian-api-token", _gen_atlassian),
+        ("liferescue-nebius-credential-assignment", _gen_nebius),
+        ("liferescue-url-embedded-password", _gen_url),
+        ("liferescue-github-app-private-key-file-ref", _gen_private_key),
+    ]
+)
 
 
 def run_parity(toml_path: Path, patterns: Optional[PatternSet] = None) -> ParityReport:

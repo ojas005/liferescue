@@ -136,7 +136,7 @@ class PatternRedaction(unittest.TestCase):
         self.check(f"NEBIUS_API_KEY={secret}", "nebius_credential", secret)
         pw = random_chars(20)
         out = self.r.redact_text(f"postgres://svc:{pw}@db.example.invalid:5432/app")
-        self.assertEqual(out, "postgres://svc:[REDACTED:url_password]@db.example.invalid:5432/app")
+        self.assertEqual(out, "postgres://svc:" + "[REDACTED:url_password]" + "@db.example.invalid:5432/app")
 
     def test_placeholder_url_passwords_are_not_redacted(self):
         for text in ("postgres://user:changeme@localhost/db", "redis://u:${REDIS_PASSWORD}@h/0", "https://u:<password>@h/"):

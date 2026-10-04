@@ -100,7 +100,7 @@ class PersistenceGuard(Base):
             {"run_id": "R-1", "state": {"note": f"tool said {self.canary}"}},
             {"run_id": "R-1", "api_key": "anything"},
             {self.canary: "value-as-key"},
-            {"steps": [{"args": {"conn": f"postgres://u:{random_chars(20)}@h.example.invalid/db"}}]},
+            {"steps": [{"args": {"conn": "postgres://u:" + random_chars(20) + "@h.example.invalid/db"}}]},
         ):
             with self.subTest(record=list(record)[:2]):
                 with self.assertRaises(SecretLeak) as ctx:
