@@ -133,7 +133,7 @@ Option A. Each point carries its tag.
 
 - Detection checks (manual or scheduled, read-only): (a) issues in Done whose changelog author is an integration or agent identity (attribution caveat above); (b) `labels = exec-rework` on issues whose status is not In Progress; (c) open PRs whose head branch fails the pattern; (d) issues in Done whose previous status was not In Review; (e) issues in Done whose Done transition was made by the owner agent's identity; (f) issues that went from In Progress with `exec-rework` straight to Done; (g) *LR 04-proposed*: `project = KAN AND status = Done AND labels = exec-rework` (rework must never be read as completed work).
 - Transition events are logged as Jira comments and the Jira changelog; a central log is deferred until hosting and observability exist.
-- KAN-20 asks for a test in a non-production Jira project; none exists. The implementation plan lists the options.
+- KAN-20 originally asked for a test in a non-production Jira project; none exists. **Recorded decision** (Ojas Sharma, 2026-10-04, KAN-20 comment 10145): that criterion is scoped out of KAN-20's mandatory acceptance for the current phase. Deferred hardening: end-to-end Jira transition testing requires a dedicated non-production Jira project. This is deferred and is not a prerequisite for the current implementation baseline. It must be completed before enabling autonomous Jira mutations in a production-like environment. No test project is to be created. This does not accept this ADR.
 - CI cost: one short extra job within the GitHub Free allowance; exact usage UNKNOWN.
 - Rollback: remove the CI job and revert the CONTRIBUTING/PR-template changes; no data migration.
 
@@ -149,8 +149,8 @@ Option A. Each point carries its tag.
 | # | Finding | Severity | Handling |
 |---|---|---|---|
 | X1 | ADR number collision between the architect's and the security agent's drafts of ADR-0002 and ADR-0003. | M | Resolved by the ADR ledger ruling of 2026-10-04: the security drafts carry the provisional ids ADR-S01 and ADR-S02; final repository numbers are assigned when each ADR PR is opened. |
-| X2 | ADR-0001 says C-07 (REWORK) is still open; the REWORK representation is now decided. | L | ADR-0001 is Accepted (interim) and is not rewritten by this ADR; see the amendment note proposed in the stale-text corrections. |
-| X3 | ADR-0001 mitigation "Humans or reviewer agents confirm DONE" differs from D6 (Done only from In Review; agents never mark their own work Done) and from T5 (a human performs the Done transition: Proposed). | M | Flagged; ADR-0001 amendment note proposed. |
+| X2 | ADR-0001 says C-07 (REWORK) is still open; the REWORK representation is now decided. | L | ADR-0001 is Accepted (interim) and is not rewritten by this ADR; an amendment note was added to ADR-0001 in the same pull request that adds this ADR. |
+| X3 | ADR-0001 mitigation "Humans or reviewer agents confirm DONE" differs from D6 (Done only from In Review; agents never mark their own work Done) and from T5 (a human performs the Done transition: Proposed). | M | Flagged; the ADR-0001 amendment note (added in the same pull request) marks the sentence as superseded for the Done transition. |
 | X4 | An earlier security draft proposed agent branches `agent/<id>/*`; the recorded decision allows only the five prefixes. | L | Resolved: the five prefixes apply. |
 | X5 | An earlier conflict proposal (C-04) recommended a union branch pattern; the recorded decision chose the Jira-key form and dropped `feat`. | L | Superseded by D1. |
 | X6 | The illustrative C-10 mapping said BLOCKED could be a label or status; here BLOCKED is a comment only. | L | Consistent with the approved four-status model. |
@@ -163,8 +163,8 @@ Option A. Each point carries its tag.
 | X16 | The earlier rule "a human may move any status to Done" (an `any -> Done` matrix row and related text) conflicted with D6. | H | Removed from this ADR; Done is reached only through T5. |
 | X17 | An earlier matrix row read rework-complete as "In Review -> In Progress", contradicting point 8; actors `human` (rework-complete) and `owner_agent` (send-to-rework) were missing. | H | Fixed: T3 and T4; actors added (D8). |
 | X18 | "REWORK REQUIRED" has no Jira status. | L | Represented by In Progress + `exec-rework` + reason comment (point 16); no status or label is invented. |
-| X19 | ADR-0001 and some repository docs still carried pre-decision wording (C-07 open; "reviewer agents confirm DONE"; "separate agent identities"). | M | Corrections proposed separately as a patch; ADR-0001 gets an amendment note. |
-| X20 | Identity-separation claims: the earlier PR-template checkbox and the CONTRIBUTING ground rule said author and reviewer are "different identities", but agents push through the owner's GitHub account (security review finding F-4). | M | LR 04-proposed. Fixed on `main` by PR #3: the wording is now "Independent review required before merge." and an "Authoring agent" field records attribution by statement. Remaining occurrences in `docs/workforce/agent-registry.md` are covered by the proposed stale-text corrections. |
+| X19 | ADR-0001 and some repository docs still carried pre-decision wording (C-07 open; "reviewer agents confirm DONE"; "separate agent identities"). | M | Corrected in the same pull request that adds this ADR (ADR-0001 amendment note, `docs/workforce/agent-registry.md`, `docs/overview.md`). |
+| X20 | Identity-separation claims: the earlier PR-template checkbox and the CONTRIBUTING ground rule said author and reviewer are "different identities", but agents push through the owner's GitHub account (security review finding F-4). | M | LR 04-proposed. Fixed on `main` by PR #3: the wording is now "Independent review required before merge." and an "Authoring agent" field records attribution by statement. Remaining occurrences in `docs/workforce/agent-registry.md` are corrected in the same pull request that adds this ADR. |
 
 ## History
 
