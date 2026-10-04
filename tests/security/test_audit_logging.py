@@ -250,7 +250,7 @@ class TelemetryAllowList(unittest.TestCase):
                 {
                     "agent_id": "LR-06",
                     "http.request.header.authorization": canary,
-                    "db.connection_string": f"postgres://u:{canary}@h/db",
+                    "db.connection_string": "postgres://u:" + canary + "@h/db",
                     "task_id": canary + " spaced",
                     "ttl_s": 900,
                     "prompt": canary,
