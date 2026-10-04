@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LifeRescue — Autonomous AI Emergency Coordination & Readiness</title>
+  <meta name="description" content="Production-quality AI emergency triage, response coordination, and personal readiness platform.">
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <a href="#" class="brand" onclick="switchTab('dashboard')">
+      <div class="brand-icon">⛑️</div>
+      <div>
+        <div class="brand-title">LifeRescue</div>
+      </div>
+      <span class="brand-tag">AI Governance</span>
+    </a>
+
+    <nav>
+      <button class="nav-btn active" id="nav-dashboard" onclick="switchTab('dashboard')">
+        <span>📊</span> Dashboard
+      </button>
+      <button class="nav-btn" id="nav-emergency" onclick="switchTab('emergency')">
+        <span>🚨</span> Emergency Triage
+      </button>
+      <button class="nav-btn" id="nav-timeline" onclick="switchTab('timeline')">
+        <span>📜</span> Incident Timeline
+      </button>
+      <button class="nav-btn" id="nav-readiness" onclick="switchTab('readiness')">
+        <span>🛡️</span> Readiness & Contacts
+      </button>
+      <button class="nav-btn" id="nav-audit" onclick="switchTab('audit')">
+        <span>🔒</span> Audit Trail
+      </button>
+    </nav>
+
+    <div class="header-status">
+      <span class="demo-pill" id="system-status-pill">Simulation Mode Active</span>
+      <a href="/docs" target="_blank" class="nav-btn" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+        API Docs ↗
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main>
+    <!-- Interactive Demo Mode Banner -->
+    <section class="demo-banner">
+      <div class="demo-banner-text">
+        <h4>⚡ One-Click Hackathon Scenarios</h4>
+        <p>Pre-packaged deterministic emergency flows showing end-to-end AI triage and response simulation.</p>
+      </div>
+      <div class="demo-scenario-buttons">
+        <button class="btn-scenario" onclick="runScenario('scenario_medical')">
+          <span>❤️</span> Scenario 1: Chest Pain & Breathing
+        </button>
+        <button class="btn-scenario" onclick="runScenario('scenario_accident')">
+          <span>🚗</span> Scenario 2: Highway Collision
+        </button>
+        <button class="btn-scenario" onclick="runScenario('scenario_preparedness')">
+          <span>🔥</span> Scenario 3: Wildfire Evacuation
+        </button>
+      </div>
+    </section>
+
+    <!-- Tab 1: Dashboard -->
+    <div id="tab-dashboard" class="tab-content active">
+      <!-- Emergency Hero CTA -->
+      <section class="emergency-hero">
+        <h2>Experiencing an Emergency?</h2>
+        <p>LifeRescue provides instant AI-assisted triage, safety policy evaluation, and coordinated emergency escalation.</p>
+        <button class="btn-sos" onclick="switchTab('emergency')">
+          <span>🆘</span> REPORT EMERGENCY NOW
+        </button>
+      </section>
+
+      <!-- Dashboard Widgets Grid -->
+      <div class="grid-2">
+        <!-- Personal Readiness Widget -->
+        <div class="glass-card">
+          <div class="widget-header">
+            <h3 class="widget-title"><span>🛡️</span> Personal Emergency Readiness</h3>
+            <button class="btn-scenario" onclick="switchTab('readiness')">Manage Profile →</button>
+          </div>
+          <div class="readiness-gauge-box">
+            <div class="score-circle" id="dash-score-circle" data-score="--"></div>
+            <div class="readiness-details">
+              <h4 id="dash-readiness-status">Evaluating...</h4>
+              <p id="dash-readiness-gaps">Reviewing profile gaps and emergency directives...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Emergency Contacts Widget -->
+        <div class="glass-card">
+          <div class="widget-header">
+            <h3 class="widget-title"><span>📞</span> Designated Emergency Contacts</h3>
+            <button class="btn-scenario" onclick="switchTab('readiness')">+ Add Contact</button>
+          </div>
+          <div id="dash-contacts-list" style="margin-top: 0.5rem;">
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Loading contacts...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Incidents Section -->
+      <div class="glass-card" style="margin-top: 1.5rem;">
+        <div class="widget-header">
+          <h3 class="widget-title"><span>🕒</span> Recent Incident History</h3>
+          <button class="btn-scenario" onclick="loadIncidents()">Refresh</button>
+        </div>
+        <div id="dash-incidents-list">
+          <p style="color: var(--text-muted); font-size: 0.85rem;">Loading incidents...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Emergency Triage Screen -->
+    <div id="tab-emergency" class="tab-content">
+      <div class="grid-2">
+        <!-- Emergency Intake Form -->
+        <div class="glass-card">
+          <div class="widget-header">
+            <h3 class="widget-title"><span>🚨</span> Emergency Situation Intake</h3>
+            <span class="badge badge-high">Capability A</span>
+          </div>
+          <form id="emergency-form" onsubmit="handleEmergencySubmit(event)">
+            <div class="form-group">
+              <label for="inc-title">Situation Headline</label>
+              <input type="text" id="inc-title" class="form-control" placeholder="e.g. Severe chest pain and breathlessness" required>
+            </div>
+            <div class="form-group">
+              <label for="inc-desc">Describe What Is Happening</label>
+              <textarea id="inc-desc" class="form-control" placeholder="Provide as much detail as possible: symptoms, injuries, hazards, who is involved..." required></textarea>
+            </div>
+            <div class="form-group">
+              <label for="inc-location">Location or Landmark</label>
+              <input type="text" id="inc-location" class="form-control" placeholder="e.g. 742 Evergreen Terrace, Springfield or GPS Coordinates">
+            </div>
+            <div class="form-group">
+              <label for="inc-type">Input Method</label>
+              <select id="inc-type" class="form-control">
+                <option value="text">Direct Text Input</option>
+                <option value="voice_transcript">Voice Transcript Feed</option>
+                <option value="sensor">Telemetry / Sensor Alert</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary" id="btn-submit-emergency" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 0.9rem;">
+              <span>⚡</span> Initiate AI Triage & Response
+            </button>
+          </form>
+        </div>
+
+        <!-- Live Triage & Response Output -->
+        <div class="glass-card" id="triage-result-card">
+          <div class="widget-header">
+            <h3 class="widget-title"><span>🤖</span> AI Triage & Safety Policy Engine</h3>
+            <span class="badge" id="triage-urgency-badge" style="display: none;">Urgency</span>
+          </div>
+
+          <div id="triage-placeholder" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🩺</div>
+            <p>Submit an emergency report or click a Demo Scenario above to view real-time triage analysis, deterministic safety rules, and coordinated response actions.</p>
+          </div>
+
+          <!-- Triage Progression Steps -->
+          <div id="triage-active-container" style="display: none;">
+            <div class="triage-steps">
+              <div class="triage-step completed" id="step-intake">
+                <div class="step-indicator">1</div>
+                <div class="step-label">Intake</div>
+              </div>
+              <div class="triage-step active" id="step-ai">
+                <div class="step-indicator">2</div>
+                <div class="step-label">AI Triage</div>
+              </div>
+              <div class="triage-step" id="step-policy">
+                <div class="step-indicator">3</div>
+                <div class="step-label">Safety Policy</div>
+              </div>
+              <div class="triage-step" id="step-actions">
+                <div class="step-indicator">4</div>
+                <div class="step-label">Response</div>
+              </div>
+            </div>
+
+            <!-- Analysis Summary -->
+            <div style="background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--border-glass);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <strong id="analysis-category" style="color: var(--accent-ai); text-transform: capitalize;">Medical Emergency</strong>
+                <span id="analysis-severity" style="font-size: 0.8rem; color: var(--text-secondary);">Severity: 9/10</span>
+              </div>
+              <p id="analysis-summary" style="font-size: 0.9rem; margin-bottom: 0.75rem;"></p>
+              
+              <div id="analysis-missing-box" style="display: none; background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--accent-warning); padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.8rem; margin-bottom: 0.5rem;">
+                <strong>Missing Critical Info:</strong> <span id="analysis-missing-text"></span>
+              </div>
+            </div>
+
+            <!-- Action Plan List -->
+            <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem;">Coordinated Action Plan (Capability B)</h4>
+            <div id="plan-actions-list"></div>
+
+            <div class="disclaimer-alert">
+              <span>⚠️</span>
+              <div>
+                <strong>Medical & Legal Notice:</strong>
+                LifeRescue AI provides immediate safety guidance and triage coordination. It is not a licensed physician. Calling professional 911/112 services is always prioritized.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Incident Timeline -->
+    <div id="tab-timeline" class="tab-content">
+      <div class="glass-card">
+        <div class="widget-header">
+          <h3 class="widget-title"><span>📜</span> End-to-End Incident Timeline</h3>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <select id="timeline-incident-select" class="form-control" style="width: auto; padding: 0.4rem 0.8rem;" onchange="loadSelectedTimeline()">
+              <option value="">Select an Incident...</option>
+            </select>
+            <button class="btn-scenario" onclick="loadSelectedTimeline()">Refresh</button>
+          </div>
+        </div>
+        <div id="timeline-container" class="timeline" style="margin-top: 1.5rem;">
+          <p style="color: var(--text-muted);">Please select an incident above or launch a demo scenario to inspect its event timeline.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Readiness & Contacts -->
+    <div id="tab-readiness" class="tab-content">
+      <div class="grid-2">
+        <!-- Readiness Assessment Card -->
+        <div class="glass-card">
+          <div class="widget-header">
+            <h3 class="widget-title"><span>🛡️</span> Preparedness Evaluation</h3>
+            <span class="badge badge-low" id="readiness-badge">Ready</span>
+          </div>
+          <div class="readiness-gauge-box">
+            <div class="score-circle" id="readiness-score-circle" data-score="--"></div>
+            <div class="readiness-details">
+              <h4 id="readiness-score-title">Assessing profile...</h4>
+              <p id="readiness-score-desc"></p>
+            </div>
+          </div>
+          <div style="margin-top: 1rem;">
+            <h5 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Preparedness Checklist</h5>
+            <div id="readiness-checklist"></div>
+          </div>
+        </div>
+
+        <!-- Emergency Contacts Manager -->
+        <div class="glass-card">
+          <div class="widget-header">
+            <h3 class="widget-title"><span>👥</span> Designated Emergency Contacts</h3>
+            <button class="btn-scenario" onclick="openAddContactModal()">+ New Contact</button>
+          </div>
+          <div id="contacts-management-list" style="margin-top: 1rem;"></div>
+        </div>
+      </div>
+
+      <!-- Emergency Medical Profile Editor -->
+      <div class="glass-card" style="margin-top: 1.5rem;">
+        <div class="widget-header">
+          <h3 class="widget-title"><span>📋</span> Personal Medical & Emergency Profile</h3>
+          <button class="btn-primary" onclick="saveEmergencyProfile()">Save Profile</button>
+        </div>
+        <form id="profile-form">
+          <div class="grid-3">
+            <div class="form-group">
+              <label for="prof-blood">Blood Type</label>
+              <select id="prof-blood" class="form-control">
+                <option value="">Unknown / Not Set</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="prof-lang">Primary Language</label>
+              <input type="text" id="prof-lang" class="form-control" value="en">
+            </div>
+            <div class="form-group">
+              <label for="prof-address">Home Address</label>
+              <input type="text" id="prof-address" class="form-control" placeholder="Street, City, State">
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="form-group">
+              <label for="prof-allergies">Known Allergies (comma-separated)</label>
+              <input type="text" id="prof-allergies" class="form-control" placeholder="Penicillin, Peanuts, Latex">
+            </div>
+            <div class="form-group">
+              <label for="prof-meds">Current Medications (comma-separated)</label>
+              <input type="text" id="prof-meds" class="form-control" placeholder="Albuterol inhaler, Insulin">
+            </div>
+            <div class="form-group">
+              <label for="prof-conditions">Chronic Conditions (comma-separated)</label>
+              <input type="text" id="prof-conditions" class="form-control" placeholder="Asthma, Type 1 Diabetes">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="prof-instructions">Emergency Directives for First Responders</label>
+            <textarea id="prof-instructions" class="form-control" placeholder="e.g. Spare inhaler in front backpack pocket. Dog in backyard is friendly. Gate code #4821."></textarea>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tab 5: Audit Trail -->
+    <div id="tab-audit" class="tab-content">
+      <div class="glass-card">
+        <div class="widget-header">
+          <h3 class="widget-title"><span>🔒</span> Immutable Security & Governance Audit Trail</h3>
+          <button class="btn-scenario" onclick="loadAuditEvents()">Refresh Audit Log</button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Captures every critical action, triage analysis, safety policy rule enforcement, and secret lease execution. All secret values are proactively redacted before persistence.
+        </p>
+        <div id="audit-events-table-box" style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border-glass); color: var(--text-secondary);">
+                <th style="padding: 0.75rem 0.5rem;">Timestamp</th>
+                <th style="padding: 0.75rem 0.5rem;">Event Type</th>
+                <th style="padding: 0.75rem 0.5rem;">Actor</th>
+                <th style="padding: 0.75rem 0.5rem;">Action</th>
+                <th style="padding: 0.75rem 0.5rem;">Result</th>
+                <th style="padding: 0.75rem 0.5rem;">Incident ID</th>
+              </tr>
+            </thead>
+            <tbody id="audit-events-body">
+              <tr>
+                <td colspan="6" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Loading audit events...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
