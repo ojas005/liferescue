@@ -8,7 +8,7 @@
 
 The agent holds a **handle**, the gateway holds the **value**, and only for the duration of one call. Prevent by type and construction first, redact second, scan third.
 
-## Layout (this PR: spec steps 1 to 4)
+## Layout (spec steps 1 to 7 in code, step 8 is the docs)
 
 | Module | Purpose |
 |---|---|
@@ -24,8 +24,12 @@ The agent holds a **handle**, the gateway holds the **value**, and only for the 
 | `logging_rules.py`, `telemetry.py` | Logging and telemetry allow-lists. |
 | `broker.py`, `agent_api.py` | `CredentialBroker` (request/use/revoke/sweep) and the request-only agent facade. |
 | `testing.py` | Reusable helpers: random canary generator, `FakeClock` (for KAN-46). |
+| `redaction.py`, `patterns.json` | `Redactor`: known-value redaction (many encodings and split forms), pattern rules (7 mirror the proposed `.gitleaks.toml`, 6 are Python-only), key-name rule, structure and exception-chain redaction. |
+| `guards.py` | Sink guards: prompt (refuse, no retry), persistence (refuse), outgoing text (refuse), return path (redact), provider-call wrapper, logging filter, redacting audit sink. |
+| `parity.py` | Pattern parity harness against a `.gitleaks.toml` with a runtime-generated random corpus (T-22). |
+| `conformance.py` | `BackendConformanceMixin`: the contract every future `SecretBackend` must pass (T-27). |
 
-The redaction library, sink guards, pattern parity harness, conformance suite and docs arrive in the second PR (spec steps 5 to 8).
+Design, invariants, redaction rules, rules for gateway authors and limitations: [`docs/security/secrets-and-credentials.md`](../../docs/security/secrets-and-credentials.md).
 
 ## Configuration and defaults
 
@@ -57,5 +61,7 @@ From the repository root (not from inside this directory; the name `secrets` wou
 ```bash
 python3 -m unittest discover -s tests/security -v
 ```
+
+Optional: `KAN45_GITLEAKS_CONFIG=/path/to/.gitleaks.toml` enables the pattern parity test against a real scanner config (it is skipped when no such file exists). Mutation check: `python3 tests/security/mutation_check.py -v`.
 
 Requires Python 3.11+ (stdlib only; no third-party packages). CI wiring is not part of this slice (`.github/workflows/` is owned by LR 10).
