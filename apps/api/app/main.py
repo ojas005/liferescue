@@ -15,6 +15,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
+from contract.errors import ConfigError
 from contract.interfaces import RunEngine, assert_model_adapter_allowed
 from contract.models import utcnow
 from contract.validation import check_workflow_schemas
@@ -39,7 +40,7 @@ from app.policy.engine import DeterministicPolicyEngine
 from app.ports import Ports
 from app.security import keys
 from app.security.identity import ACTOR_HEADER
-from app.settings import Settings, get_settings
+from app.settings import DEFAULT_DATABASE_URL, Settings, get_settings
 from app.workflows.registry import StaticWorkflowRegistry, default_definitions
 
 log = logging.getLogger("liferescue.api")
@@ -104,6 +105,13 @@ def create_app(
         keys.require_key(
             "NEBIUS_API_KEY"
         )  # presence only; the adapter reads the value through app.security.keys
+    if (
+        db_engine is None
+        and not settings.docs_enabled  # production / prod / staging
+        and settings.database_url == DEFAULT_DATABASE_URL
+    ):
+        # The built-in default is the local dev database with a throwaway password and the schema-owner user.
+        raise ConfigError("DATABASE_URL must be set explicitly when LIFERESCUE_ENV is production or staging")
     redactor = configure_logging(
         settings.log_level, keys.known_secret_values([settings.database_password() or ""])
     )

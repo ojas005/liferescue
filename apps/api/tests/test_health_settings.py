@@ -102,3 +102,34 @@ def test_startup_nebius_needs_key_and_never_echoes_it(monkeypatch: pytest.Monkey
 def test_database_url_normalised_to_psycopg3() -> None:
     assert normalize_database_url("postgresql://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
     assert normalize_database_url("sqlite://") == "sqlite://"
+
+
+def test_startup_refuses_builtin_dev_database_url_when_deployed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("NEBIUS_API_KEY", "canary-not-a-real-key-0123456789")
+    for env in ("production", "prod", "staging"):
+        with pytest.raises(ConfigError) as exc:
+            create_app(Settings(_env_file=None, liferescue_env=env, model_adapter="nebius"))
+        assert "DATABASE_URL" in str(exc.value) and "liferescue_dev" not in str(exc.value)
+    # an explicit URL (here SQLite, no connection is made at startup) is accepted
+    create_app(
+        Settings(
+            _env_file=None, liferescue_env="production", model_adapter="nebius", database_url="sqlite://"
+        )
+    )
+
+
+def test_broker_package_without_redaction_module_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    import importlib
+
+    from app.security import keys
+
+    real = importlib.import_module
+
+    def fake(name: str, package: str | None = None):  # type: ignore[no-untyped-def]
+        if name.endswith(".redaction"):
+            raise ModuleNotFoundError(name)
+        return real(name, package)
+
+    monkeypatch.setattr(importlib, "import_module", fake)
+    assert keys._load_broker_module() is None

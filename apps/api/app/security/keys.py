@@ -1,7 +1,8 @@
 """Single place that knows how to reach the credential broker package (KAN-45).
 
-The package is ``packages/credential_broker`` (formerly ``packages/secrets``). If it is renamed again,
-change ``CANDIDATE_MODULES`` only. If none is importable (e.g. KAN-45 is not merged yet) a minimal,
+The KAN-45 package is ``packages/secrets`` on ``main`` (the scratch tree this was written on called it
+``packages/credential_broker``; both names are tried). If it is renamed again, change ``CANDIDATE_MODULES`` only.
+If none is importable with its ``redaction`` module (e.g. KAN-45 PR #7 is not merged yet) a minimal,
 stricter-than-nothing fallback redactor is used and ``BROKER_AVAILABLE`` is False.
 
 This module is also the ONLY place in apps/api that reads key material from the environment (SECURITY-REQUIREMENTS K1):
@@ -142,9 +143,15 @@ class FallbackRedactor:
 
 
 def _load_broker_module() -> Any | None:
+    """First candidate package that is importable AND provides ``redaction`` (the part this module uses).
+
+    On ``main`` ``packages/secrets`` exists before its ``redaction`` module is merged (KAN-45 PR #7); in that case
+    the package is skipped and the local fallback redactor is used, instead of failing at ``make_redactor``."""
     for name in CANDIDATE_MODULES:
         try:
-            return importlib.import_module(name)
+            module = importlib.import_module(name)
+            importlib.import_module(name + ".redaction")
+            return module
         except ImportError:
             continue
     return None
