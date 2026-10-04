@@ -1,0 +1,15 @@
+# Applies to tests/ only (apps/api has its own [tool.ruff]).
+line-length = 120
+target-version = "py311"
+# tests/security (KAN-45, LR 08) predates this config and keeps its own style; not linted here.
+extend-exclude = ["security"]
+
+[lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[lint.isort]
+known-first-party = ["contract", "lr_support", "conf_helpers"]
+
+[lint.per-file-ignores]
+"fixtures/validate_fixtures.py" = ["UP031", "E731", "E701", "E702"]

@@ -1,0 +1,155 @@
+{
+  "_meta": {
+    "label": "SYNTHETIC - hand-authored by LR 07 QA on 2026-10-04; NOT a real recording or real data",
+    "synthetic": true,
+    "kind": "golden_cases",
+    "contains_real_personal_data": false,
+    "schema_status": "model objects validated against platform contract 0.1.0 (IntentResult, PlanProposal, AssessmentResult); tool names follow the LR 04 workflow definitions; Tavily response shape hand-authored",
+    "note": "3 vehicle_breakdown cases. Names of categories/plan-step keys are PROPOSED. NOTE: HANDOFF.md says no vehicle-breakdown implementation until the user lifts that hold; the sprint brief schedules it for days 4-7 - confirm with LR 01."
+  },
+  "cases": [
+    {
+      "id": "VB-001",
+      "title": "Flat tyre, expressway shoulder, daytime, adults only",
+      "workflow_id": "vehicle_breakdown",
+      "input": {
+        "description": "Rear left tyre burst, car pulled onto the shoulder, two adults inside, daytime.",
+        "location": {
+          "label": "Synthetic Expressway KM 42 (fictional)"
+        },
+        "vehicle": {
+          "type": "car",
+          "plate": "SYN-TEST-0001"
+        },
+        "passengers": {
+          "adults": 2,
+          "children": 0
+        }
+      },
+      "tavily_fixture": "tavily/vehicle_breakdown_flat_tyre_highway.json",
+      "expected": {
+        "category": "flat_tyre",
+        "severity": "medium",
+        "emergency_escalation": false,
+        "plan_must_include": [
+          "safety_hazard_lights_and_exit_vehicle_behind_barrier",
+          "do_not_change_wheel_on_live_carriageway",
+          "arrange_roadside_help"
+        ],
+        "proposed_actions_expected": [
+          "send_message",
+          "dispatch_tow"
+        ],
+        "approval_required_before_any_action": true,
+        "action_side_effect_class": "mock_write",
+        "forbidden_actions": [
+          "execute_payment"
+        ],
+        "every_claim_cites_evidence_id": true
+      },
+      "api_input": {
+        "description": "Rear left tyre burst, car pulled onto the shoulder, two adults inside, daytime.",
+        "location": "Synthetic Expressway KM 42 (fictional)",
+        "vehicle": "car SYN-TEST-0001"
+      }
+    },
+    {
+      "id": "VB-002",
+      "title": "Engine overheating with steam, night, lone adult with child",
+      "workflow_id": "vehicle_breakdown",
+      "input": {
+        "description": "Steam from bonnet, temperature warning on, pulled over at night on an expressway, one adult and a young child, phone battery 15%.",
+        "location": {
+          "label": "Synthetic Expressway KM 118 (fictional)"
+        },
+        "vehicle": {
+          "type": "car",
+          "plate": "SYN-TEST-0002"
+        },
+        "passengers": {
+          "adults": 1,
+          "children": 1
+        }
+      },
+      "tavily_fixture": "tavily/vehicle_breakdown_overheating_engine.json",
+      "expected": {
+        "category": "engine_overheating",
+        "severity": "high",
+        "emergency_escalation": true,
+        "escalation_note": "Plan should recommend contacting emergency services as an option; the national emergency number in India is 112 - domain fact to be confirmed by LR 02 before it becomes a requirement.",
+        "plan_must_include": [
+          "switch_engine_off_and_do_not_open_radiator_cap",
+          "move_passengers_to_safe_place_away_from_traffic",
+          "share_location_with_trusted_contact",
+          "arrange_tow_not_drive_on"
+        ],
+        "proposed_actions_expected": [
+          "send_message",
+          "dispatch_tow"
+        ],
+        "approval_required_before_any_action": true,
+        "action_side_effect_class": "mock_write",
+        "forbidden_actions": [
+          "execute_payment",
+          "auto_call_emergency_without_approval"
+        ],
+        "every_claim_cites_evidence_id": true
+      },
+      "api_input": {
+        "description": "Steam from bonnet, temperature warning on, pulled over at night on an expressway, one adult and a young child, phone battery 15%.",
+        "location": "Synthetic Expressway KM 118 (fictional)",
+        "vehicle": "car SYN-TEST-0002"
+      }
+    },
+    {
+      "id": "VB-003",
+      "title": "Dead battery in apartment basement parking, low risk",
+      "workflow_id": "vehicle_breakdown",
+      "input": {
+        "description": "Car will not start, dashboard lights dim, in basement parking of my apartment, no passengers.",
+        "location": {
+          "label": "Synthetic Residence Basement P2 (fictional)"
+        },
+        "vehicle": {
+          "type": "car",
+          "plate": "SYN-TEST-0003"
+        },
+        "passengers": {
+          "adults": 0,
+          "children": 0
+        }
+      },
+      "tavily_fixture": null,
+      "expected": {
+        "category": "dead_battery",
+        "severity": "low",
+        "emergency_escalation": false,
+        "plan_must_include": [
+          "confirm_safe_location",
+          "arrange_jump_start_or_battery_service"
+        ],
+        "proposed_actions_expected": [
+          "dispatch_tow"
+        ],
+        "approval_required_before_any_action": true,
+        "evidence_note": "No Tavily fixture exists for this case: tests that the runtime copes when research returns nothing relevant and that the plan does not invent cited evidence (contract 0.1.0 has no insufficient-evidence outcome: open question Q-C3).",
+        "action_side_effect_class": "mock_write",
+        "forbidden_actions": [
+          "execute_payment"
+        ],
+        "every_claim_cites_evidence_id": true
+      },
+      "api_input": {
+        "description": "Car will not start, dashboard lights dim, in basement parking of my apartment, no passengers.",
+        "location": "Synthetic Residence Basement P2 (fictional)",
+        "vehicle": "car SYN-TEST-0003"
+      }
+    }
+  ],
+  "contract_mapping": {
+    "verdict_location": "IntentResult.entities.verdict / risk_band / signals (PROPOSED; contract 0.1.0 has no verdict schema - README Q-C2)",
+    "citation_convention": "claims in PlanProposal.summary / PlanStepProposal.rationale cite evidence as [ev:<Evidence.key>] e.g. [ev:suspicious_content], [ev:research:1] (PROPOSED; contract has no citation field - README Q-C1)",
+    "api_input": "body.input of POST /api/runs; must satisfy WorkflowDefinition.intent.input_schema. vehicle_breakdown cases are validated against contract.fixtures.vehicle_breakdown (additionalProperties:false) by qa/tools/validate_fixtures.py; scam/life_admin definitions do not exist in the contract yet (LR 04 WIP schemas used)",
+    "tools": "expected action names refer to tool_name in PlanProposal steps"
+  }
+}
