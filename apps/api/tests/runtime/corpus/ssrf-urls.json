@@ -1,0 +1,407 @@
+{
+ "_note": "expect=block: must be refused by URL validation WITHOUT any network call. expect=block_if_resolves_private: refused after DNS check (S2). expect=allow: passes validation (fetch itself may still fail). Hostnames use reserved example domains; nothing here points at a real target.",
+ "cases": [
+  {
+   "id": "b01",
+   "name": "literal loopback",
+   "url": "http://127.0.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b02",
+   "name": "loopback with port",
+   "url": "http://127.0.0.1:8000/api/runs",
+   "expect": "block"
+  },
+  {
+   "id": "b03",
+   "name": "loopback range",
+   "url": "http://127.1.2.3/",
+   "expect": "block"
+  },
+  {
+   "id": "b04",
+   "name": "localhost",
+   "url": "http://localhost/",
+   "expect": "block"
+  },
+  {
+   "id": "b05",
+   "name": "localhost uppercase",
+   "url": "http://LOCALHOST:5432/",
+   "expect": "block"
+  },
+  {
+   "id": "b06",
+   "name": "localhost trailing dot",
+   "url": "http://localhost./",
+   "expect": "block"
+  },
+  {
+   "id": "b07",
+   "name": "decimal ip",
+   "url": "http://2130706433/",
+   "expect": "block"
+  },
+  {
+   "id": "b08",
+   "name": "hex ip",
+   "url": "http://0x7f000001/",
+   "expect": "block"
+  },
+  {
+   "id": "b09",
+   "name": "hex dotted",
+   "url": "http://0x7f.0x0.0x0.0x1/",
+   "expect": "block"
+  },
+  {
+   "id": "b10",
+   "name": "octal dotted",
+   "url": "http://0177.0.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b11",
+   "name": "short form",
+   "url": "http://127.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b12",
+   "name": "zero host",
+   "url": "http://0.0.0.0/",
+   "expect": "block"
+  },
+  {
+   "id": "b13",
+   "name": "zero short",
+   "url": "http://0/",
+   "expect": "block"
+  },
+  {
+   "id": "b14",
+   "name": "ten net",
+   "url": "http://10.0.0.5/",
+   "expect": "block"
+  },
+  {
+   "id": "b15",
+   "name": "ten net decimal",
+   "url": "http://167772165/",
+   "expect": "block"
+  },
+  {
+   "id": "b16",
+   "name": "172.16",
+   "url": "http://172.16.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b17",
+   "name": "172.31",
+   "url": "http://172.31.255.254/",
+   "expect": "block"
+  },
+  {
+   "id": "b18",
+   "name": "192.168",
+   "url": "http://192.168.1.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b19",
+   "name": "link-local",
+   "url": "http://169.254.10.10/",
+   "expect": "block"
+  },
+  {
+   "id": "b20",
+   "name": "cloud metadata",
+   "url": "http://169.254.169.254/latest/meta-data/",
+   "expect": "block"
+  },
+  {
+   "id": "b21",
+   "name": "metadata decimal",
+   "url": "http://2852039166/latest/meta-data/",
+   "expect": "block"
+  },
+  {
+   "id": "b22",
+   "name": "metadata hex",
+   "url": "http://0xa9fea9fe/",
+   "expect": "block"
+  },
+  {
+   "id": "b23",
+   "name": "cgnat",
+   "url": "http://100.64.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b24",
+   "name": "benchmark net",
+   "url": "http://198.18.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b25",
+   "name": "multicast",
+   "url": "http://224.0.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b26",
+   "name": "reserved",
+   "url": "http://240.0.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b27",
+   "name": "broadcast",
+   "url": "http://255.255.255.255/",
+   "expect": "block"
+  },
+  {
+   "id": "b28",
+   "name": "ipv6 loopback",
+   "url": "http://[::1]/",
+   "expect": "block"
+  },
+  {
+   "id": "b29",
+   "name": "ipv6 unspecified",
+   "url": "http://[::]/",
+   "expect": "block"
+  },
+  {
+   "id": "b30",
+   "name": "ipv6 ula",
+   "url": "http://[fd00::1]/",
+   "expect": "block"
+  },
+  {
+   "id": "b31",
+   "name": "ipv6 link-local",
+   "url": "http://[fe80::1]/",
+   "expect": "block"
+  },
+  {
+   "id": "b32",
+   "name": "ipv4-mapped loopback",
+   "url": "http://[::ffff:127.0.0.1]/",
+   "expect": "block"
+  },
+  {
+   "id": "b33",
+   "name": "ipv4-mapped metadata",
+   "url": "http://[::ffff:169.254.169.254]/",
+   "expect": "block"
+  },
+  {
+   "id": "b34",
+   "name": "ipv4-mapped hex",
+   "url": "http://[::ffff:7f00:1]/",
+   "expect": "block"
+  },
+  {
+   "id": "b35",
+   "name": "nat64 metadata",
+   "url": "http://[64:ff9b::a9fe:a9fe]/",
+   "expect": "block"
+  },
+  {
+   "id": "b36",
+   "name": "gcp metadata name",
+   "url": "http://metadata.google.internal/computeMetadata/v1/",
+   "expect": "block"
+  },
+  {
+   "id": "b37",
+   "name": "dot local",
+   "url": "http://printer.local/",
+   "expect": "block"
+  },
+  {
+   "id": "b38",
+   "name": "dot internal",
+   "url": "http://db.internal/",
+   "expect": "block"
+  },
+  {
+   "id": "b39",
+   "name": "userinfo trick",
+   "url": "https://example.com@127.0.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b40",
+   "name": "userinfo with creds",
+   "url": "https://user:pass@example.com/",
+   "expect": "block"
+  },
+  {
+   "id": "b41",
+   "name": "file scheme",
+   "url": "file:///etc/passwd",
+   "expect": "block"
+  },
+  {
+   "id": "b42",
+   "name": "ftp scheme",
+   "url": "ftp://example.com/",
+   "expect": "block"
+  },
+  {
+   "id": "b43",
+   "name": "gopher scheme",
+   "url": "gopher://example.com/",
+   "expect": "block"
+  },
+  {
+   "id": "b44",
+   "name": "javascript scheme",
+   "url": "javascript:alert(1)",
+   "expect": "block"
+  },
+  {
+   "id": "b45",
+   "name": "data scheme",
+   "url": "data:text/html,hi",
+   "expect": "block"
+  },
+  {
+   "id": "b46",
+   "name": "scheme relative",
+   "url": "//example.com/",
+   "expect": "block"
+  },
+  {
+   "id": "b47",
+   "name": "no scheme",
+   "url": "example.com/path",
+   "expect": "block"
+  },
+  {
+   "id": "b48",
+   "name": "odd port",
+   "url": "https://example.com:22/",
+   "expect": "block"
+  },
+  {
+   "id": "b49",
+   "name": "odd port db",
+   "url": "https://example.com:5432/",
+   "expect": "block"
+  },
+  {
+   "id": "b50",
+   "name": "odd port 8080",
+   "url": "http://example.com:8080/",
+   "expect": "block"
+  },
+  {
+   "id": "b51",
+   "name": "backslash host",
+   "url": "https://example.com\\@127.0.0.1/",
+   "expect": "block"
+  },
+  {
+   "id": "b52",
+   "name": "space in url",
+   "url": "https://exa mple.com/",
+   "expect": "block"
+  },
+  {
+   "id": "b53",
+   "name": "newline in url",
+   "url": "https://example.com/\nHost: evil",
+   "expect": "block"
+  },
+  {
+   "id": "b54",
+   "name": "tab in url",
+   "url": "https://example.com/\tx",
+   "expect": "block"
+  },
+  {
+   "id": "b55",
+   "name": "control char",
+   "url": "https://example.com/\u0000",
+   "expect": "block"
+  },
+  {
+   "id": "b56",
+   "name": "too long",
+   "url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": "block"
+  },
+  {
+   "id": "b57",
+   "name": "empty host",
+   "url": "https:///path",
+   "expect": "block"
+  },
+  {
+   "id": "b58",
+   "name": "fullwidth host",
+   "url": "https://\uff45\uff58\uff41\uff4d\uff50\uff4c\uff45.com/",
+   "expect": "block"
+  },
+  {
+   "id": "d01",
+   "name": "name resolving to loopback",
+   "url": "http://localtest.me/",
+   "expect": "block_if_resolves_private"
+  },
+  {
+   "id": "d02",
+   "name": "nip.io loopback",
+   "url": "http://127.0.0.1.nip.io/",
+   "expect": "block_if_resolves_private"
+  },
+  {
+   "id": "d03",
+   "name": "nip.io metadata",
+   "url": "http://169.254.169.254.nip.io/",
+   "expect": "block_if_resolves_private"
+  },
+  {
+   "id": "d04",
+   "name": "sslip loopback",
+   "url": "http://127-0-0-1.sslip.io/",
+   "expect": "block_if_resolves_private"
+  },
+  {
+   "id": "a01",
+   "name": "plain https",
+   "url": "https://example.com/",
+   "expect": "allow"
+  },
+  {
+   "id": "a02",
+   "name": "https path query",
+   "url": "https://example.com/a/b?x=1&y=2",
+   "expect": "allow"
+  },
+  {
+   "id": "a03",
+   "name": "https port 443",
+   "url": "https://example.com:443/",
+   "expect": "allow"
+  },
+  {
+   "id": "a04",
+   "name": "http port 80",
+   "url": "http://example.com:80/",
+   "expect": "allow"
+  },
+  {
+   "id": "a05",
+   "name": "subdomain",
+   "url": "https://news.example.org/story",
+   "expect": "allow"
+  }
+ ]
+}
