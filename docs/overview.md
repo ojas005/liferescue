@@ -61,11 +61,11 @@ See [`SECURITY.md`](../SECURITY.md). Highlights: no secrets in the repo; secret 
 | Checkout | Active |
 | Secret scan (gitleaks) | **Active** |
 | Repository structure validation, Markdown link check | **Active** (these are repo-specific substitutes, not in doc 19) |
-| Dependency install | Inactive until project manifests exist (conditional jobs) |
-| Format check, Lint, Type check | Inactive until project files exist (conditional jobs for Node/Python) |
-| Unit tests, Integration tests | Inactive until tests exist (conditional jobs) |
-| Dependency (security) scan | Inactive until manifests exist (conditional job) |
-| SBOM | Inactive until manifests exist (conditional job) |
+| Dependency install | **Active per package**: hash-locked install for `packages/contract` (`.github/ci/`); no root-level install |
+| Format check, Lint, Type check | **Active for `packages/contract`** (mypy --strict; ruff correctness rules blocking, full ruff report-only for now); other packages not covered yet |
+| Unit tests, Integration tests | **Active**: `scripts/` and `tests/security` (unittest, Python 3.11-3.14) and `packages/contract` (pytest); integration tests not implemented |
+| Dependency (security) scan | **Active, report-only** (`dependency-audit`; never blocks yet) |
+| SBOM | **Not implemented** |
 | Build, Artifact | **Not implemented** (no build exists; no job claims it) |
 | Deployment | **Not implemented**; production deployment needs human approval |
 

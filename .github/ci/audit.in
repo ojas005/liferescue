@@ -1,0 +1,2 @@
+# Inputs for the hash-locked pip-audit environment used by the report-only dependency-audit job.
+pip-audit

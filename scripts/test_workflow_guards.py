@@ -13,6 +13,14 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WF_DIR = os.path.join(ROOT, ".github", "workflows")
 NEW_JOBS = ("branch-name", "python-unit-tests", "pr-link-check", "ci-gate")  # added by KAN-20 in ci.yml
+PER_PACKAGE_JOBS = ("contract-tests", "arch-check")  # CI-PERPKG: bound to packages/contract, enabled by detect output `contract`
+APPROVED_ACTIONS = {  # the only SHAs in use (verified via the GitHub API); a new action or SHA must be added here on purpose
+    "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+    "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+}
+CI_DIR = os.path.join(ROOT, ".github", "ci")
 UNTRUSTED = re.compile(
     r"github\.head_ref|github\.event\.workflow_run\.(head_branch|head_commit|display_title|head_repository|pull_requests)"
     r"|github\.event\.(pull_request|issue|comment|review|head_commit|commits)\.(title|body|head\.ref|head\.label|head\.repo)"
@@ -127,14 +135,88 @@ class WorkflowGuards(unittest.TestCase):
             self.assertTrue(any(re.match(r"^permissions:", l) for l in lines), f"{wf}: no top-level permissions")
             for job, block in jobs(lines).items():
                 self.assertTrue(any("timeout-minutes:" in l for l in block), f"{wf}:{job}: no timeout-minutes")
-                if wf != "ci.yml" or job in NEW_JOBS:
-                    self.assertTrue(any(re.match(r"^    permissions:", l) for l in block), f"{wf}:{job}: no job-level permissions")
+                self.assertTrue(any(re.match(r"^    permissions:", l) for l in block), f"{wf}:{job}: no job-level permissions")
 
     def test_ci_top_level_permissions_are_read_only(self):
         text = "\n".join(read("ci.yml"))
         self.assertRegex(text, r"(?m)^permissions:\n  contents: read\n")
         self.assertNotRegex(text, r"(?m)^\s+(write|admin)\b")
         self.assertNotRegex(text, r": write\b")
+
+    def test_only_approved_action_shas_are_used(self):
+        for wf in workflows():
+            for u in re.findall(r"uses:\s*(\S+)", "\n".join(code_lines(read(wf)))):
+                self.assertIn(u, APPROVED_ACTIONS, f"{wf}: {u} (verify a new SHA via the GitHub API, then add it on purpose)")
+
+    def test_no_root_level_python_or_node_jobs(self):
+        all_jobs = jobs(read("ci.yml"))
+        for gone in ("node-checks", "python-checks", "dependency-scan", "sbom"):
+            self.assertNotIn(gone, all_jobs, gone)
+        text = "\n".join(code_lines(read("ci.yml")))
+        # detect exposes exactly the explicit per-package flags; no glob over pyproject.toml/package.json drives a job
+        self.assertEqual(re.findall(r"(?m)^      ([a-z-]+): \$\{\{ steps\.d\.outputs\.\1 \}\}$", text), ["contract"])
+        self.assertIn("packages/contract/pyproject.toml", text)
+        for forbidden in ("npx", "npm ci", "npm install", "pip install -e .\n", "ruff format --check .\n"):
+            self.assertNotIn(forbidden, text, forbidden)
+
+    def test_per_package_jobs_are_bound_to_detect_and_their_package(self):
+        all_jobs = jobs(read("ci.yml"))
+        for job in PER_PACKAGE_JOBS:
+            block = "\n".join(all_jobs[job])
+            self.assertIn("    needs: detect\n", block, job)
+            self.assertIn("    if: needs.detect.outputs.contract == 'true'\n", block, job)
+            self.assertNotIn("always()", block, job)
+
+    def test_python_tools_run_only_inside_a_package_or_with_explicit_paths(self):
+        # every ruff/mypy/pytest invocation in ci.yml sits in a step with working-directory: packages/contract
+        text = "\n".join(code_lines(read("ci.yml")))
+        steps = re.split(r"(?m)^      - ", text)
+        seen = 0
+        for st in steps:
+            if re.search(r"-m (ruff|mypy|pytest)\b|^\s*(ruff|mypy|pytest)\b", st, re.MULTILINE):
+                seen += 1
+                self.assertIn("working-directory: packages/contract", st, st[:80])
+        self.assertGreaterEqual(seen, 4)
+
+    def test_pip_installs_are_hash_locked_or_local(self):
+        for wf in workflows():
+            for n, text in run_blocks(read(wf)):
+                if "pip install" in text:
+                    ok = ("--require-hashes" in text and "--no-deps" in text and " -r .github/ci/" in text) or \
+                         ("--no-deps" in text and "--no-build-isolation" in text and "-e packages/contract" in text)
+                    self.assertTrue(ok, f"{wf}:{n}: pip install must be hash-locked (-r .github/ci/*.txt) or the local package: {text.strip()}")
+
+    def test_lock_files_are_fully_pinned_with_hashes(self):
+        for name in ("contract-requirements.txt", "audit-requirements.txt"):
+            with open(os.path.join(CI_DIR, name), encoding="utf-8") as fh:
+                lines = fh.read().splitlines()
+            reqs = [i for i, l in enumerate(lines) if re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*==", l)]
+            self.assertGreater(len(reqs), 10, name)
+            for i in reqs:
+                block = [lines[i]]
+                j = i + 1
+                while j < len(lines) and lines[j].startswith("    --hash="):
+                    block.append(lines[j])
+                    j += 1
+                self.assertGreaterEqual(len(block), 2, f"{name}: {lines[i]} has no --hash")
+            self.assertFalse([l for l in lines if re.match(r"^[A-Za-z]", l) and "==" not in l], name)
+        for name in ("contract.in", "audit.in"):
+            self.assertTrue(os.path.exists(os.path.join(CI_DIR, name)), name)
+
+    def test_dependency_audit_is_report_only_and_tolerates_absent_inputs(self):
+        block = "\n".join(code_lines(jobs(read("ci.yml"))["dependency-audit"]))
+        self.assertNotIn("exit 1", block)
+        self.assertNotIn("continue-on-error", block)
+        self.assertIn("if python3 -m pip_audit", block)
+        self.assertIn("if (cd ", block)
+        self.assertIn("steps.locks.outputs.npm != '0'", block)  # setup-node only when a package-lock.json is tracked
+        self.assertIn("nothing to audit", block)
+
+    def test_ruff_full_check_blocking_switch_exists_and_defaults_to_report_only(self):
+        text = "\n".join(code_lines(read("ci.yml")))
+        self.assertIn('RUFF_FULL_BLOCKING: "false"', text)
+        self.assertIn('[ "$RUFF_FULL_BLOCKING" = "true" ]', text)
+        self.assertIn("--isolated --no-cache --select E9,F63,F7,F82", text)  # the blocking subset stays blocking
 
     def test_every_action_is_pinned_by_full_sha_and_checkout_drops_credentials(self):
         for wf in workflows():
@@ -145,9 +227,9 @@ class WorkflowGuards(unittest.TestCase):
                 self.assertRegex(u, r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$", f"{wf}: {u}")
             self.assertEqual(text.count("actions/checkout@"), text.count("persist-credentials: false"), wf)
 
-    def test_new_jobs_do_not_swallow_failures(self):
+    def test_no_job_swallows_failures(self):
         lines = read("ci.yml")
-        for job in NEW_JOBS:
+        for job in jobs(lines):
             text = "\n".join(code_lines(jobs(lines)[job]))
             for needle in ("|| true", "|| :", "continue-on-error", "set +e"):
                 self.assertNotIn(needle, text, f"{job}: {needle}")
@@ -192,6 +274,15 @@ class WorkflowGuards(unittest.TestCase):
         for job in jobs(read("ci.yml")):
             if job != "ci-gate":
                 self.assertIn(f'"{job}"', src, job)
+
+    def test_ci_gate_job_sets_match_the_workflow_exactly(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ci_gate_for_guard", os.path.join(ROOT, "scripts", "ci_gate.py"))
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        known = set(gate.ALWAYS) | set(gate.PR_ONLY) | set(gate.REPORT_ONLY) | set(gate.CONDITIONAL)
+        self.assertEqual(known, set(jobs(read("ci.yml"))) - {"ci-gate"})
+        self.assertEqual(set(gate.CONDITIONAL), set(PER_PACKAGE_JOBS))
 
     def test_jira_workflow_is_dry_run_and_does_not_run_pr_code(self):
         lines = read("ci-jira-status.yml")

@@ -1,32 +1,33 @@
-# LifeRescue CI - bootstrap baseline.
+# LifeRescue CI - bootstrap baseline + KAN-20 enforcement + per-package Python jobs (CI-PERPKG, owner LR 10).
 #
 # TARGET pipeline (doc 19 step 9): checkout -> dependency install -> format check -> lint -> type check
 #   -> unit tests -> integration tests -> security scan -> secret scan -> build -> artifact.
 #
-# ACTIVE today (real checks that run on every PR and push to main):
-#   - checkout
-#   - secret scan (gitleaks, full history)
-#   - repository structure validation (scripts/validate-repo-structure.sh)
-#   - Markdown relative-link check (scripts/check-markdown-links.py)
+# ACTIVE on every PR and push to main:
+#   - secret-scan        : gitleaks, full history
+#   - repo-validation    : scripts/validate-repo-structure.sh + relative Markdown links
+#   - python-unit-tests  : stdlib unittest over scripts/ and tests/security, Python 3.11-3.14
+#   - security-corpus    : scripts/ci_corpus_check.py - runs each corpus_selfcheck.py next to ssrf-urls.json /
+#                          injection-corpus.json; SKIPPED (notice) while no corpus is on the ref, fails closed once one is
+#   - dependency-audit   : pip-audit / npm audit over tracked lock files, REPORT-ONLY (never blocks; LR 08 C1)
+#   - branch-name, pr-link-check (pull_request only), ci-gate
 #
-# CONDITIONAL (jobs run ONLY when matching project files exist; otherwise they are SKIPPED and
-# reported as skipped - they do not pass vacuously). None of them has been exercised yet because
-# the repository contains no application code:
-#   - node-checks    : format, lint, type check, unit, integration (needs package.json + package-lock.json)
-#   - python-checks  : format, lint, type check, unit, integration (needs pyproject.toml or requirements*.txt)
-#   - dependency-scan: npm audit / pip-audit (needs manifests)
-#   - sbom           : CycloneDX SBOM (needs manifests; SBOM tool versions are NOT pinned yet)
+# PER-PACKAGE (run ONLY when the explicit package path exists; otherwise SKIPPED and ci-gate expects exactly that):
+#   - contract-tests : packages/contract - pytest (>= 215 passed), mypy --strict, ruff (correctness rules blocking; full
+#                      ruff check + format --check report-only until RUFF_FULL_BLOCKING is flipped), OpenAPI validation
+#   - arch-check     : python -m contract.arch_check . from the repo root (rules R1-R6)
+# There are NO root-level node/python jobs: adding a pyproject.toml / package.json anywhere does not turn on ruff/mypy/
+# pytest/npm at the repository root. New packages get their own job + detect output + ci_gate.py entry (see
+# .github/ci/README.md). apps/api and apps/web are NOT covered yet (their scaffolds are pending); `detect` lists such
+# project files in the job summary as "not checked by any job". packages/secrets (old name, pending rename) is not
+# type-clean in isolation and is only covered by the unittest job above.
 #
-# ENFORCEMENT jobs added by KAN-20 (LR 10). All fail closed (no `|| true`):
-#   - branch-name      : PR branch name rule (scripts/ci_branch_gate.py -> scripts/check-branch-name.py), pull_request only
-#   - python-unit-tests: stdlib unittest over scripts/ and tests/security on a Python matrix (separate from python-checks)
-#   - pr-link-check    : PLACEHOLDER until scripts/check_pr_link.py (LR 04) exists; see the job comments
-#   - ci-gate          : always runs, aggregates every job above; THE check to require in branch protection
+# Python tooling is hash-locked in .github/ci/*.txt (regenerate per .github/ci/README.md); no job runs an unpinned
+# `pip install <name>`, `npx --yes`, or `|| true`.
 #
-# NOT IMPLEMENTED: build, artifact, container scan, deployment. No job claims them.
+# NOT IMPLEMENTED: build, artifact, container scan, SBOM, deployment. No job claims them.
 #
-# Job `name:` values are STABLE on purpose (no ACTIVE/CONDITIONAL text): required checks are matched by name.
-# Whether a job is active or conditional is documented in the comments above, not in the name.
+# Job `name:` values are STABLE on purpose (no ACTIVE/CONDITIONAL text). Require ONLY `CI gate` in branch protection.
 name: CI
 
 on:
@@ -47,8 +48,10 @@ concurrency:
 jobs:
   secret-scan:
     name: Secret scan (gitleaks)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       # actions/checkout v7.0.1, pinned by commit SHA (verified via GitHub API 2026-10-03)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -67,8 +70,10 @@ jobs:
 
   repo-validation:
     name: Repository structure and Markdown links
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -80,141 +85,36 @@ jobs:
 
   detect:
     name: Detect project files
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
-      node: ${{ steps.d.outputs.node }}
-      python: ${{ steps.d.outputs.python }}
+      contract: ${{ steps.d.outputs.contract }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - id: d
+        # Per-package detection by EXPLICIT path. A pyproject.toml / package.json anywhere else turns nothing on;
+        # it is only listed (sanitised, summary only) as a project file that no CI job covers.
         run: |
           set -euo pipefail
-          node=false; python=false
-          if [ -n "$(git ls-files '*package.json' | grep -v node_modules || true)" ]; then node=true; fi
-          if [ -n "$(git ls-files '*pyproject.toml' '*requirements*.txt' || true)" ]; then python=true; fi
-          echo "node=$node" >> "$GITHUB_OUTPUT"
-          echo "python=$python" >> "$GITHUB_OUTPUT"
+          contract=false
+          if [ -f packages/contract/pyproject.toml ]; then contract=true; fi
+          echo "contract=$contract" >> "$GITHUB_OUTPUT"
           {
-            echo "### Conditional stages"
-            echo "- Node project files present: $node"
-            echo "- Python project files present: $python"
+            echo "### Per-package CI detection"
+            echo "- packages/contract/pyproject.toml present (contract-tests, arch-check run): $contract"
             echo "- Build / artifact / container scan / deploy: NOT IMPLEMENTED"
+            echo ""
+            echo "Project files that NO CI job checks yet (informational, not a failure):"
+            git ls-files -z -- 'pyproject.toml' '*/pyproject.toml' 'package.json' '*/package.json' 'setup.py' '*/setup.py' \
+              | tr '\0' '\n' \
+              | { grep -v -x -e 'packages/contract/pyproject.toml' || [ $? -eq 1 ]; } \
+              | tr -c 'A-Za-z0-9._/\n-' '?' \
+              | awk 'NR <= 50 { print "- " substr($0, 1, 200) }'
           } >> "$GITHUB_STEP_SUMMARY"
-
-  node-checks:
-    name: Node format/lint/typecheck/tests
-    needs: detect
-    if: needs.detect.outputs.node == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      # actions/setup-node v7.0.0, pinned by commit SHA (verified via GitHub API 2026-10-03)
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: lts/*
-      - name: Install dependencies (requires a lockfile)
-        run: npm ci
-      - name: Run stages (a missing npm script is reported as SKIPPED, never as passed)
-        run: |
-          set -uo pipefail
-          rc=0
-          for s in format:check lint typecheck test test:integration; do
-            if node -e "process.exit(((require('./package.json').scripts)||{})['$s']?0:1)"; then
-              echo "::group::npm run $s"
-              npm run "$s" || rc=1
-              echo "::endgroup::"
-            else
-              echo "::warning::npm script '$s' is not defined - stage SKIPPED"
-            fi
-          done
-          exit $rc
-
-  python-checks:
-    name: Python format/lint/typecheck/tests
-    needs: detect
-    if: needs.detect.outputs.python == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      # actions/setup-python v7.0.0, pinned by commit SHA (verified via GitHub API 2026-10-03)
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.x"
-      - name: Install tooling and dependencies
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install ruff mypy pytest   # versions unpinned - pin via ADR/lockfile when activated
-          for f in requirements*.txt; do [ -f "$f" ] && python -m pip install -r "$f"; done || true
-          [ -f pyproject.toml ] && python -m pip install -e . || true
-      - name: Format check and lint (ruff)
-        run: |
-          ruff format --check .
-          ruff check .
-      - name: Type check (mypy)
-        run: mypy .
-      - name: Unit tests (pytest)
-        run: pytest -m "not integration"
-      - name: Integration tests (pytest -m integration; exit code 5 = none collected -> reported as skipped)
-        run: |
-          set +e
-          pytest -m integration
-          rc=$?
-          if [ $rc -eq 5 ]; then echo "::warning::no integration tests collected - stage SKIPPED"; exit 0; fi
-          exit $rc
-
-  dependency-scan:
-    name: Dependency scan
-    needs: [detect]
-    if: needs.detect.outputs.node == 'true' || needs.detect.outputs.python == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: npm audit
-        if: needs.detect.outputs.node == 'true'
-        run: npm audit --audit-level=high
-      - name: pip-audit
-        if: needs.detect.outputs.python == 'true'
-        run: |
-          python -m pip install pip-audit   # unpinned - pin when activated
-          for f in requirements*.txt; do [ -f "$f" ] && pip-audit -r "$f"; done
-
-  sbom:
-    name: SBOM (CycloneDX)
-    needs: [detect]
-    if: needs.detect.outputs.node == 'true' || needs.detect.outputs.python == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Node SBOM
-        if: needs.detect.outputs.node == 'true'
-        run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom-node.json
-      - name: Python SBOM
-        if: needs.detect.outputs.python == 'true'
-        run: |
-          python -m pip install cyclonedx-bom
-          [ -f requirements.txt ] && cyclonedx-py requirements requirements.txt -o sbom-python.json || echo "::warning::no requirements.txt - Python SBOM SKIPPED"
-      # actions/upload-artifact v7.0.1, pinned by commit SHA (verified via GitHub API 2026-10-03)
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: sbom
-          path: sbom-*.json
-          if-no-files-found: warn
 
   # ---------------------------------------------------------------------------------------------
   # KAN-20 enforcement jobs (LR 10). Every job: explicit least-privilege permissions, timeout,
@@ -244,8 +144,7 @@ jobs:
         run: python3 scripts/ci_branch_gate.py
 
   python-unit-tests:
-    # Stdlib unittest for scripts/ and tests/security. SEPARATE from the dormant `python-checks`
-    # job (ruff/mypy/pytest), which stays inactive until pyproject.toml/requirements*.txt exist.
+    # Stdlib unittest for scripts/ and tests/security (packages/secrets is covered here, not by a per-package job).
     name: Python unit tests (${{ matrix.python-version }})
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -261,7 +160,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      # actions/setup-python v7.0.0, pinned by commit SHA (same pin as the python-checks job)
+      # actions/setup-python v7.0.0, pinned by commit SHA (same pin as the per-package jobs)
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: ${{ matrix.python-version }}
@@ -285,6 +184,193 @@ jobs:
             echo "::notice title=tests/security absent::tests/security does not exist on this ref (KAN-45 not merged yet) - this stage is SKIPPED, not passed."
             echo "tests/security is absent on this ref: stage SKIPPED (not a pass)." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  # ---------------------------------------------------------------------------------------------
+  # Per-package Python jobs (LR 10, CI-PERPKG). Each job is bound to ONE explicit package path; adding a
+  # pyproject.toml / package.json elsewhere does NOT enable any root-level ruff/mypy/pytest run.
+  # Python deps come from hash-locked files (.github/ci/*.txt, regenerate per .github/ci/README.md):
+  # `pip install --require-hashes --no-deps`, no unpinned `pip install <name>`, no `|| true`.
+  # ---------------------------------------------------------------------------------------------
+
+  contract-tests:
+    # packages/contract (PR #18). Runs only when packages/contract/pyproject.toml exists (detect); ci-gate then
+    # REQUIRES success (skipped when absent is the only other accepted outcome).
+    name: Contract package (${{ matrix.python-version }})
+    needs: detect
+    if: needs.detect.outputs.contract == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # requires-python >= 3.11 in packages/contract/pyproject.toml; same lines as python-unit-tests
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    env:
+      # Floor, not an exact count: tests may be added, silently losing them fails (PR #18 ships 215).
+      MIN_CONTRACT_TESTS: "215"
+      # Flip to "true" once LR 03 has formatted packages/contract (ruff format + ruff check --fix) to make the
+      # full ruff check and `ruff format --check` blocking. Until then they are reported (summary + warning) only.
+      RUFF_FULL_BLOCKING: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # actions/setup-python v7.0.0, pinned by commit SHA (same pin as python-unit-tests)
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install locked dependencies (hash-checked) and the package
+        run: |
+          set -euo pipefail
+          python3 -m pip install --require-hashes --no-deps -r .github/ci/contract-requirements.txt
+          python3 -m pip install --no-deps --no-build-isolation -e packages/contract
+          python3 -m pip check
+      - name: Tests (pytest, JUnit report)
+        working-directory: packages/contract
+        run: python3 -W error::ResourceWarning -m pytest -q --junitxml="$RUNNER_TEMP/contract-junit.xml"
+      - name: Tests - the number of passed tests must not drop below the floor
+        run: python3 scripts/ci_check_junit.py "$RUNNER_TEMP/contract-junit.xml" "$MIN_CONTRACT_TESTS"
+      - name: Type check (mypy --strict)
+        working-directory: packages/contract
+        run: python3 -m mypy --strict contract
+      - name: Lint - correctness rules (ruff, blocking)
+        # --isolated: fixed rule set (syntax errors, undefined names, invalid constructs), independent of package config.
+        working-directory: packages/contract
+        run: python3 -m ruff check --isolated --no-cache --select E9,F63,F7,F82 .
+      - name: Lint and format - full check (ruff; blocking only when RUFF_FULL_BLOCKING is "true")
+        # Uses the package's own [tool.ruff] config if LR 03 adds one. packages/contract is not ruff-clean today
+        # (see .github/ci/README.md), so findings are reported, not enforced, until RUFF_FULL_BLOCKING is flipped.
+        working-directory: packages/contract
+        env:
+          PY_VERSION: ${{ matrix.python-version }}
+        run: |
+          set -uo pipefail
+          status=ok
+          python3 -m ruff check --no-cache --no-fix --output-format concise . || status=findings
+          python3 -m ruff format --check --no-cache --output-format concise . || status=findings
+          if [ "$status" = ok ]; then
+            echo "ruff check and ruff format --check are clean."
+            echo "ruff (full): clean" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$RUFF_FULL_BLOCKING" = "true" ]; then
+            echo "::error title=ruff::ruff check / format --check reported findings (blocking)"
+            exit 1
+          else
+            echo "::warning title=ruff (report-only)::ruff check / format --check reported findings in packages/contract; not blocking yet"
+            echo "ruff (full): findings, REPORT-ONLY (python $PY_VERSION)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: OpenAPI validation (openapi-spec-validator)
+        working-directory: packages/contract
+        run: python3 -m openapi_spec_validator openapi.yaml
+
+  arch-check:
+    # ONE-runtime import rules R1-R6 over the whole repository (LR 07 / LR 03 daily checklist item 1).
+    name: Architecture check (contract.arch_check)
+    needs: detect
+    if: needs.detect.outputs.contract == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - name: Install locked dependencies (hash-checked) and the package
+        run: |
+          set -euo pipefail
+          python3 -m pip install --require-hashes --no-deps -r .github/ci/contract-requirements.txt
+          python3 -m pip install --no-deps --no-build-isolation -e packages/contract
+      - name: arch_check from the repository root (exit 1 on any violation)
+        run: python3 -m contract.arch_check .
+
+  security-corpus:
+    # LR 07 / LR 08 (S7 SSRF, U8 injection): corpus self-consistency only, see scripts/ci_corpus_check.py.
+    # Always runs; reports SKIPPED (a notice, not a pass claim) while no corpus file is on the ref; once a corpus
+    # directory exists it fails closed (missing self-check or non-zero exit). Product-level SSRF/injection tests
+    # are NOT run here (they do not exist on main yet).
+    name: Security corpus consistency
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - name: Corpus self-checks
+        run: python3 scripts/ci_corpus_check.py .
+
+  dependency-audit:
+    # REPORT-ONLY (LR 08 C1): findings are logged and summarised, never block. ci-gate accepts any result of this job.
+    name: Dependency audit (report-only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - name: Install pip-audit (hash-locked)
+        run: python3 -m pip install --require-hashes --no-deps -r .github/ci/audit-requirements.txt
+      - name: Locate lock files
+        id: locks
+        run: |
+          set -euo pipefail
+          py=$(git ls-files -z -- '*requirements*.txt' | tr -cd '\0' | wc -c)
+          npm=$(git ls-files -z -- '*package-lock.json' | tr -cd '\0' | wc -c)
+          echo "python=$py" >> "$GITHUB_OUTPUT"
+          echo "npm=$npm" >> "$GITHUB_OUTPUT"
+      - name: pip-audit over every tracked requirements*.txt (report-only; none present is fine)
+        env:
+          PY_LOCKS: ${{ steps.locks.outputs.python }}
+        run: |
+          set -uo pipefail
+          if [ "$PY_LOCKS" = "0" ]; then
+            echo "::notice title=pip-audit::no requirements*.txt tracked - nothing to audit"
+            echo "pip-audit: nothing to audit (no requirements*.txt)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          git ls-files -z -- '*requirements*.txt' | while IFS= read -r -d '' f; do
+            echo "::group::pip-audit $f"
+            if python3 -m pip_audit --no-deps --disable-pip -r "$f"; then
+              echo "pip-audit: $f clean" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning title=pip-audit (report-only)::findings or an audit error for a requirements file; see the log"
+              echo "pip-audit: $f REPORTED findings or an error (non-blocking)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "::endgroup::"
+          done
+      # actions/setup-node v7.0.0, pinned by commit SHA (verified via GitHub API 2026-10-03)
+      - name: Set up Node.js (only when a package-lock.json is tracked)
+        if: steps.locks.outputs.npm != '0'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+      - name: npm audit over every tracked package-lock.json (report-only)
+        if: steps.locks.outputs.npm != '0'
+        run: |
+          set -uo pipefail
+          git ls-files -z -- '*package-lock.json' | while IFS= read -r -d '' f; do
+            echo "::group::npm audit $f"
+            if (cd "$(dirname "$f")" && npm audit --package-lock-only --audit-level=high); then
+              echo "npm audit: $f clean" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning title=npm audit (report-only)::findings or an audit error for a lock file; see the log"
+              echo "npm audit: $f REPORTED findings or an error (non-blocking)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "::endgroup::"
+          done
 
   pr-link-check:
     name: PR link check
@@ -338,10 +424,10 @@ jobs:
       - secret-scan
       - repo-validation
       - detect
-      - node-checks
-      - python-checks
-      - dependency-scan
-      - sbom
+      - contract-tests
+      - arch-check
+      - security-corpus
+      - dependency-audit
       - branch-name
       - python-unit-tests
       - pr-link-check
