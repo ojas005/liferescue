@@ -67,7 +67,7 @@ Use the template in [`.github/pull_request_template.md`](.github/pull_request_te
 
 Put the Jira key (`KAN-<number>`) and the branch name in the PR, and put the PR URL in the Jira issue (comment or remote link) (doc 17 s10, s14: Jira -> branch -> PR -> CI/Security/QA -> release -> observability).
 
-If a PR returns work to its owner after failed checks, requested changes or a failed gate (rework), the Jira issue is moved from **In Review** back to **In Progress**, gets the label **`exec-rework`** and an explicit Jira comment giving the reason, the evidence link and what completes the rework. The label is removed when the rework is complete. See [`docs/jira-comment-label-conventions.md`](docs/jira-comment-label-conventions.md) for the comment formats; every format carries a `by:` field (who wrote the comment), and evidence is always a link, never pasted logs or output.
+If a PR returns work to its owner after failed checks, requested changes or a failed gate (rework), the Jira issue is moved from **In Review** back to **In Progress**, gets the label **`exec-rework`** and an explicit Jira comment giving the reason, the evidence link and what completes the rework. The label is removed when the rework is complete. See [`docs/jira-comment-label-conventions.md`](docs/jira-comment-label-conventions.md) for the comment formats and [`docs/jira-transition-allowlist.md`](docs/jira-transition-allowlist.md) for which actor may make which status change; every format carries a `by:` field (who wrote the comment), and evidence is always a link, never pasted logs or output.
 
 ## Review rules
 

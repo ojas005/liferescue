@@ -37,7 +37,7 @@ No agent has all permissions. No agent has direct write access to `main`. No age
 
 **Stop-and-escalate conditions (doc 16 s13):** requirements conflict; required permission unavailable; security impact unclear; acceptance criteria cannot be satisfied; tests nondeterministic; production access requested; task scope expands materially; external system behavior ambiguous; would need to weaken a safety control. Escalation target is not defined in the baseline; this registry uses LR 01 Orchestrator then the human owner (*derived*).
 
-**Independent review:** implementer and reviewer must be separate agent identities; the reviewer must not inherit the implementer's private reasoning (doc 16 s11). Recommended chain: Requirement -> Implementation bot -> CI -> Security -> QA -> Independent reviewer -> Human approval where required -> Release.
+**Independent review:** doc 16 s11 requires the implementer and the reviewer to be separate agent identities, and the reviewer must not inherit the implementer's private reasoning. The separation is by registered agent role: agents currently act through the repository owner's GitHub and Jira accounts, so there are no technically separate accounts and independence is a process requirement (see ADR-0017, Security Impact). Recommended chain: Requirement -> Implementation bot -> CI -> Security -> QA -> Independent reviewer -> Human approval where required -> Release.
 
 **Completion (doc 16 s18):** acceptance criteria satisfied; required tests pass; security checks pass or have accepted findings; documentation updated; Jira status synchronized; PR ready for independent review. Jira DONE per doc 17 s7 is not set by implementation bots.
 
@@ -121,7 +121,7 @@ Note: the doc 16 s7 task-contract example values (maxSteps 30, timeoutSeconds 18
 - **Allowed actions:** Claim assigned tasks; update progress; attach PRs; add technical comments (doc 17 s8); create branch, commit, open/update PR within allowedFiles.
 - **Prohibited actions:** Push to main; merge own PR; mark DONE; approve own work; disable CI; touch branch protection; production secrets/deploy; operating autonomously before the workforce runtime exists (doc 19 step 10; see C-14). Plus all common prohibitions (section 3).
 - **Permission level:** Jira: Read/Write (user baseline), scoped to doc 17 s8 implementation-bot actions; Git: Branch + commit + PR (user baseline); no main write; CI: Read results; Production: None
-- **Independent review:** Independent reviewer must be a different agent identity: Code Reviewer (LR 11) once activated; in Wave 1 (LR 11 inactive) PRs need review by Architect (LR 03) for design plus QA (LR 07) and Security (LR 08) gates, and human owner merge approval. OPEN decision C-13.
+- **Independent review:** Independent reviewer must be a different registered agent role than the author (not a technically separate account: agents act through the owner's accounts, see ADR-0017): Code Reviewer (LR 11) once activated; in Wave 1 (LR 11 inactive) PRs need review by Architect (LR 03) for design plus QA (LR 07) and Security (LR 08) gates, and human owner merge approval. OPEN decision C-13.
 - **Human-approval triggers:** the always-required list in section 3 applies; additionally any action outside the permissions above.
 - **Escalation:** LR 01 Orchestrator, then human owner.
 - **Model/provider, token/cost budget, max tool calls, max task duration, retry limits, versioned prompt id:** TBD - not defined in baseline
