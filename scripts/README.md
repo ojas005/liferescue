@@ -4,7 +4,7 @@
 
 **Source:** doc 19 Step 2 (directory skeleton).
 
-**Status:** currently contains the repository validation scripts (the first two are used by `.github/workflows/ci.yml`; the branch-name validator is not wired into CI yet):
+**Status:** currently contains the repository validation scripts (`validate-repo-structure.sh` and `check-markdown-links.py` are used by `.github/workflows/ci.yml`; the branch-name validator is wired in through `ci_branch_gate.py`; the CI helpers added by KAN-20 are listed at the end):
 
 - `validate-repo-structure.sh` - checks required files/directories and the baseline manifest.
 - `check-markdown-links.py` - checks that relative links in Markdown files resolve.
@@ -13,5 +13,9 @@
 - `check_transition.py` - pure-logic Jira transition allowlist checker (KAN-20, WI-04-6): `python3 scripts/check_transition.py --validate-allowlist` or `--request request.json`. No agent or automation path reaches Done. Standard library only; no Jira or network calls. Importable as a module for KAN-26/KAN-27.
 - `jira-transition-allowlist.json` - the machine-readable allowlist (statuses, actors, evidence, `exec-rework` rules). See [`docs/jira-transition-allowlist.md`](../docs/jira-transition-allowlist.md).
 - `test_check_transition.py` - unit tests for both: `python3 -m unittest -v scripts/test_check_transition.py`.
-- `check_pr_link.py` - checks that a pull request is linked to the Jira issue named by its branch (KAN-20): the branch key must be referenced in the title or body, the body must carry the key or an exact `liferescue.atlassian.net` https URL, look-alike hosts and KAN-1..KAN-3 / SAM1 are refused. Input from `PR_TITLE`, `PR_BODY`, `PR_BRANCH` (or `PR_JSON_FILE`); no arguments; exit 0 / 1 / 2. Contract: [`docs/pr-jira-link-check.md`](../docs/pr-jira-link-check.md). Not wired into CI yet.
+- `check_pr_link.py` - checks that a pull request is linked to the Jira issue named by its branch (KAN-20): the branch key must be referenced in the title or body, the body must carry the key or an exact `liferescue.atlassian.net` https URL, look-alike hosts and KAN-1..KAN-3 / SAM1 are refused. Input from `PR_TITLE`, `PR_BODY`, `PR_BRANCH` (or `PR_JSON_FILE`); no arguments; exit 0 / 1 / 2. Contract: [`docs/pr-jira-link-check.md`](../docs/pr-jira-link-check.md). Run in CI by the `pr-link-check` job of `.github/workflows/ci.yml` (title, body and head ref passed through `env:` only; exempt legacy/dependabot branches are skipped).
 - `test_check_pr_link.py` - its unit tests: `python3 -m unittest -v scripts/test_check_pr_link.py`.
+- `ci_branch_gate.py` - CI wrapper for the branch-name rule (KAN-20, owner LR 10). Reads `BRANCH_NAME` (and, only for the `dependabot/*` exemption, `PR_AUTHOR_LOGIN`) from the environment, applies the explicit exemption list (two legacy merged branch names, exact match; `dependabot/*` only for `dependabot[bot]`) and otherwise delegates to `check-branch-name.py`. Exit 0 valid/exempt, 1 invalid, 2 usage. With `BRANCH_GATE_MODE=exempt-only` it only answers whether the name is exempt (used by the PR-link job). Prints only fixed text plus the escaped, bounded output of `check-branch-name.py`. Tests: `scripts/test_branch_name_ci_cases.py` (hostile and edge cases through the real command line).
+- `ci_gate.py` - decision logic of the always-run `ci-gate` job (fail closed; skipped counts as a pass only where a job legitimately does not run). Tests: `scripts/test_ci_helpers.py`.
+- `ci_jira_status_dryrun.py` - DRY-RUN stub for the CI to Jira status workflow (`.github/workflows/ci-jira-status.yml`). It cannot post: no Jira client, no network, refuses to run unless `DRY_RUN` is exactly `true`. Placeholder until LR 04's Jira module exists. Tests: `scripts/test_ci_helpers.py`.
+- `test_workflow_guards.py` - static tests of the workflow files (no expression inside `run:`, SHA-pinned actions, permissions, timeouts, no `pull_request_target`/secrets, `ci-gate` needs every job).

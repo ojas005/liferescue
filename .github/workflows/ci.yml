@@ -17,24 +17,36 @@
 #   - dependency-scan: npm audit / pip-audit (needs manifests)
 #   - sbom           : CycloneDX SBOM (needs manifests; SBOM tool versions are NOT pinned yet)
 #
+# ENFORCEMENT jobs added by KAN-20 (LR 10). All fail closed (no `|| true`):
+#   - branch-name      : PR branch name rule (scripts/ci_branch_gate.py -> scripts/check-branch-name.py), pull_request only
+#   - python-unit-tests: stdlib unittest over scripts/ and tests/security on a Python matrix (separate from python-checks)
+#   - pr-link-check    : PLACEHOLDER until scripts/check_pr_link.py (LR 04) exists; see the job comments
+#   - ci-gate          : always runs, aggregates every job above; THE check to require in branch protection
+#
 # NOT IMPLEMENTED: build, artifact, container scan, deployment. No job claims them.
+#
+# Job `name:` values are STABLE on purpose (no ACTIVE/CONDITIONAL text): required checks are matched by name.
+# Whether a job is active or conditional is documented in the comments above, not in the name.
 name: CI
 
 on:
   pull_request:
+    # `edited` (title/body/base change) is added so the PR-link check re-runs when the PR text is fixed.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
 permissions:
   contents: read
 
+# Cancel superseded runs for pull requests only. Runs on main are never cancelled.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   secret-scan:
-    name: Secret scan (gitleaks) - ACTIVE
+    name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -54,7 +66,7 @@ jobs:
         run: ./gitleaks detect --source . --redact --verbose --exit-code 1
 
   repo-validation:
-    name: Repository structure and Markdown links - ACTIVE
+    name: Repository structure and Markdown links
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -67,7 +79,7 @@ jobs:
         run: python3 scripts/check-markdown-links.py .
 
   detect:
-    name: Detect project files (decides which conditional jobs run)
+    name: Detect project files
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -93,7 +105,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   node-checks:
-    name: Node format/lint/typecheck/tests - CONDITIONAL (inactive until package.json exists)
+    name: Node format/lint/typecheck/tests
     needs: detect
     if: needs.detect.outputs.node == 'true'
     runs-on: ubuntu-latest
@@ -124,7 +136,7 @@ jobs:
           exit $rc
 
   python-checks:
-    name: Python format/lint/typecheck/tests - CONDITIONAL (inactive until Python project files exist)
+    name: Python format/lint/typecheck/tests
     needs: detect
     if: needs.detect.outputs.python == 'true'
     runs-on: ubuntu-latest
@@ -161,7 +173,7 @@ jobs:
           exit $rc
 
   dependency-scan:
-    name: Dependency scan - CONDITIONAL (inactive until manifests exist)
+    name: Dependency scan
     needs: [detect]
     if: needs.detect.outputs.node == 'true' || needs.detect.outputs.python == 'true'
     runs-on: ubuntu-latest
@@ -180,7 +192,7 @@ jobs:
           for f in requirements*.txt; do [ -f "$f" ] && pip-audit -r "$f"; done
 
   sbom:
-    name: SBOM (CycloneDX) - CONDITIONAL (inactive until manifests exist; tool versions unpinned)
+    name: SBOM (CycloneDX)
     needs: [detect]
     if: needs.detect.outputs.node == 'true' || needs.detect.outputs.python == 'true'
     runs-on: ubuntu-latest
@@ -203,3 +215,146 @@ jobs:
           name: sbom
           path: sbom-*.json
           if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------------------------
+  # KAN-20 enforcement jobs (LR 10). Every job: explicit least-privilege permissions, timeout,
+  # SHA-pinned actions, persist-credentials: false, no secrets, no `|| true`.
+  # ---------------------------------------------------------------------------------------------
+
+  branch-name:
+    name: Branch name
+    # pull_request only: a push to main has no PR head ref. ci-gate expects "skipped" there.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate the PR branch name (invalid name = failure)
+        # SECURITY: github.head_ref is attacker-controlled (any user who can open a PR picks it).
+        # It is passed ONLY through env, ONLY as BRANCH_NAME, and never interpolated into `run:`.
+        # The script never evaluates it and prints it only escaped and length-bounded.
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+          # Used only to decide the dependabot/* exemption (login is GitHub-controlled, not user text).
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+        run: python3 scripts/ci_branch_gate.py
+
+  python-unit-tests:
+    # Stdlib unittest for scripts/ and tests/security. SEPARATE from the dormant `python-checks`
+    # job (ruff/mypy/pytest), which stays inactive until pyproject.toml/requirements*.txt exist.
+    name: Python unit tests (${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the documented floor (packages/secrets README: "Requires Python 3.11+"); 3.12-3.14 are the
+        # newer stable lines. 3.8-3.10 are not tested: they are not supported by the project.
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # actions/setup-python v7.0.0, pinned by commit SHA (same pin as the python-checks job)
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit tests - discover scripts/
+        run: python3 -W error::ResourceWarning -m unittest discover -v -s scripts -p 'test_*.py'
+      - name: Unit tests - named files (a deleted or renamed test file must fail, not silently vanish)
+        run: >-
+          python3 -W error::ResourceWarning -m unittest -v
+          scripts/test_check_branch_name.py
+          scripts/test_check_transition.py
+          scripts/test_check_pr_link.py
+          scripts/test_branch_name_ci_cases.py
+          scripts/test_ci_helpers.py
+          scripts/test_workflow_guards.py
+      - name: Unit tests - tests/security (KAN-45)
+        run: |
+          set -euo pipefail
+          if [ -d tests/security ]; then
+            python3 -W error::ResourceWarning -m unittest discover -v -s tests/security
+          else
+            echo "::notice title=tests/security absent::tests/security does not exist on this ref (KAN-45 not merged yet) - this stage is SKIPPED, not passed."
+            echo "tests/security is absent on this ref: stage SKIPPED (not a pass)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  pr-link-check:
+    name: PR link check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # scripts/check_pr_link.py is delivered by LR 04 (PR #15; contract in docs/pr-jira-link-check.md). It is on
+      # main now; this job still keeps a PLACEHOLDER stub for refs that do not contain it (e.g. branches cut before it landed):
+      #   * script absent  -> fail-OPEN stub: loud notice + summary line that nothing was checked, then pass.
+      #   * script present -> the real check runs; any non-zero exit fails the job.
+      # Branches exempted from the naming rule (legacy names, dependabot) carry no Jira key by definition and
+      # skip the real check (the script itself fails them on its branch rule and exempts nothing).
+      - name: PR link check (PLACEHOLDER stub until scripts/check_pr_link.py exists)
+        # SECURITY: title, body and branch are attacker-controlled; they reach the script ONLY through env.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+          if [ ! -e scripts/check_pr_link.py ]; then
+            echo "::notice title=PLACEHOLDER::PR link check was NOT performed: scripts/check_pr_link.py does not exist on this ref. This stub passes by design (fail-open)."
+            {
+              echo "### PR link check - PLACEHOLDER"
+              echo "NOT performed: scripts/check_pr_link.py does not exist on this ref. A pass here is NOT evidence that the PR links a Jira issue."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if BRANCH_GATE_MODE=exempt-only python3 scripts/ci_branch_gate.py >/dev/null; then
+            echo "::notice title=PR link check skipped::This branch is exempt from the naming rule (legacy or dependabot) and carries no Jira key. Check skipped."
+            echo "PR link check SKIPPED: exempt branch." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 scripts/check_pr_link.py
+
+  ci-gate:
+    # The single check to require in branch protection (see PR description). Always runs; fails unless every
+    # job below has exactly the result scripts/ci_gate.py expects (skipped counts as a pass ONLY where a job is
+    # legitimately not run: PR-only jobs on push, conditional jobs when `detect` found no project files).
+    name: CI gate
+    if: always()
+    needs:
+      - secret-scan
+      - repo-validation
+      - detect
+      - node-checks
+      - python-checks
+      - dependency-scan
+      - sbom
+      - branch-name
+      - python-unit-tests
+      - pr-link-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Evaluate needed jobs (fail closed)
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: python3 scripts/ci_gate.py

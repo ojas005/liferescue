@@ -1,0 +1,66 @@
+# CI -> Jira status reporting - DRY-RUN ONLY (KAN-20, owner LR 10).
+#
+# What it does: when the "CI" workflow completes, record what a Jira status comment WOULD contain, as a job
+# summary and a downloadable JSON artifact. It posts NOTHING anywhere. There are no Jira credentials and none may
+# be added to this workflow; real posting is disabled by construction:
+#   * no `secrets.*` and no `vars.*` are referenced, no workflow_dispatch/inputs exist that could change DRY_RUN;
+#   * DRY_RUN is the fixed string "true" in the job env, and scripts/ci_jira_status_dryrun.py refuses to run otherwise;
+#   * the script has no Jira client, no network access, no subprocess.
+# PLACEHOLDER: LR 04's Jira reporting module is not in the repository yet; scripts/ci_jira_status_dryrun.py is a stub
+# that writes a record marked "DRY-RUN, no posting". Replace its build_record() with the module's mock/dry-run entry
+# point when it lands (keep the DRY_RUN guard).
+#
+# SECURITY (workflow_run runs in the base repository with an elevated context, also for fork PRs):
+#   * It checks out ONLY the default branch (no `ref:`, which for workflow_run means the default branch head) and
+#     NEVER the PR head; it executes no PR-head code and downloads no artifacts of the CI run.
+#   * Every field of github.event.workflow_run.* (head_branch, head_sha, ...) is untrusted: they are mapped to
+#     env vars and never interpolated into `run:`; the script validates each against a fixed pattern and copies no
+#     free text (not even the branch name) into the summary or the artifact.
+#   * Permissions: contents: read only (the checkout). No API calls are made, so no actions/pull-requests scope.
+# NOTE: workflow_run workflows are loaded from the default branch, so this file has no effect until it is on main.
+name: CI Jira status (dry-run)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: ci-jira-status-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  jira-status-dry-run:
+    name: Jira status (DRY-RUN, no posting)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      DRY_RUN: "true"
+    steps:
+      # Default-branch checkout only (no `ref:`). Never check out github.event.workflow_run.head_sha / head_branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Record the status that WOULD be posted (DRY-RUN, no posting)
+        env:
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+          CI_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CI_RUN_EVENT: ${{ github.event.workflow_run.event }}
+          CI_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CI_RUN_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          DRYRUN_OUT_DIR: jira-dryrun
+        run: python3 scripts/ci_jira_status_dryrun.py
+      # actions/upload-artifact v7.0.1, pinned by commit SHA (same pin as the sbom job in ci.yml)
+      - name: Upload the dry-run record
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: jira-status-dryrun
+          path: jira-dryrun/jira-status-dryrun.json
+          if-no-files-found: error
+          retention-days: 14
