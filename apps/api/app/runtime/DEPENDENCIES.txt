@@ -1,0 +1,14 @@
+# Runtime dependencies for apps/api (KAN-39).
+# Deliberately NOT a requirements*.txt / pyproject.toml: the repo CI (.github/workflows/ci.yml,
+# python-checks) switches on as soon as any such file is tracked and then runs repo-root
+# ruff/mypy/pytest installing only ROOT requirements. LR 04 / LR 10 own the real dependency file;
+# copy this list into it (and make CI install apps/api + packages/contract) when the API lands.
+python>=3.11
+pydantic>=2.6
+httpx>=0.27
+jsonschema>=4.20
+# dev / test
+pytest>=8
+ruff
+mypy
+# local, vendored by LR 03 (packages/contract): imported as `contract`
