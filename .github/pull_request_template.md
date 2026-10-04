@@ -1,6 +1,11 @@
 ## Jira issue
 
-<!-- Jira key (e.g. LR-123). If the Jira project/key is not yet decided write: "Jira: pending project key decision". Do not invent keys. -->
+<!-- Jira issue key, e.g. KAN-20. The branch name must be <type>/KAN-<number>-<description>
+     with type in feature, bugfix, security, chore, docs. Do not invent keys. -->
+
+## Branch
+
+<!-- Paste the branch name. It must match the rule above (see CONTRIBUTING.md, "Branching"). -->
 
 ## Problem
 
@@ -36,6 +41,9 @@
 
 ## Checklist
 
+- [ ] Branch name matches `<type>/KAN-<number>-<description>` (type: feature, bugfix, security, chore or docs)
+- [ ] Jira issue links to this PR (PR URL placed in the issue)
+- [ ] If this PR returns work after review or failed checks: the Jira issue is In Progress with label `exec-rework` and an explanatory comment
 - [ ] Author and reviewer are different identities (no self-approval, no self-merge)
 - [ ] CI is green (or failures are explained; no checks were disabled or weakened)
 - [ ] No secrets, tokens or credentials in the diff
