@@ -168,6 +168,23 @@ Only incident triage (analysis) is model-backed; response plans and readiness st
 
 ---
 
+## 7b. Exposing the Demo Beyond Localhost (Access Token)
+
+By default the server binds to `127.0.0.1` and needs no token. If you bind to anything else
+(`HOST=0.0.0.0`, a LAN IP, a hosted demo), the server **refuses to start** unless
+`DEMO_ACCESS_TOKEN` is set:
+
+```bash
+export DEMO_ACCESS_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
+HOST=0.0.0.0 python apps/api/run.py
+```
+
+- `DEMO_ACCESS_TOKEN` is an **environment variable only**. Never commit it or put it in `.env.example`.
+- With the token set, every API route except `/health` (and the static UI shell) requires the header
+  `X-Demo-Token: <token>`; comparison is constant-time and the value is never logged or echoed.
+- The web UI shows a token prompt after a 401 and keeps the value in `sessionStorage` only.
+- CORS is an explicit allowlist (`http://localhost:<port>`, `http://127.0.0.1:<port>`; override with `CORS_ORIGINS`).
+
 ## 8. License
 
 LifeRescue is released under the MIT License. See [LICENSE](LICENSE) for details.

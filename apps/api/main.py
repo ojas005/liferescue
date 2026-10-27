@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from apps.api.access import DemoTokenMiddleware, TokenLogFilter, enforce_bind_policy
 from apps.api.config import Settings, get_settings
 from apps.api.dependencies import init_dependencies
 from apps.api.middleware import SecurityAndCorrelationMiddleware, setup_secure_logging
@@ -40,6 +42,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url="/redoc",
     )
 
+    # 0. SEC-04 access gate (innermost of the three so 401s still get CORS + request-id headers)
+    enforce_bind_policy(cfg.host, cfg.demo_access_token)
+    if cfg.demo_access_token:
+        token_filter = TokenLogFilter(cfg.demo_access_token.strip())
+        for lg in (logging.getLogger(), logging.getLogger("liferescue"), logging.getLogger("uvicorn.access")):
+            lg.addFilter(token_filter)
+            for h in lg.handlers:
+                h.addFilter(token_filter)
+    app.add_middleware(DemoTokenMiddleware, token=cfg.demo_access_token)
+
     # 1. CORS
     app.add_middleware(
         CORSMiddleware,
@@ -68,6 +80,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "X-Content-Type-Options": "nosniff",
                 "X-Frame-Options": "DENY",
             },
+        )
+
+    # 3b. Validation errors: never echo request input back (could carry tokens/secrets) — SEC-04/SEC-09
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        req_id = getattr(request.state, "request_id", "")
+        errors = [
+            {"type": e.get("type"), "loc": list(e.get("loc", ())), "msg": e.get("msg")}
+            for e in exc.errors()
+        ]
+        return JSONResponse(
+            status_code=422,
+            content={"error": "ValidationError", "detail": errors, "request_id": req_id},
+            headers={"X-Request-ID": req_id, "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY"},
         )
 
     # 4. Include REST API routers

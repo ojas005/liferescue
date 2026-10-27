@@ -5,6 +5,34 @@
 
 let activeIncidentId = null;
 
+// SEC-04: optional demo access token. Kept in sessionStorage only (cleared when the tab closes).
+const DEMO_TOKEN_KEY = 'liferescue.demoToken';
+const _rawFetch = window.fetch.bind(window);
+window.fetch = async (url, opts = {}) => {
+  const token = sessionStorage.getItem(DEMO_TOKEN_KEY);
+  const headers = new Headers(opts.headers || {});
+  if (token) headers.set('X-Demo-Token', token);
+  const res = await _rawFetch(url, { ...opts, headers });
+  if (res.status === 401) showTokenPrompt();
+  return res;
+};
+
+function showTokenPrompt() {
+  const box = document.getElementById('demo-token-box');
+  if (box) box.hidden = false;
+}
+
+function saveDemoToken(event) {
+  if (event) event.preventDefault();
+  const input = document.getElementById('demo-token-input');
+  const value = (input.value || '').trim();
+  if (value) sessionStorage.setItem(DEMO_TOKEN_KEY, value);
+  else sessionStorage.removeItem(DEMO_TOKEN_KEY);
+  input.value = '';
+  document.getElementById('demo-token-box').hidden = true;
+  window.location.reload();
+}
+
 // Tab Switching
 function switchTab(tabName) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));

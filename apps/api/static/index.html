@@ -9,6 +9,12 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
 </head>
 <body>
+  <!-- SEC-04 demo access token entry (shown only after a 401). Stored in sessionStorage only. -->
+  <form id="demo-token-box" hidden onsubmit="saveDemoToken(event)" style="padding:8px 16px;background:#3b1d1d;color:#fff">
+    <label for="demo-token-input">Demo access token required:</label>
+    <input id="demo-token-input" type="password" autocomplete="off" aria-label="Demo access token">
+    <button type="submit">Unlock</button>
+  </form>
   <!-- Header -->
   <header>
     <a href="#" class="brand" onclick="switchTab('dashboard')">

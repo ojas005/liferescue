@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     nvidia_model: str = Field(default="nvidia/nemotron-3-super-120b-a12b")
     nvidia_base_url: str = Field(default="https://api.tokenfactory.nebius.com/v1/")
     ai_timeout_s: float = Field(default=20.0, ge=1.0, le=60.0)
+    # SEC-04: shared demo token. REQUIRED when host is not 127.0.0.1/localhost. Env var only; never commit.
+    demo_access_token: str | None = Field(default=None, repr=False)
     # SEC-06: explicit CORS allowlist (comma-separated). Empty -> localhost/127.0.0.1 on `port`.
     cors_origins: str = Field(default="")
 
