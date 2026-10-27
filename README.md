@@ -195,6 +195,13 @@ HOST=0.0.0.0 python apps/api/run.py
 - When no token is set, `run.py` prints a startup warning that the gate is open.
 - CORS is an explicit allowlist (`http://localhost:<port>`, `http://127.0.0.1:<port>`; override with `CORS_ORIGINS`).
 
+## 7c. Known Limitations (LR 08 reverify-2, open)
+
+- **R-02 (Low):** the pytest network guard in `tests/conftest.py` is best-effort (bypassable via `connect_ex`/`sendto`/raw `_socket`/subprocess/DNS) and does not apply under `unittest`/CI.
+- **R-03 (Low/Medium):** if a redaction match spans uvicorn's access-log args (e.g. `GET /x?a=Bearer`, `?password=`, `?api_key=`), the redaction fallback empties the args and that access line is dropped (secret is not leaked, but the log line is lost).
+- **R-04 (Low):** the tunnel/open-gate warning is printed only by `python -m apps.api.run`, not when launched via plain `uvicorn apps.api.main:app`.
+- **R-05 (Low):** the broadened life-threat lexicon over-escalates some benign phrases (e.g. "traffic is not moving", "floppy disk") to CRITICAL. Over-escalation is the safe direction, but noisy.
+
 ## 8. License
 
 LifeRescue is released under the MIT License. See [LICENSE](LICENSE) for details.

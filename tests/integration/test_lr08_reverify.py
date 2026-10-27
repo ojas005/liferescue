@@ -82,5 +82,56 @@ class TestLR08ReverifyN02(unittest.TestCase):
                 self.assertIn("112 / 911", steps[0])
 
 
+R01_CASES = [  # LR 08 reverify-2 R-01 exact inputs (incl. Hindi/Hinglish)
+    "he hung himself",
+    "found him hanging",
+    "slit her wrists",
+    "i wanna die",
+    "kms",
+    "took like 30 xanax",
+    "she is unconcious",
+    "fell from 3rd floor",
+    "hit by truck",
+    "saans nahi le rahe",
+    "zeher kha liya",
+    "behosh",
+    "marna chahta hoon",
+]
+R01_SELF_HARM = {
+    "he hung himself",
+    "found him hanging",
+    "slit her wrists",
+    "i wanna die",
+    "kms",
+    "marna chahta hoon",
+}
+
+
+class TestLR08ReverifyR01(TestLR08ReverifyN01):
+    def test_r01_recall_is_critical_with_emergency_call_and_crisis_line(self):
+        for text in R01_CASES:
+            with self.subTest(text=text):
+                tri, plan = self._run(text)
+                self.assertEqual(tri["risk"]["urgency"], "critical")
+                types = [a["action_type"] for a in plan["actions"]]
+                self.assertIn("call_emergency_services", types)
+                crisis = [
+                    a
+                    for a in plan["actions"]
+                    if a.get("payload", {}).get("resource") == "crisis_line"
+                ]
+                if text in R01_SELF_HARM:
+                    self.assertEqual(len(crisis), 1)
+                    self.assertIn("988", crisis[0]["description"])
+                    self.assertIn("Tele-MANAS 14416", crisis[0]["description"])
+
+    def test_r01_benign_inputs_not_flagged(self):
+        from packages.domain.triage_rules import detect_conditions
+
+        for text in ("I took 2 tablets for headache", "the car hit a pole lightly"):
+            with self.subTest(text=text):
+                self.assertEqual(detect_conditions(text), [])
+
+
 if __name__ == "__main__":
     unittest.main()
