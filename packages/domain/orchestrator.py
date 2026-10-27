@@ -36,6 +36,7 @@ from packages.domain.models import (
     utcnow,
 )
 from packages.domain.safety_policy import SafetyPolicyEngine
+from packages.domain.triage_rules import vetted_steps
 
 logger = logging.getLogger("liferescue.orchestrator")
 
@@ -158,10 +159,19 @@ class ResponseOrchestrator:
 
         # AI analysis
         analysis = self.ai.analyze_emergency(incident, profile, contacts)
-        self.incident_repo.save_analysis(analysis)
 
         # Deterministic Risk & Escalation assessment
         risk = self.safety.evaluate_risk(incident, analysis)
+
+        # SEC-03: displayed steps come only from the vetted step library; model free text is not shown.
+        analysis = analysis.model_copy(
+            update={
+                "recommended_immediate_steps": vetted_steps(
+                    risk.conditions, analysis.category, risk.requires_escalation
+                )
+            }
+        )
+        self.incident_repo.save_analysis(analysis)
 
         # Update incident status & urgency
         incident.urgency = risk.urgency
