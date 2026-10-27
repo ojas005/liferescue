@@ -144,6 +144,9 @@ python apps/api/run.py
 | `DEMO_REQUIRE_TOKEN` | `0` | `1` forces the token even on localhost (use with tunnels) |
 | `CORS_ORIGINS` | localhost allowlist | Comma-separated origins; `*` ignored |
 | `DEMO_MODE` | `true` | Demo mode (actions simulated) |
+| `RATE_LIMIT_REQUESTS` | `20` | Max POSTs per client IP per window on `/incidents`, `/incidents/{id}/analyze`, `/demo/scenarios/{id}/run`, `/demo/reset` (`0` disables). Over limit → HTTP 429 |
+| `RATE_LIMIT_WINDOW_S` | `60` | Rate-limit window in seconds |
+| `TRUST_PROXY` | `0` | `1` = use the first `X-Forwarded-For` hop as client IP (only behind a trusted proxy such as Render); otherwise the socket peer is used |
 
 ### 3. Open the Experience
 - **Interactive Web App:** [http://127.0.0.1:8000](http://127.0.0.1:8000)
@@ -272,6 +275,8 @@ HOST=0.0.0.0 python apps/api/run.py
 - **R-05 (Low):** the broadened life-threat lexicon over-escalates some benign phrases (e.g. "traffic is not moving", "floppy disk") to CRITICAL. Over-escalation is the safe direction, but noisy.
 
 - **Invalid-JSON fallback (Low):** Nemotron occasionally returns a reply that is not valid JSON. LifeRescue then falls back to deterministic triage and the UI shows a **MOCK fallback** badge — expected, but it can appear during a live demo. (A crash on this path was fixed in PR #27.)
+- **Rate limiting is per instance (Low):** counters are in process memory, so they reset on restart and are not shared across replicas. Fine for a single-instance demo; not a production control.
+- **Render free hosting (if used):** the service spins down after 15 min idle (about 1 min cold start) and its filesystem is ephemeral, so the SQLite demo data resets on restart, redeploy or spin-down (demo data is re-seeded at startup). See `render.yaml`.
 - **Startup refusal output (Low):** when the bind policy refuses to start (non-localhost without `DEMO_ACCESS_TOKEN`), the message is shown inside a Python stack trace rather than as a clean one-line error.
 
 ## 8. License

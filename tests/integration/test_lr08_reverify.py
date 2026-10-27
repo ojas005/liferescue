@@ -25,7 +25,9 @@ class TestLR08ReverifyN01(unittest.TestCase):
     def setUp(self):
         reset_for_tests(":memory:")
         self.client = TestClient(
-            create_app(Settings(db_path=":memory:", ai_provider="mock"))
+            create_app(
+                Settings(db_path=":memory:", ai_provider="mock", rate_limit_requests=0)
+            )  # recall corpus exceeds the per-IP demo limit
         )
 
     def _run(self, text):

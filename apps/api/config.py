@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     demo_require_token: bool = Field(default=False)
     # SEC-06: explicit CORS allowlist (comma-separated). Empty -> localhost/127.0.0.1 on `port`.
     cors_origins: str = Field(default="")
+    # KAN-50: per-client-IP limit on POST create/analyze/scenario-run/reset (0 disables).
+    rate_limit_requests: int = Field(default=20, ge=0, le=10_000)
+    rate_limit_window_s: float = Field(default=60.0, ge=1.0, le=86_400.0)
+    # Honor the first X-Forwarded-For hop only behind a trusted proxy (e.g. Render): TRUST_PROXY=1.
+    trust_proxy: bool = Field(default=False)
 
     def cors_allowlist(self) -> list[str]:
         if self.cors_origins.strip():
