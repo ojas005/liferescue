@@ -527,10 +527,11 @@ class NVIDIAAIProvider(AIProvider):
         timeout_s: float | None = None,
         transport: object | None = None,
     ):
+        # LR 08 N-03: an explicit api_key (even "") is authoritative; env is read only when omitted.
         self.api_key = (
             api_key
-            or os.environ.get("NEBIUS_API_KEY")
-            or os.environ.get("NVIDIA_API_KEY")
+            if api_key is not None
+            else (os.environ.get("NEBIUS_API_KEY") or os.environ.get("NVIDIA_API_KEY"))
         )
         self.model = model or os.environ.get("NVIDIA_MODEL") or DEFAULT_NEMOTRON_MODEL
         self.base_url = (
@@ -690,7 +691,8 @@ def create_ai_provider(
             return NVIDIAAIProvider()
         return NVIDIAAIProvider(
             api_key=getattr(settings, "nebius_api_key", None)
-            or getattr(settings, "nvidia_api_key", None),
+            or getattr(settings, "nvidia_api_key", None)
+            or "",  # settings already reflect env/.env; never re-read env here (N-03)
             model=getattr(settings, "nvidia_model", None),
             base_url=getattr(settings, "nvidia_base_url", None),
             timeout_s=getattr(settings, "ai_timeout_s", None),
