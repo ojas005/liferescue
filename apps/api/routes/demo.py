@@ -63,7 +63,7 @@ def run_demo_scenario(
     if not scenario:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Scenario '{scenario_id}' not found. Available: {[s.scenario_id for s in DEMO_SCENARIOS]}",
+            detail=f"Scenario not found. Available: {[s.scenario_id for s in DEMO_SCENARIOS]}",
         )
 
     # 1. Create incident

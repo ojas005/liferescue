@@ -54,7 +54,7 @@ def get_incident(
     if not inc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Incident '{incident_id}' not found",
+            detail="Incident not found",
         )
     return inc
 
@@ -82,7 +82,7 @@ def get_incident_analysis(
     if not analysis:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Analysis for incident '{incident_id}' has not been performed yet",
+            detail="Analysis for this incident has not been performed yet",
         )
     return analysis
 
@@ -112,7 +112,7 @@ def get_incident_timeline(
     if not inc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Incident '{incident_id}' not found",
+            detail="Incident not found",
         )
     events = orch.get_timeline(incident_id)
     return IncidentTimelineResponse(incident_id=incident_id, events=events)

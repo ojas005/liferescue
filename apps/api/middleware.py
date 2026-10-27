@@ -29,6 +29,14 @@ def setup_secure_logging() -> None:
     app_logger = logging.getLogger("liferescue")
     app_logger.addFilter(log_filter)
 
+    # SEC-09: uvicorn's access/error loggers log directly (request paths may carry secrets)
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        lg = logging.getLogger(name)
+        if log_filter not in lg.filters:
+            lg.addFilter(log_filter)
+        for handler in lg.handlers:
+            handler.addFilter(log_filter)
+
 
 class SecurityAndCorrelationMiddleware(BaseHTTPMiddleware):
     """Generates request correlation IDs and ensures safe HTTP header handling."""

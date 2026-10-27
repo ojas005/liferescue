@@ -95,7 +95,7 @@ def get_contact(
     if not contact:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Contact '{contact_id}' not found",
+            detail="Contact not found",
         )
     return contact
 
@@ -111,7 +111,7 @@ def update_contact(
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Contact '{contact_id}' not found",
+            detail="Contact not found",
         )
 
     if req.name is not None:
@@ -140,7 +140,7 @@ def delete_contact(
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Contact '{contact_id}' not found",
+            detail="Contact not found",
         )
 
 
