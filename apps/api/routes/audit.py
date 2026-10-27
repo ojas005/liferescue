@@ -18,5 +18,5 @@ def list_audit_events(
     limit: int = Query(default=100, ge=1, le=500),
     incident_id: str | None = Query(default=None),
 ) -> list[AuditEvent]:
-    """Retrieve immutable structured audit records."""
+    """Retrieve append-only structured audit records (UPDATE/DELETE blocked by DB triggers)."""
     return db.list_audit(limit=limit, incident_id=incident_id)

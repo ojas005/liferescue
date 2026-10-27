@@ -126,7 +126,7 @@ The web interface includes interactive one-click demonstration scenarios:
 | `GET` | `/readiness` | Compute preparedness score and gaps |
 | `GET` | `/demo/scenarios` | List available demo scenarios |
 | `POST` | `/demo/scenarios/{id}/run` | Execute complete end-to-end scenario |
-| `GET` | `/audit/events` | Inspect immutable security audit records |
+| `GET` | `/audit/events` | Inspect append-only security audit records |
 | `GET` | `/health` | Service status and runtime flags |
 
 ---

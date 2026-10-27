@@ -391,7 +391,11 @@ function renderEmergencyResultCard(incident, analysis, risk, plan) {
   triageBadge.innerText = `${urgencyUpper} URGENCY`;
 
   // 2. What AI Understood (Category, Severity, Confidence, Threat)
-  document.getElementById('analysis-provider-badge').innerText = `Provider: ${analysis.provider_name}`;
+  {
+    const pn = String(analysis.provider_name || '');
+    const mode = pn.includes('mock_fallback') ? 'MOCK fallback' : (pn.startsWith('nvidia_ai (') ? 'LIVE' : 'MOCK');
+    document.getElementById('analysis-provider-badge').textContent = `${mode} · Provider: ${pn}`;
+  }
   checkSystemHealth();
   document.getElementById('analysis-category-val').innerText = analysis.category ? analysis.category.toUpperCase() : 'UNKNOWN';
   document.getElementById('analysis-severity-val').innerText = `${analysis.severity_score || 8}/10`;
@@ -800,7 +804,7 @@ Urgency Overridden: -> CRITICAL`;
 
 async function loadAuditEvents() {
   const tbody = document.getElementById('audit-events-body');
-  tbody.innerHTML = '<tr><td colspan="7" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Fetching immutable audit trail...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Fetching append-only audit trail...</td></tr>';
 
   try {
     const res = await fetch('/audit/events?limit=50');

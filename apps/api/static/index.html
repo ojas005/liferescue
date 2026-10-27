@@ -31,7 +31,7 @@
         <span>📊</span> Command Center
       </button>
       <button class="nav-btn" id="nav-emergency" onclick="switchTab('emergency')">
-        <span>🚨</span> Live Triage
+        <span>🚨</span> Triage
       </button>
       <button class="nav-btn" id="nav-timeline" onclick="switchTab('timeline')">
         <span>📜</span> Incident Timeline
@@ -163,7 +163,7 @@
       <!-- Emergency Hero CTA -->
       <section class="emergency-hero">
         <div class="hero-content">
-          <div class="hero-tag"><span>🚨</span> LIVE EMERGENCY DISPATCH SIMULATOR</div>
+          <div class="hero-tag"><span>🚨</span> EMERGENCY RESPONSE SIMULATOR — NO REAL DISPATCH</div>
           <h2>Active Emergency In Progress?</h2>
           <p>LifeRescue provides instant AI-assisted triage, deterministic safety policy evaluation, and simulated multi-agency escalation in seconds.</p>
           <div class="hero-actions">
@@ -175,7 +175,7 @@
         </div>
         <div class="hero-stat-card">
           <div class="hero-stat">
-            <span class="stat-val" id="stat-latency">&lt; 150ms</span>
+            <span class="stat-val" id="stat-latency">—</span>
             <span class="stat-lbl">Triage &amp; Policy Decision</span>
           </div>
           <div class="hero-stat">
@@ -407,7 +407,7 @@
                 <div class="step-num">6</div>
                 <div class="step-name">Sim Escalation</div>
               </div>
-              <div class="triage-step-7 completed" id="pstep-audit" title="7. Immutable Audit Record">
+              <div class="triage-step-7 completed" id="pstep-audit" title="7. Append-only Audit Record">
                 <div class="step-num">7</div>
                 <div class="step-name">Audit Log</div>
               </div>
@@ -712,7 +712,7 @@
               <span class="gov-pill">RULE 1</span>
               <h4>Mandatory Life-Threat Escalation</h4>
             </div>
-            <p>If acute symptoms (cardiac pain, choking, unconsciousness, severe hemorrhage) are detected in the incident text, the policy engine <strong>forces critical escalation</strong> and automatically injects an emergency dispatch action, even if an AI model hallucinated or proposed a lower urgency.</p>
+            <p>If acute symptoms (cardiac pain, choking, unconsciousness, severe hemorrhage) are detected in the incident text, the policy engine <strong>forces critical escalation</strong> and adds a (simulated) call-emergency-services action, even if an AI model hallucinated or proposed a lower urgency.</p>
           </div>
 
           <div class="gov-card">
@@ -720,7 +720,7 @@
               <span class="gov-pill">RULE 2</span>
               <h4>Strict Action Type Allowlist</h4>
             </div>
-            <p>Only 5 vetted action types are permitted: <code>CALL_EMERGENCY_SERVICES</code>, <code>NOTIFY_CONTACT</code>, <code>FIRST_AID_GUIDANCE</code>, <code>SCENE_SAFETY</code>, and <code>CUSTOM</code>. Any external action proposed by an LLM outside this allowlist is blocked and omitted.</p>
+            <p>Actions must be one of the typed action kinds (e.g. <code>call_emergency_services</code>, <code>notify_contact</code>, <code>display_instructions</code>, <code>prepare_summary</code>); anything else is rejected. <code>custom</code> actions require explicit confirmation. Displayed safety steps come from a vetted library, not model text. Every action in this demo is simulated.</p>
           </div>
 
           <div class="gov-card">
@@ -781,7 +781,7 @@
       <div class="glass-card">
         <div class="widget-header">
           <div>
-            <h3 class="widget-title"><span>🔒</span> Immutable Security &amp; Governance Audit Trail</h3>
+            <h3 class="widget-title"><span>🔒</span> Append-only Security &amp; Governance Audit Trail</h3>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Captures every critical action, triage analysis, safety policy rule enforcement, and secret lease execution. All secret values are proactively redacted before persistence.</p>
           </div>
           <button class="btn-scenario" onclick="loadAuditEvents()">Refresh Audit Log</button>
