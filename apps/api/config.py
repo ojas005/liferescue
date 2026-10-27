@@ -37,8 +37,10 @@ class Settings(BaseSettings):
     rate_limit_window_s: float = Field(default=60.0, ge=1.0, le=86_400.0)
     # Honor the rightmost (proxy-appended) X-Forwarded-For hop only behind a trusted proxy (e.g. Render): TRUST_PROXY=1.
     trust_proxy: bool = Field(default=False)
-    # Global ceiling on outbound model calls (all clients, all workers sharing db_path); 0 = no cap.
+    # Global per-minute rate limit on outbound model calls (all clients, all workers sharing db_path); 0 = no cap.
     ai_global_calls_per_minute: int = Field(default=30, ge=0, le=10_000)
+    # Model calls per rolling 24 h window, all clients/workers; 0 = no live model calls at all.
+    ai_daily_call_budget: int = Field(default=500, ge=0, le=1_000_000)
 
     def cors_allowlist(self) -> list[str]:
         if self.cors_origins.strip():

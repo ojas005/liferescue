@@ -6,7 +6,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt -r apps/api/requirements.txt
-    startCommand: python apps/api/run.py
+    startCommand: python apps/api/run.py   # single uvicorn worker (run.py passes no workers option)
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
@@ -26,7 +26,9 @@ services:
       - key: RATE_LIMIT_WINDOW_S
         value: "60"
       - key: AI_GLOBAL_CALLS_PER_MINUTE
-        value: "30"             # global cap on Nebius calls (spend ceiling)
+        value: "30"             # global per-minute rate limit on Nebius calls (all visitors)
+      - key: AI_DAILY_CALL_BUDGET
+        value: "500"            # Nebius calls per rolling 24 h; 0 = no live calls. Resets on disk wipe: NOT a spending cap
       - key: NEBIUS_API_KEY
         sync: false
       - key: DEMO_ACCESS_TOKEN

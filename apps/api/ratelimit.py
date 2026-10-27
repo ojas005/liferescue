@@ -13,17 +13,24 @@ X-Real-IP. Over-limit requests get 429 with a generic message.
 from __future__ import annotations
 
 import ipaddress
+import logging
 import re
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from packages.storage.rate_limit import GLOBAL_AI_KEY, RateLimiter, store_path_for
+from packages.storage.rate_limit import (
+    GLOBAL_AI_KEY,
+    RateLimiter,
+    RateLimitUnavailable,
+    store_path_for,
+)
 
 __all__ = [
     "GLOBAL_AI_KEY",
     "RateLimitMiddleware",
+    "RateLimitUnavailable",
     "RateLimiter",
     "client_ip",
     "is_limited",
@@ -37,6 +44,8 @@ LIMITED_ROUTES = (
     re.compile(r"^/demo/scenarios/[^/]+/run/?$"),
     re.compile(r"^/demo/reset/?$"),
 )
+
+logger = logging.getLogger(__name__)
 
 
 def is_limited(method: str, path: str) -> bool:
@@ -70,7 +79,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         if self.limiter.limit > 0 and is_limited(request.method, request.url.path):
-            ok, retry = self.limiter.allow("ip:" + client_ip(request, self.trust_proxy))
+            try:
+                ok, retry = self.limiter.allow(
+                    "ip:" + client_ip(request, self.trust_proxy)
+                )
+            except RateLimitUnavailable as err:
+                # FAIL CLOSED: an unreadable limiter must not become an unlimited spend path.
+                logger.warning("rate limiter unavailable (%s); returning 503", err)
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": "ServiceUnavailable",
+                        "detail": "Temporarily unavailable, try again.",
+                    },
+                    headers={"Retry-After": "5"},
+                )
             if not ok:
                 return JSONResponse(
                     status_code=429,
