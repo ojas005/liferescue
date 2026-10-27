@@ -792,9 +792,45 @@ class SQLiteDatabase(
     def delete(self, contact_id: str) -> bool:
         return self.delete_contact(contact_id)
 
-    # ProfileRepository:
-    def save_profile_record(self, profile: EmergencyProfile) -> EmergencyProfile:
-        return self.save_profile(profile)
+    def reset_demo_data(self, user_id: str = "usr_demo") -> dict[str, int]:
+        """Safely remove demo incidents, plans, events, and audit logs for demo user."""
+        counts: dict[str, int] = {}
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "SELECT incident_id FROM incidents WHERE user_id = ?", (user_id,)
+            )
+            incident_ids = [row["incident_id"] for row in cursor.fetchall()]
+
+            if incident_ids:
+                placeholders = ",".join("?" for _ in incident_ids)
+                counts["events"] = conn.execute(
+                    f"DELETE FROM incident_events WHERE incident_id IN ({placeholders})",
+                    incident_ids,
+                ).rowcount
+                counts["plans"] = conn.execute(
+                    f"DELETE FROM response_plans WHERE incident_id IN ({placeholders})",
+                    incident_ids,
+                ).rowcount
+                counts["analyses"] = conn.execute(
+                    f"DELETE FROM incident_analyses WHERE incident_id IN ({placeholders})",
+                    incident_ids,
+                ).rowcount
+                counts["audit"] = conn.execute(
+                    f"DELETE FROM audit_events WHERE incident_id IN ({placeholders})",
+                    incident_ids,
+                ).rowcount
+                counts["incidents"] = conn.execute(
+                    "DELETE FROM incidents WHERE user_id = ?", (user_id,)
+                ).rowcount
+            else:
+                counts["events"] = 0
+                counts["plans"] = 0
+                counts["analyses"] = 0
+                counts["audit"] = 0
+                counts["incidents"] = 0
+
+            conn.commit()
+        return counts
 
 
 class ProfileRepoAdapter(ProfileRepository):

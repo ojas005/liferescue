@@ -1,4 +1,5 @@
 """KAN-45 step 3 (part 1): config defaults/validation, mock backend isolation (T-15)."""
+
 import builtins
 import json
 import os
@@ -32,7 +33,12 @@ class ConfigDefaults(unittest.TestCase):
 
     def test_values_can_be_changed_without_code_edits(self):
         cfg = BrokerConfig.from_mapping(
-            {"default_ttl_seconds": 60, "max_ttl_seconds": 120, "max_leases_per_task": 2, "agent_rate_limit_per_minute": 5}
+            {
+                "default_ttl_seconds": 60,
+                "max_ttl_seconds": 120,
+                "max_leases_per_task": 2,
+                "agent_rate_limit_per_minute": 5,
+            }
         )
         self.assertEqual(cfg.default_ttl, timedelta(seconds=60))
         self.assertEqual(cfg.max_ttl, timedelta(seconds=120))
@@ -43,7 +49,9 @@ class ConfigDefaults(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "cfg.json"
             p.write_text(json.dumps({"default_ttl_seconds": 30, "max_ttl_seconds": 90}))
-            self.assertEqual(BrokerConfig.from_json_file(p).default_ttl, timedelta(seconds=30))
+            self.assertEqual(
+                BrokerConfig.from_json_file(p).default_ttl, timedelta(seconds=30)
+            )
             p.write_text("{not json")
             with self.assertRaises(ConfigurationError):
                 BrokerConfig.from_json_file(p)
@@ -73,9 +81,9 @@ class ConfigDefaults(unittest.TestCase):
     def test_production_can_never_be_configured_T14(self):
         for envs in (["production"], ["mock", "production"], [Environment.PRODUCTION]):
             with self.assertRaises(ConfigurationError):
-                BrokerConfig.from_mapping({"served_environments": envs}) if isinstance(envs[0], str) else BrokerConfig(
-                    served_environments=frozenset(envs)
-                )
+                BrokerConfig.from_mapping({"served_environments": envs}) if isinstance(
+                    envs[0], str
+                ) else BrokerConfig(served_environments=frozenset(envs))
 
     def test_unknown_key_name_is_not_echoed(self):
         canary = make_canary()
@@ -84,7 +92,9 @@ class ConfigDefaults(unittest.TestCase):
         self.assertNotIn(canary, str(ctx.exception))
 
     def test_readme_documents_every_config_field(self):
-        readme = (Path(__file__).resolve().parents[2] / "packages" / "secrets" / "README.md").read_text()
+        readme = (
+            Path(__file__).resolve().parents[2] / "packages" / "secrets" / "README.md"
+        ).read_text()
         for key in BrokerConfig().as_mapping():
             self.assertIn(key, readme, f"README must document config field {key}")
         self.assertTrue(CONFIG_FIELD_NAMES)
@@ -117,7 +127,10 @@ class MockBackendBehaviour(unittest.TestCase):
         a, b = InMemoryBackend(), InMemoryBackend()
         a.provision(REF)
         b.provision(REF)
-        with a.resolve(REF, ttl=timedelta(minutes=1)).reveal() as va, b.resolve(REF, ttl=timedelta(minutes=1)).reveal() as vb:
+        with (
+            a.resolve(REF, ttl=timedelta(minutes=1)).reveal() as va,
+            b.resolve(REF, ttl=timedelta(minutes=1)).reveal() as vb,
+        ):
             self.assertTrue(va.startswith(MOCK_PREFIX))
             self.assertGreaterEqual(len(va), len(MOCK_PREFIX) + 24)
             self.assertNotEqual(va, vb)
@@ -147,12 +160,13 @@ class MockBackendBehaviour(unittest.TestCase):
 
     def test_isolation_no_environment_file_or_network_access_T15(self):
         be = InMemoryBackend()
-        with mock.patch.object(os, "environ", _Trap("os.environ")), mock.patch.object(
-            os, "getenv", _Trap("os.getenv")
-        ), mock.patch.object(builtins, "open", _Trap("open()")), mock.patch.object(
-            socket, "socket", _Trap("socket")
-        ), mock.patch.object(socket, "create_connection", _Trap("create_connection")), mock.patch.object(
-            socket, "getaddrinfo", _Trap("getaddrinfo")
+        with (
+            mock.patch.object(os, "environ", _Trap("os.environ")),
+            mock.patch.object(os, "getenv", _Trap("os.getenv")),
+            mock.patch.object(builtins, "open", _Trap("open()")),
+            mock.patch.object(socket, "socket", _Trap("socket")),
+            mock.patch.object(socket, "create_connection", _Trap("create_connection")),
+            mock.patch.object(socket, "getaddrinfo", _Trap("getaddrinfo")),
         ):
             be.provision(REF)
             be.provision(REF, make_canary())
@@ -163,14 +177,29 @@ class MockBackendBehaviour(unittest.TestCase):
     def test_isolation_source_does_not_import_network_or_env_modules(self):
         import ast
 
-        src = (Path(__file__).resolve().parents[2] / "packages" / "secrets" / "memory_backend.py").read_text()
+        src = (
+            Path(__file__).resolve().parents[2]
+            / "packages"
+            / "secrets"
+            / "memory_backend.py"
+        ).read_text()
         imported = set()
         for node in ast.walk(ast.parse(src)):
             if isinstance(node, ast.Import):
                 imported |= {a.name.split(".")[0] for a in node.names}
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imported.add(node.module.split(".")[0])
-        for banned in ("os", "socket", "http", "urllib", "requests", "subprocess", "pathlib", "shutil", "ssl"):
+        for banned in (
+            "os",
+            "socket",
+            "http",
+            "urllib",
+            "requests",
+            "subprocess",
+            "pathlib",
+            "shutil",
+            "ssl",
+        ):
             self.assertNotIn(banned, imported)
 
     def test_health_and_outage(self):

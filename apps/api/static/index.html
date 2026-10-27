@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LifeRescue — Autonomous AI Emergency Coordination & Readiness</title>
-  <meta name="description" content="Production-quality AI emergency triage, response coordination, and personal readiness platform.">
+  <title>LifeRescue — Autonomous AI Emergency Intelligence & Governance Platform</title>
+  <meta name="description" content="Production-quality AI emergency triage, deterministic safety governance, simulated response coordination, and personal readiness platform.">
   <link rel="stylesheet" href="/static/app.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
 </head>
@@ -13,24 +13,28 @@
   <header>
     <a href="#" class="brand" onclick="switchTab('dashboard')">
       <div class="brand-icon">⛑️</div>
-      <div>
+      <div class="brand-text-group">
         <div class="brand-title">LifeRescue</div>
+        <div class="brand-sub">Emergency Intelligence Platform</div>
       </div>
-      <span class="brand-tag">AI Governance</span>
+      <span class="brand-tag">Deterministic AI Safety</span>
     </a>
 
-    <nav>
+    <nav aria-label="Main Navigation">
       <button class="nav-btn active" id="nav-dashboard" onclick="switchTab('dashboard')">
-        <span>📊</span> Dashboard
+        <span>📊</span> Command Center
       </button>
       <button class="nav-btn" id="nav-emergency" onclick="switchTab('emergency')">
-        <span>🚨</span> Emergency Triage
+        <span>🚨</span> Live Triage
       </button>
       <button class="nav-btn" id="nav-timeline" onclick="switchTab('timeline')">
         <span>📜</span> Incident Timeline
       </button>
       <button class="nav-btn" id="nav-readiness" onclick="switchTab('readiness')">
-        <span>🛡️</span> Readiness & Contacts
+        <span>🛡️</span> Personal Readiness
+      </button>
+      <button class="nav-btn" id="nav-governance" onclick="switchTab('governance')">
+        <span>⚖️</span> AI Governance
       </button>
       <button class="nav-btn" id="nav-audit" onclick="switchTab('audit')">
         <span>🔒</span> Audit Trail
@@ -38,8 +42,16 @@
     </nav>
 
     <div class="header-status">
-      <span class="demo-pill" id="system-status-pill">Simulation Mode Active</span>
-      <a href="/docs" target="_blank" class="nav-btn" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+      <span class="status-pill pill-ai" id="ai-engine-pill">
+        <span class="pill-dot"></span> AI Engine: MockAI — Demo Mode
+      </span>
+      <span class="status-pill pill-sim">
+        <span class="pill-dot"></span> Simulation Sandbox Active
+      </span>
+      <button class="btn-reset-demo" onclick="resetDemoState()" title="Reset demo records to pristine baseline">
+        <span>🔄</span> Reset Demo
+      </button>
+      <a href="/docs" target="_blank" class="nav-btn btn-docs" title="Explore OpenAPI Specification">
         API Docs ↗
       </a>
     </div>
@@ -47,38 +59,189 @@
 
   <!-- Main Container -->
   <main>
-    <!-- Interactive Demo Mode Banner -->
+    <!-- Demo Banner: One-Click Hackathon Scenarios -->
     <section class="demo-banner">
       <div class="demo-banner-text">
-        <h4>⚡ One-Click Hackathon Scenarios</h4>
-        <p>Pre-packaged deterministic emergency flows showing end-to-end AI triage and response simulation.</p>
+        <div class="banner-badge">HACKATHON DEMO RUNNER</div>
+        <h4>⚡ One-Click Emergency Scenarios</h4>
+        <p>Pre-packaged deterministic emergency simulations demonstrating AI triage, safety rules, and coordinated response.</p>
       </div>
       <div class="demo-scenario-buttons">
-        <button class="btn-scenario" onclick="runScenario('scenario_medical')">
-          <span>❤️</span> Scenario 1: Chest Pain & Breathing
+        <button class="btn-scenario-pill scenario-medical" onclick="runScenario('scenario_medical')">
+          <span class="scenario-icon">❤️</span>
+          <div class="scenario-meta">
+            <strong>Scenario 1: Cardiac Emergency</strong>
+            <small>Critical • Chest Pain &amp; Dyspnea</small>
+          </div>
         </button>
-        <button class="btn-scenario" onclick="runScenario('scenario_accident')">
-          <span>🚗</span> Scenario 2: Highway Collision
+        <button class="btn-scenario-pill scenario-accident" onclick="runScenario('scenario_accident')">
+          <span class="scenario-icon">🚗</span>
+          <div class="scenario-meta">
+            <strong>Scenario 2: Highway Collision</strong>
+            <small>High • Crash &amp; Hazmat Smoke</small>
+          </div>
         </button>
-        <button class="btn-scenario" onclick="runScenario('scenario_preparedness')">
-          <span>🔥</span> Scenario 3: Wildfire Evacuation
+        <button class="btn-scenario-pill scenario-fire" onclick="runScenario('scenario_preparedness')">
+          <span class="scenario-icon">🔥</span>
+          <div class="scenario-meta">
+            <strong>Scenario 3: Wildfire Evacuation</strong>
+            <small>Critical • Approaching Flame Line</small>
+          </div>
+        </button>
+        <button class="btn-scenario-pill scenario-reset" onclick="resetDemoState()">
+          <span class="scenario-icon">🔄</span>
+          <div class="scenario-meta">
+            <strong>Reset Demo</strong>
+            <small>Clean Baseline State</small>
+          </div>
         </button>
       </div>
     </section>
 
-    <!-- Tab 1: Dashboard -->
+    <!-- ===================================================================== -->
+    <!-- Tab 1: Command Center (Dashboard)                                    -->
+    <!-- ===================================================================== -->
     <div id="tab-dashboard" class="tab-content active">
+      <!-- LifeRescue Product Story Loop -->
+      <section class="product-loop-card">
+        <div class="loop-header">
+          <span class="badge badge-ai">THE LIFERESCUE INTELLIGENCE CYCLE</span>
+          <h3>One Cohesive Emergency Coordination &amp; Preparedness Platform</h3>
+          <p>LifeRescue links proactive personal preparation to real-time deterministic triage, safety-governed response, and continuous post-incident hardening.</p>
+        </div>
+        <div class="loop-steps-grid">
+          <div class="loop-step" onclick="switchTab('readiness')">
+            <div class="step-num">1</div>
+            <div class="step-icon">🛡️</div>
+            <div class="step-title">PREPARE</div>
+            <div class="step-desc">Profile, allergies, blood type, and emergency contacts</div>
+          </div>
+          <div class="loop-arrow">→</div>
+          <div class="loop-step" onclick="switchTab('emergency')">
+            <div class="step-num">2</div>
+            <div class="step-icon">🚨</div>
+            <div class="step-title">EMERGENCY</div>
+            <div class="step-desc">Voice, text, or telemetry sensor intake ingestion</div>
+          </div>
+          <div class="loop-arrow">→</div>
+          <div class="loop-step" onclick="switchTab('emergency')">
+            <div class="step-num">3</div>
+            <div class="step-icon">🤖</div>
+            <div class="step-title">UNDERSTAND</div>
+            <div class="step-desc">AI extracts clinical facts, severity, and urgency</div>
+          </div>
+          <div class="loop-arrow">→</div>
+          <div class="loop-step" onclick="switchTab('governance')">
+            <div class="step-num">4</div>
+            <div class="step-icon">⚖️</div>
+            <div class="step-title">DECIDE SAFELY</div>
+            <div class="step-desc">Deterministic SafetyPolicyEngine vets all actions</div>
+          </div>
+          <div class="loop-arrow">→</div>
+          <div class="loop-step" onclick="switchTab('emergency')">
+            <div class="step-num">5</div>
+            <div class="step-icon">🚑</div>
+            <div class="step-title">RESPOND</div>
+            <div class="step-desc">Simulated dispatch, contact alerts &amp; responder briefing</div>
+          </div>
+          <div class="loop-arrow">→</div>
+          <div class="loop-step" onclick="switchTab('readiness')">
+            <div class="step-num">6</div>
+            <div class="step-icon">📈</div>
+            <div class="step-title">PREPARE BETTER</div>
+            <div class="step-desc">Post-incident gap closure and audit transparency</div>
+          </div>
+        </div>
+      </section>
+
       <!-- Emergency Hero CTA -->
       <section class="emergency-hero">
-        <h2>Experiencing an Emergency?</h2>
-        <p>LifeRescue provides instant AI-assisted triage, safety policy evaluation, and coordinated emergency escalation.</p>
-        <button class="btn-sos" onclick="switchTab('emergency')">
-          <span>🆘</span> REPORT EMERGENCY NOW
-        </button>
+        <div class="hero-content">
+          <div class="hero-tag"><span>🚨</span> LIVE EMERGENCY DISPATCH SIMULATOR</div>
+          <h2>Active Emergency In Progress?</h2>
+          <p>LifeRescue provides instant AI-assisted triage, deterministic safety policy evaluation, and simulated multi-agency escalation in seconds.</p>
+          <div class="hero-actions">
+            <button class="btn-sos" onclick="switchTab('emergency')">
+              <span>🆘</span> REPORT EMERGENCY NOW
+            </button>
+            <span class="hero-note">All external dispatches are safely simulated in sandbox mode.</span>
+          </div>
+        </div>
+        <div class="hero-stat-card">
+          <div class="hero-stat">
+            <span class="stat-val" id="stat-latency">&lt; 150ms</span>
+            <span class="stat-lbl">Triage &amp; Policy Decision</span>
+          </div>
+          <div class="hero-stat">
+            <span class="stat-val">100%</span>
+            <span class="stat-lbl">Deterministic Rule Vetting</span>
+          </div>
+          <div class="hero-stat">
+            <span class="stat-val">0</span>
+            <span class="stat-lbl">Unvetted AI Actions Allowed</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 Distinct Scenario Showcase Cards -->
+      <section class="scenario-showcase-grid">
+        <!-- Scenario 1 -->
+        <div class="scenario-card">
+          <div class="sc-header">
+            <span class="badge badge-critical">CRITICAL MEDICAL</span>
+            <span class="sc-badge">Scenario 1</span>
+          </div>
+          <h4>Acute Cardiac Distress</h4>
+          <p class="sc-desc">Patient reports intense crushing chest pain radiating to jaw/left arm with acute dyspnea.</p>
+          <div class="sc-highlights">
+            <div>✓ Mandatory EMS Escalation Rule</div>
+            <div>✓ Missing Info Gap Detection</div>
+            <div>✓ Simulated First Responder Briefing</div>
+          </div>
+          <button class="btn-launch-sc" onclick="runScenario('scenario_medical')">
+            <span>⚡</span> Launch Cardiac Scenario
+          </button>
+        </div>
+
+        <!-- Scenario 2 -->
+        <div class="scenario-card">
+          <div class="sc-header">
+            <span class="badge badge-high">HIGH / ACCIDENT</span>
+            <span class="sc-badge">Scenario 2</span>
+          </div>
+          <h4>Highway Vehicle Collision</h4>
+          <p class="sc-desc">Two-vehicle high-speed highway collision with unconscious passenger and radiator smoke hazard.</p>
+          <div class="sc-highlights">
+            <div>✓ Scene Safety Priority Warning</div>
+            <div>✓ Trauma Care Coordination</div>
+            <div>✓ Primary Contact Simulated SMS</div>
+          </div>
+          <button class="btn-launch-sc" onclick="runScenario('scenario_accident')">
+            <span>⚡</span> Launch Highway Crash Scenario
+          </button>
+        </div>
+
+        <!-- Scenario 3 -->
+        <div class="scenario-card">
+          <div class="sc-header">
+            <span class="badge badge-critical">CRITICAL / HAZMAT</span>
+            <span class="sc-badge">Scenario 3</span>
+          </div>
+          <h4>Wildfire Ridge Evacuation</h4>
+          <p class="sc-desc">Approaching wildfire flame line with downed power lines blocking primary access road.</p>
+          <div class="sc-highlights">
+            <div>✓ Environmental Hazard Assessment</div>
+            <div>✓ Rapid Evacuation Directive</div>
+            <div>✓ Vulnerable Resident Alerting</div>
+          </div>
+          <button class="btn-launch-sc" onclick="runScenario('scenario_preparedness')">
+            <span>⚡</span> Launch Wildfire Scenario
+          </button>
+        </div>
       </section>
 
       <!-- Dashboard Widgets Grid -->
-      <div class="grid-2">
+      <div class="grid-2" style="margin-top: 1.5rem;">
         <!-- Personal Readiness Widget -->
         <div class="glass-card">
           <div class="widget-header">
@@ -88,8 +251,11 @@
           <div class="readiness-gauge-box">
             <div class="score-circle" id="dash-score-circle" data-score="--"></div>
             <div class="readiness-details">
-              <h4 id="dash-readiness-status">Evaluating...</h4>
-              <p id="dash-readiness-gaps">Reviewing profile gaps and emergency directives...</p>
+              <h4 id="dash-readiness-status">Evaluating Readiness...</h4>
+              <p id="dash-readiness-gaps">Reviewing profile gaps, medical directives, and contacts...</p>
+              <div class="readiness-cta-box" style="margin-top: 0.8rem;">
+                <button class="btn-xs btn-outline" onclick="switchTab('readiness')">Inspect Gaps &amp; Safeguards →</button>
+              </div>
             </div>
           </div>
         </div>
@@ -106,11 +272,31 @@
         </div>
       </div>
 
+      <!-- AI Governance Differentiator Banner -->
+      <div class="governance-differentiator-card" style="margin-top: 1.5rem;">
+        <div class="diff-left">
+          <span class="badge badge-ai">CORE ARCHITECTURAL DIFFERENTIATOR</span>
+          <h3>AI proposes. Deterministic safety policy decides.</h3>
+          <p>Unlike raw LLM applications, LifeRescue never allows an AI model to directly execute emergency escalations, prescribe treatments, or issue unvetted commands. Every action must satisfy strict deterministic allowlists.</p>
+        </div>
+        <div class="diff-right">
+          <button class="btn-primary" onclick="switchTab('governance')">
+            <span>⚖️</span> View Governance Architecture →
+          </button>
+        </div>
+      </div>
+
       <!-- Recent Incidents Section -->
       <div class="glass-card" style="margin-top: 1.5rem;">
         <div class="widget-header">
-          <h3 class="widget-title"><span>🕒</span> Recent Incident History</h3>
-          <button class="btn-scenario" onclick="loadIncidents()">Refresh</button>
+          <div>
+            <h3 class="widget-title"><span>🕒</span> Recent Incident History</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Complete record of emergency events, AI assessments, and response plans.</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-scenario" onclick="resetDemoState()">Reset Demo Data</button>
+            <button class="btn-scenario" onclick="loadIncidents()">Refresh</button>
+          </div>
         </div>
         <div id="dash-incidents-list">
           <p style="color: var(--text-muted); font-size: 0.85rem;">Loading incidents...</p>
@@ -118,15 +304,29 @@
       </div>
     </div>
 
-    <!-- Tab 2: Emergency Triage Screen -->
+    <!-- ===================================================================== -->
+    <!-- Tab 2: Live Emergency Triage Screen                                  -->
+    <!-- ===================================================================== -->
     <div id="tab-emergency" class="tab-content">
       <div class="grid-2">
         <!-- Emergency Intake Form -->
         <div class="glass-card">
           <div class="widget-header">
-            <h3 class="widget-title"><span>🚨</span> Emergency Situation Intake</h3>
+            <div>
+              <h3 class="widget-title"><span>🚨</span> Emergency Situation Intake</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Capability A: Ingest emergency voice transcript, sensor feed, or text report.</p>
+            </div>
             <span class="badge badge-high">Capability A</span>
           </div>
+
+          <!-- Quick Scenario Pre-fills -->
+          <div class="quick-prefill-box">
+            <span class="prefill-label">Quick Scenarios:</span>
+            <button type="button" class="btn-chip" onclick="prefillScenario('medical')">❤️ Cardiac</button>
+            <button type="button" class="btn-chip" onclick="prefillScenario('accident')">🚗 Highway Crash</button>
+            <button type="button" class="btn-chip" onclick="prefillScenario('fire')">🔥 Wildfire</button>
+          </div>
+
           <form id="emergency-form" onsubmit="handleEmergencySubmit(event)">
             <div class="form-group">
               <label for="inc-title">Situation Headline</label>
@@ -134,22 +334,22 @@
             </div>
             <div class="form-group">
               <label for="inc-desc">Describe What Is Happening</label>
-              <textarea id="inc-desc" class="form-control" placeholder="Provide as much detail as possible: symptoms, injuries, hazards, who is involved..." required></textarea>
+              <textarea id="inc-desc" class="form-control" rows="5" placeholder="Provide as much detail as possible: symptoms, injuries, hazards, who is involved..." required></textarea>
             </div>
             <div class="form-group">
               <label for="inc-location">Location or Landmark</label>
-              <input type="text" id="inc-location" class="form-control" placeholder="e.g. 742 Evergreen Terrace, Springfield or GPS Coordinates">
+              <input type="text" id="inc-location" class="form-control" placeholder="e.g. 142 Elmwood Ave, Apartment 3B, Boston MA">
             </div>
             <div class="form-group">
               <label for="inc-type">Input Method</label>
               <select id="inc-type" class="form-control">
-                <option value="text">Direct Text Input</option>
-                <option value="voice_transcript">Voice Transcript Feed</option>
-                <option value="sensor">Telemetry / Sensor Alert</option>
+                <option value="text">Direct Text Emergency Input</option>
+                <option value="voice_transcript">Emergency Voice Transcript Feed</option>
+                <option value="sensor">Telemetry / Crash Sensor Alert</option>
               </select>
             </div>
-            <button type="submit" class="btn-primary" id="btn-submit-emergency" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 0.9rem;">
-              <span>⚡</span> Initiate AI Triage & Response
+            <button type="submit" class="btn-primary" id="btn-submit-emergency" style="width: 100%; justify-content: center; font-size: 1rem; padding: 0.85rem;">
+              <span>⚡</span> Initiate AI Triage &amp; Response Coordination
             </button>
           </form>
         </div>
@@ -157,58 +357,148 @@
         <!-- Live Triage & Response Output -->
         <div class="glass-card" id="triage-result-card">
           <div class="widget-header">
-            <h3 class="widget-title"><span>🤖</span> AI Triage & Safety Policy Engine</h3>
+            <div>
+              <h3 class="widget-title"><span>🤖</span> AI Triage &amp; Safety Policy Pipeline</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Deterministic evaluation and simulated escalation.</p>
+            </div>
             <span class="badge" id="triage-urgency-badge" style="display: none;">Urgency</span>
           </div>
 
-          <div id="triage-placeholder" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+          <div id="triage-placeholder" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
             <div style="font-size: 3rem; margin-bottom: 1rem;">🩺</div>
-            <p>Submit an emergency report or click a Demo Scenario above to view real-time triage analysis, deterministic safety rules, and coordinated response actions.</p>
+            <h4>No Active Triage Session</h4>
+            <p style="max-width: 450px; margin: 0.5rem auto 1.5rem; font-size: 0.9rem;">Submit an emergency report or click one of the demo scenarios above to watch the complete 7-stage LifeRescue decision pipeline execute in real time.</p>
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+              <button class="btn-primary" onclick="runScenario('scenario_medical')">⚡ Run Medical Demo</button>
+              <button class="btn-scenario" onclick="runScenario('scenario_accident')">🚗 Run Accident Demo</button>
+            </div>
           </div>
 
-          <!-- Triage Progression Steps -->
+          <!-- Triage Progression Steps (7-Stage Pipeline) -->
           <div id="triage-active-container" style="display: none;">
-            <div class="triage-steps">
-              <div class="triage-step completed" id="step-intake">
-                <div class="step-indicator">1</div>
-                <div class="step-label">Intake</div>
+            <div class="triage-steps-7">
+              <div class="triage-step-7 completed" id="pstep-intake" title="1. User Report Ingested">
+                <div class="step-num">1</div>
+                <div class="step-name">Intake</div>
               </div>
-              <div class="triage-step active" id="step-ai">
-                <div class="step-indicator">2</div>
-                <div class="step-label">AI Triage</div>
+              <div class="triage-step-7 completed" id="pstep-ai" title="2. AI Clinical Fact Extraction">
+                <div class="step-num">2</div>
+                <div class="step-name">AI Triage</div>
               </div>
-              <div class="triage-step" id="step-policy">
-                <div class="step-indicator">3</div>
-                <div class="step-label">Safety Policy</div>
+              <div class="triage-step-7 completed" id="pstep-risk" title="3. Symptom & Threat Scoring">
+                <div class="step-num">3</div>
+                <div class="step-name">Risk Score</div>
               </div>
-              <div class="triage-step" id="step-actions">
-                <div class="step-indicator">4</div>
-                <div class="step-label">Response</div>
+              <div class="triage-step-7 completed" id="pstep-policy" title="4. Deterministic Safety Policy Vetting">
+                <div class="step-num">4</div>
+                <div class="step-name">Safety Policy</div>
+              </div>
+              <div class="triage-step-7 completed" id="pstep-plan" title="5. Coordinated Action Plan">
+                <div class="step-num">5</div>
+                <div class="step-name">Response Plan</div>
+              </div>
+              <div class="triage-step-7 completed" id="pstep-sim" title="6. Simulated Escalations">
+                <div class="step-num">6</div>
+                <div class="step-name">Sim Escalation</div>
+              </div>
+              <div class="triage-step-7 completed" id="pstep-audit" title="7. Immutable Audit Record">
+                <div class="step-num">7</div>
+                <div class="step-name">Audit Log</div>
               </div>
             </div>
 
-            <!-- Analysis Summary -->
-            <div style="background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--border-glass);">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <strong id="analysis-category" style="color: var(--accent-ai); text-transform: capitalize;">Medical Emergency</strong>
-                <span id="analysis-severity" style="font-size: 0.8rem; color: var(--text-secondary);">Severity: 9/10</span>
+            <!-- High Impact Emergency Result Card (9 Decision Points) -->
+            <div class="emergency-result-card" id="emergency-result-box">
+              <!-- Point 1 & 2: Urgency Headline & User Report -->
+              <div class="result-banner" id="result-urgency-banner">
+                <div class="banner-status-icon" id="result-status-icon">🚨</div>
+                <div>
+                  <div class="banner-urgency-tag" id="result-urgency-tag">CRITICAL</div>
+                  <h4 id="result-headline-title">Immediate Emergency Assistance Recommended</h4>
+                  <p id="result-user-report" style="font-size: 0.85rem; opacity: 0.9; margin-top: 0.2rem;"></p>
+                </div>
               </div>
-              <p id="analysis-summary" style="font-size: 0.9rem; margin-bottom: 0.75rem;"></p>
-              
-              <div id="analysis-missing-box" style="display: none; background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--accent-warning); padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.8rem; margin-bottom: 0.5rem;">
-                <strong>Missing Critical Info:</strong> <span id="analysis-missing-text"></span>
+
+              <!-- Point 3: What AI Understood -->
+              <div class="result-section">
+                <div class="section-tag-row">
+                  <span class="result-tag tag-ai">AI UNDERSTANDING</span>
+                  <span id="analysis-provider-badge" class="result-provider">Provider: MockAI (Deterministic)</span>
+                </div>
+                <div class="ai-metrics-row">
+                  <div><strong>Category:</strong> <span id="analysis-category-val">Medical</span></div>
+                  <div><strong>Severity:</strong> <span id="analysis-severity-val">9/10</span></div>
+                  <div><strong>Confidence:</strong> <span id="analysis-confidence-val">95%</span></div>
+                  <div><strong>Threat:</strong> <span id="analysis-threat-val">Immediate Life Threat</span></div>
+                </div>
+                <p id="analysis-summary-text" class="analysis-summary-box"></p>
+              </div>
+
+              <!-- Point 4: Why Serious (Symptoms & Triggers) -->
+              <div class="result-section">
+                <div class="section-tag-row">
+                  <span class="result-tag tag-warning">CLINICAL RISK FACTORS &amp; TRIGGERS</span>
+                </div>
+                <ul id="analysis-triggers-list" class="triggers-list"></ul>
+              </div>
+
+              <!-- Point 5: Missing Critical Information -->
+              <div id="analysis-missing-box" class="result-section missing-section" style="display: none;">
+                <div class="section-tag-row">
+                  <span class="result-tag tag-amber">MISSING CRITICAL INFORMATION</span>
+                </div>
+                <p id="analysis-missing-text" style="font-size: 0.85rem; color: var(--accent-warning);"></p>
+              </div>
+
+              <!-- Point 6: Immediate First-Aid & Recommendations -->
+              <div class="result-section">
+                <div class="section-tag-row">
+                  <span class="result-tag tag-safe">RECOMMENDED IMMEDIATE ACTIONS</span>
+                </div>
+                <ul id="analysis-steps-list" class="steps-list"></ul>
+              </div>
+
+              <!-- Point 7: Deterministic Safety Decision -->
+              <div class="result-section policy-section">
+                <div class="section-tag-row">
+                  <span class="result-tag tag-policy">SAFETY POLICY VETTING</span>
+                  <span class="policy-rule-badge" id="policy-rule-badge">RULE_ACUTE_LIFE_THREAT_ESCALATION</span>
+                </div>
+                <p id="policy-decision-text" class="policy-decision-desc">
+                  Emergency escalation approved by deterministic safety policy. Action allowlists validated. Unvetted LLM output prohibited.
+                </p>
+                <div id="policy-notes-box" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
+              </div>
+
+              <!-- Point 8: Coordinated Response Actions (Simulated) -->
+              <div class="result-section">
+                <div class="section-tag-row">
+                  <span class="result-tag tag-response">COORDINATED RESPONSE (SIMULATED ESCALATIONS)</span>
+                  <span class="badge badge-medium" style="font-size: 0.7rem;">SANDBOX SIMULATION</span>
+                </div>
+                <div id="plan-actions-list" class="actions-list-container"></div>
+              </div>
+
+              <!-- Point 9: Audit Trail Link -->
+              <div class="result-section audit-link-section">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span class="result-tag tag-audit">AUDIT RECORD</span>
+                    <span id="result-audit-ref" style="font-family: monospace; font-size: 0.8rem; color: var(--text-secondary); margin-left: 0.5rem;">Incident recorded to tamper-evident SQLite repository.</span>
+                  </div>
+                  <button class="btn-xs btn-outline" id="btn-jump-timeline" onclick="viewActiveTimeline()">
+                    View Incident Timeline ↗
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- Action Plan List -->
-            <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem;">Coordinated Action Plan (Capability B)</h4>
-            <div id="plan-actions-list"></div>
-
+            <!-- Inviolable Medical Disclaimer -->
             <div class="disclaimer-alert">
               <span>⚠️</span>
               <div>
-                <strong>Medical & Legal Notice:</strong>
-                LifeRescue AI provides immediate safety guidance and triage coordination. It is not a licensed physician. Calling professional 911/112 services is always prioritized.
+                <strong>Medical &amp; Legal Notice:</strong>
+                LifeRescue AI provides safety guidance and automated escalation coordination. It does not provide certified medical diagnosis and never replaces calling 911/112 emergency services.
               </div>
             </div>
           </div>
@@ -216,11 +506,16 @@
       </div>
     </div>
 
-    <!-- Tab 3: Incident Timeline -->
+    <!-- ===================================================================== -->
+    <!-- Tab 3: Incident Timeline                                              -->
+    <!-- ===================================================================== -->
     <div id="tab-timeline" class="tab-content">
       <div class="glass-card">
         <div class="widget-header">
-          <h3 class="widget-title"><span>📜</span> End-to-End Incident Timeline</h3>
+          <div>
+            <h3 class="widget-title"><span>📜</span> End-to-End Incident Timeline</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Complete 7-step sequence: Intake → AI Analysis → Risk → Policy → Plan → Execution → Audit.</p>
+          </div>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
             <select id="timeline-incident-select" class="form-control" style="width: auto; padding: 0.4rem 0.8rem;" onchange="loadSelectedTimeline()">
               <option value="">Select an Incident...</option>
@@ -234,9 +529,33 @@
       </div>
     </div>
 
-    <!-- Tab 4: Readiness & Contacts -->
+    <!-- ===================================================================== -->
+    <!-- Tab 4: Personal Readiness & Contacts                                  -->
+    <!-- ===================================================================== -->
     <div id="tab-readiness" class="tab-content">
-      <div class="grid-2">
+      <!-- Readiness Hero Header -->
+      <section class="readiness-hero-card">
+        <div class="rh-left">
+          <span class="badge badge-ai">CAPABILITY C: PREVENT &amp; PREPARE</span>
+          <h3>Personal Emergency Readiness</h3>
+          <p>Readiness is proactive protection before crises strike. LifeRescue assesses contact safeguards, trauma medical history, and emergency directives to ensure responders have life-saving context instantly.</p>
+        </div>
+        <div class="rh-right">
+          <div class="demo-remediation-panel">
+            <span class="demo-remediation-title">Interactive Readiness Demo:</span>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
+              <button class="btn-xs btn-primary" onclick="quickRemediateProfile()" title="Autofill emergency directives to achieve 100% EXCELLENT score">
+                ✓ 1-Click Remediate Directives (100%)
+              </button>
+              <button class="btn-xs btn-outline" onclick="simulateProfileGap()" title="Clear directives to demonstrate gap detection (75%)">
+                ⚠️ Simulate Profile Gap (75%)
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid-2" style="margin-top: 1.5rem;">
         <!-- Readiness Assessment Card -->
         <div class="glass-card">
           <div class="widget-header">
@@ -250,8 +569,10 @@
               <p id="readiness-score-desc"></p>
             </div>
           </div>
-          <div style="margin-top: 1rem;">
-            <h5 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Preparedness Checklist</h5>
+          <div style="margin-top: 1.5rem;">
+            <h5 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-primary);">
+              Readiness Checklist &amp; Gap Analysis (4 Pillars)
+            </h5>
             <div id="readiness-checklist"></div>
           </div>
         </div>
@@ -259,7 +580,10 @@
         <!-- Emergency Contacts Manager -->
         <div class="glass-card">
           <div class="widget-header">
-            <h3 class="widget-title"><span>👥</span> Designated Emergency Contacts</h3>
+            <div>
+              <h3 class="widget-title"><span>👥</span> Designated Emergency Contacts</h3>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Notified automatically upon verified emergency escalation.</p>
+            </div>
             <button class="btn-scenario" onclick="openAddContactModal()">+ New Contact</button>
           </div>
           <div id="contacts-management-list" style="margin-top: 1rem;"></div>
@@ -269,10 +593,13 @@
       <!-- Emergency Medical Profile Editor -->
       <div class="glass-card" style="margin-top: 1.5rem;">
         <div class="widget-header">
-          <h3 class="widget-title"><span>📋</span> Personal Medical & Emergency Profile</h3>
-          <button class="btn-primary" onclick="saveEmergencyProfile()">Save Profile</button>
+          <div>
+            <h3 class="widget-title"><span>📋</span> Personal Medical &amp; Emergency Profile</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Critical clinical information briefed to dispatchers during critical escalations.</p>
+          </div>
+          <button class="btn-primary" onclick="saveEmergencyProfile()">Save Emergency Profile</button>
         </div>
-        <form id="profile-form">
+        <form id="profile-form" onsubmit="event.preventDefault(); saveEmergencyProfile();">
           <div class="grid-3">
             <div class="form-group">
               <label for="prof-blood">Blood Type</label>
@@ -284,7 +611,7 @@
                 <option value="B-">B-</option>
                 <option value="AB+">AB+</option>
                 <option value="AB-">AB-</option>
-                <option value="O+">O+</option>
+                <option value="O+" selected>O+</option>
                 <option value="O-">O-</option>
               </select>
             </div>
@@ -315,23 +642,145 @@
 
           <div class="form-group">
             <label for="prof-instructions">Emergency Directives for First Responders</label>
-            <textarea id="prof-instructions" class="form-control" placeholder="e.g. Spare inhaler in front backpack pocket. Dog in backyard is friendly. Gate code #4821."></textarea>
+            <textarea id="prof-instructions" class="form-control" rows="3" placeholder="e.g. Spare inhaler in front backpack pocket. Dog in backyard is friendly. Gate code #4821."></textarea>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Tab 5: Audit Trail -->
+    <!-- ===================================================================== -->
+    <!-- Tab 5: AI Governance & Deterministic Safety Boundary (NEW)            -->
+    <!-- ===================================================================== -->
+    <div id="tab-governance" class="tab-content">
+      <div class="glass-card">
+        <div class="widget-header">
+          <div>
+            <span class="badge badge-ai">HACKATHON DIFFERENTIATOR</span>
+            <h3 class="widget-title" style="margin-top: 0.3rem;"><span>⚖️</span> AI Governance &amp; Deterministic Safety Engine</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">
+              <strong>"AI proposes. Deterministic safety policy decides."</strong> LifeRescue never allows an LLM unconstrained control over emergency dispatches or medical recommendations.
+            </p>
+          </div>
+        </div>
+
+        <!-- Visual Governance Pipeline -->
+        <div class="gov-pipeline-container">
+          <div class="gov-pipeline-title">Deterministic Safety Boundary Architecture:</div>
+          <div class="gov-pipeline-flow">
+            <div class="gov-stage">
+              <div class="gov-stage-icon">🤖</div>
+              <div class="gov-stage-title">AI Inference</div>
+              <div class="gov-stage-desc">Proposes category, urgency &amp; draft actions</div>
+            </div>
+            <div class="gov-arrow">→</div>
+            <div class="gov-stage">
+              <div class="gov-stage-icon">📋</div>
+              <div class="gov-stage-title">Structured Output</div>
+              <div class="gov-stage-desc">Strict Pydantic models reject extra/malformed fields</div>
+            </div>
+            <div class="gov-arrow">→</div>
+            <div class="gov-stage gov-highlight">
+              <div class="gov-stage-icon">🛡️</div>
+              <div class="gov-stage-title">SafetyPolicyEngine</div>
+              <div class="gov-stage-desc">Deterministic non-LLM Python code enforces rules</div>
+            </div>
+            <div class="gov-arrow">→</div>
+            <div class="gov-stage">
+              <div class="gov-stage-icon">🔒</div>
+              <div class="gov-stage-title">Action Allowlist</div>
+              <div class="gov-stage-desc">Prohibits unallowed actions &amp; blocks dangerous verbs</div>
+            </div>
+            <div class="gov-arrow">→</div>
+            <div class="gov-stage">
+              <div class="gov-stage-icon">🚑</div>
+              <div class="gov-stage-title">Governed Response</div>
+              <div class="gov-stage-desc">Coordinated simulated dispatch &amp; audit logging</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Pillars of LifeRescue Governance -->
+        <div class="grid-2" style="margin-top: 1.5rem;">
+          <div class="gov-card">
+            <div class="gov-card-header">
+              <span class="gov-pill">RULE 1</span>
+              <h4>Mandatory Life-Threat Escalation</h4>
+            </div>
+            <p>If acute symptoms (cardiac pain, choking, unconsciousness, severe hemorrhage) are detected in the incident text, the policy engine <strong>forces critical escalation</strong> and automatically injects an emergency dispatch action, even if an AI model hallucinated or proposed a lower urgency.</p>
+          </div>
+
+          <div class="gov-card">
+            <div class="gov-card-header">
+              <span class="gov-pill">RULE 2</span>
+              <h4>Strict Action Type Allowlist</h4>
+            </div>
+            <p>Only 5 vetted action types are permitted: <code>CALL_EMERGENCY_SERVICES</code>, <code>NOTIFY_CONTACT</code>, <code>FIRST_AID_GUIDANCE</code>, <code>SCENE_SAFETY</code>, and <code>CUSTOM</code>. Any external action proposed by an LLM outside this allowlist is blocked and omitted.</p>
+          </div>
+
+          <div class="gov-card">
+            <div class="gov-card-header">
+              <span class="gov-pill">RULE 3</span>
+              <h4>Prohibited Action Blocklists</h4>
+            </div>
+            <p>The safety engine deterministically screens all proposals against regex blocklists: medical prescriptions (<code>prescribe</code>, <code>dose</code>, <code>inject</code>), financial transfers (<code>wire</code>, <code>crypto</code>, <code>credit</code>), and shell execution (<code>bash</code>, <code>rm -rf</code>, <code>powershell</code>).</p>
+          </div>
+
+          <div class="gov-card">
+            <div class="gov-card-header">
+              <span class="gov-pill">RULE 4</span>
+              <h4>Defense-in-Depth Secret Redaction</h4>
+            </div>
+            <p>Every piece of text written to persistent storage or audit logs is filtered through proactive regex redactors. Leased credentials, tokens, and keys are scrubbed before SQLite commits or network serialization.</p>
+          </div>
+        </div>
+
+        <!-- Interactive Safety Policy Tester -->
+        <div class="interactive-tester-box" style="margin-top: 1.5rem;">
+          <div class="widget-header">
+            <div>
+              <h4 style="font-size: 1rem; color: var(--text-primary);">🧪 Interactive Safety Policy Rule Tester</h4>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">Test the deterministic safety engine against adversarial or unsafe AI proposals.</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.8rem 0;">
+            <button class="btn-scenario" onclick="testSafetyPolicy('shell_injection')">
+              🛑 Test Shell Injection (<code>rm -rf /</code>)
+            </button>
+            <button class="btn-scenario" onclick="testSafetyPolicy('medical_prescription')">
+              🛑 Test Medical Prescription (<code>inject 50mg</code>)
+            </button>
+            <button class="btn-scenario" onclick="testSafetyPolicy('financial_transfer')">
+              🛑 Test Financial Command (<code>wire $5000</code>)
+            </button>
+            <button class="btn-scenario" onclick="testSafetyPolicy('life_threat_override')">
+              ✅ Test Acute Life-Threat Force-Escalation
+            </button>
+          </div>
+          <div id="safety-tester-output" class="safety-tester-display" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <strong id="tester-result-title" style="color: var(--accent-safe);">Safety Policy Vetting Result</strong>
+              <span class="badge badge-low" id="tester-result-badge">BLOCKED SAFELY</span>
+            </div>
+            <p id="tester-result-desc" style="font-size: 0.85rem; color: var(--text-secondary);"></p>
+            <pre id="tester-result-code" style="background: rgba(0,0,0,0.4); padding: 0.75rem; border-radius: 6px; font-size: 0.8rem; margin-top: 0.5rem; overflow-x: auto;"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- Tab 6: Audit Trail                                                    -->
+    <!-- ===================================================================== -->
     <div id="tab-audit" class="tab-content">
       <div class="glass-card">
         <div class="widget-header">
-          <h3 class="widget-title"><span>🔒</span> Immutable Security & Governance Audit Trail</h3>
+          <div>
+            <h3 class="widget-title"><span>🔒</span> Immutable Security &amp; Governance Audit Trail</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Captures every critical action, triage analysis, safety policy rule enforcement, and secret lease execution. All secret values are proactively redacted before persistence.</p>
+          </div>
           <button class="btn-scenario" onclick="loadAuditEvents()">Refresh Audit Log</button>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-          Captures every critical action, triage analysis, safety policy rule enforcement, and secret lease execution. All secret values are proactively redacted before persistence.
-        </p>
-        <div id="audit-events-table-box" style="overflow-x: auto;">
+        <div id="audit-events-table-box" style="overflow-x: auto; margin-top: 1rem;">
           <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
             <thead>
               <tr style="border-bottom: 1px solid var(--border-glass); color: var(--text-secondary);">
@@ -341,11 +790,12 @@
                 <th style="padding: 0.75rem 0.5rem;">Action</th>
                 <th style="padding: 0.75rem 0.5rem;">Result</th>
                 <th style="padding: 0.75rem 0.5rem;">Incident ID</th>
+                <th style="padding: 0.75rem 0.5rem;">Redaction</th>
               </tr>
             </thead>
             <tbody id="audit-events-body">
               <tr>
-                <td colspan="6" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Loading audit events...</td>
+                <td colspan="7" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Loading audit events...</td>
               </tr>
             </tbody>
           </table>

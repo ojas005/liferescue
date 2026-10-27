@@ -73,13 +73,13 @@ def get_db() -> SQLiteDatabase:
     return _db
 
 
-def _seed_demo_data(db: SQLiteDatabase) -> None:
-    """Seed initial demo user and profile if not already populated."""
+def _seed_demo_data(db: SQLiteDatabase, force: bool = False) -> None:
+    """Seed initial demo user and profile if not already populated or on forced reset."""
     inc_repo, user_repo, profile_repo, contact_repo, audit_repo = create_repositories(
         db
     )
     demo_user = user_repo.get("usr_demo")
-    if not demo_user:
+    if not demo_user or force:
         logger.info("Seeding initial LifeRescue demo user, profile, and contacts")
         user_repo.save(
             User(
@@ -101,6 +101,10 @@ def _seed_demo_data(db: SQLiteDatabase) -> None:
                 home_address="742 Evergreen Terrace, Springfield",
             )
         )
+        # Reset contacts to deterministic pair
+        existing_contacts = contact_repo.list_for_user("usr_demo")
+        for c in existing_contacts:
+            contact_repo.delete(c.contact_id)
         contact_repo.create(
             EmergencyContact(
                 contact_id="cnt_primary",

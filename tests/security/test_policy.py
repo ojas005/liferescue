@@ -1,4 +1,5 @@
 """KAN-45 step 2 tests: policy loader (T-03/T-04 policy side, T-14 policy side, T-26 policy side)."""
+
 import json
 import tempfile
 import unittest
@@ -6,7 +7,14 @@ from datetime import timedelta
 from pathlib import Path
 
 from packages.secrets.errors import PolicyError
-from packages.secrets.policy import DEFAULT_POLICY_PATH, Grant, Policy, load_policy, parse_policy, policy_from_mapping
+from packages.secrets.policy import (
+    DEFAULT_POLICY_PATH,
+    Grant,
+    Policy,
+    load_policy,
+    parse_policy,
+    policy_from_mapping,
+)
 from packages.secrets.secret_types import Environment, Purpose, SecretRef
 from packages.secrets.testing import make_canary
 
@@ -43,13 +51,24 @@ class PackagedPolicy(unittest.TestCase):
         self.assertIsNone(policy.find_grant("LR-04", ref), "wrong purpose for agent")
         other = SecretRef(Environment.MOCK, Purpose.MODEL_INFERENCE, "mock-other-key")
         self.assertIsNone(policy.find_grant("LR-06", other), "unlisted name")
-        test_env = SecretRef(Environment.TEST, Purpose.MODEL_INFERENCE, "mock-model-key")
-        self.assertIsNone(policy.find_grant("LR-06", test_env), "environment not granted")
-        prod = SecretRef(Environment.PRODUCTION, Purpose.MODEL_INFERENCE, "mock-model-key")
+        test_env = SecretRef(
+            Environment.TEST, Purpose.MODEL_INFERENCE, "mock-model-key"
+        )
+        self.assertIsNone(
+            policy.find_grant("LR-06", test_env), "environment not granted"
+        )
+        prod = SecretRef(
+            Environment.PRODUCTION, Purpose.MODEL_INFERENCE, "mock-model-key"
+        )
         self.assertIsNone(policy.find_grant("LR-06", prod))
 
     def test_empty_policy_denies_everything(self):
-        self.assertIsNone(Policy().find_grant("LR-06", SecretRef(Environment.MOCK, Purpose.WEB_SEARCH, "mock-search-key")))
+        self.assertIsNone(
+            Policy().find_grant(
+                "LR-06",
+                SecretRef(Environment.MOCK, Purpose.WEB_SEARCH, "mock-search-key"),
+            )
+        )
 
 
 class PolicyValidation(unittest.TestCase):
@@ -144,7 +163,10 @@ class PolicyValidation(unittest.TestCase):
         parsed = json.loads(text)
         self.assertEqual(set(parsed), {"version", "grants"})
         for g in parsed["grants"]:
-            self.assertLessEqual(set(g), {"agent_id", "purpose", "names", "environments", "max_ttl_seconds"})
+            self.assertLessEqual(
+                set(g),
+                {"agent_id", "purpose", "names", "environments", "max_ttl_seconds"},
+            )
 
 
 if __name__ == "__main__":

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from apps.api.dependencies import get_orchestrator
+from apps.api.dependencies import _seed_demo_data, get_db, get_orchestrator
 from apps.api.schemas import DemoScenario, RunDemoResponse
+from packages.domain.models import AuditEvent
 from packages.domain.orchestrator import ResponseOrchestrator
+from packages.storage.sqlite_repo import SQLiteDatabase
 
 router = APIRouter(prefix="/demo", tags=["Demo Mode"])
 
@@ -93,3 +95,27 @@ def run_demo_scenario(
         plan=executed_plan,
         timeline=timeline,
     )
+
+
+@router.post("/reset")
+def reset_demo(
+    db: Annotated[SQLiteDatabase, Depends(get_db)],
+) -> dict[str, Any]:
+    """Safely reset demo data (incidents, timeline events, response plans) for demo user."""
+    counts = db.reset_demo_data("usr_demo")
+    _seed_demo_data(db, force=True)
+    db.record(
+        AuditEvent(
+            event_type="DEMO_RESET",
+            actor="presenter",
+            action="reset_demo_state",
+            result="success",
+            reason="Presenter requested clean demo state",
+            details=counts,
+        )
+    )
+    return {
+        "status": "success",
+        "message": "Demo environment reset to pristine baseline.",
+        "cleared": counts,
+    }

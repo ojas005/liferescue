@@ -1,4 +1,5 @@
 """KAN-45 step 1 tests: SecretValue (T-02), SecretRef, request/handle types."""
+
 import copy
 import json
 import pickle
@@ -51,7 +52,9 @@ class SecretValueDoesNotLeak(unittest.TestCase):
         with self.assertRaises(TypeError) as ctx:
             json.dumps({"v": self.value})
         self.assertNoCanary(str(ctx.exception))
-        self.assertEqual(json.loads(json.dumps({"v": self.value}, default=str)), {"v": "[REDACTED]"})
+        self.assertEqual(
+            json.loads(json.dumps({"v": self.value}, default=str)), {"v": "[REDACTED]"}
+        )
 
     def test_pickle_all_protocols_refused(self):
         for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
@@ -86,7 +89,7 @@ class SecretValueDoesNotLeak(unittest.TestCase):
             pass
 
         with self.assertRaises(Boom) as ctx:
-            with self.value.reveal() as raw:
+            with self.value.reveal() as _raw:
                 raise Boom("generic")
         self.assertNoCanary(repr(ctx.exception))
 
@@ -110,13 +113,18 @@ class PackageNameSafety(unittest.TestCase):
     def test_stdlib_secrets_module_is_not_shadowed(self):
         import secrets
 
-        self.assertTrue(hasattr(secrets, "token_urlsafe"), "stdlib 'secrets' is shadowed; run from the repo root")
+        self.assertTrue(
+            hasattr(secrets, "token_urlsafe"),
+            "stdlib 'secrets' is shadowed; run from the repo root",
+        )
 
 
 class SecretRefTests(unittest.TestCase):
     def test_roundtrip(self):
         ref = SecretRef(Environment.MOCK, Purpose.MODEL_INFERENCE, "mock-model-key")
-        self.assertEqual(ref.to_string(), "secretref://mock/model_inference/mock-model-key")
+        self.assertEqual(
+            ref.to_string(), "secretref://mock/model_inference/mock-model-key"
+        )
         self.assertEqual(SecretRef.parse(ref.to_string()), ref)
 
     def test_unknown_parts_fail_closed_without_echoing_input(self):
@@ -135,7 +143,9 @@ class SecretRefTests(unittest.TestCase):
             None,
             "secretref://mock/model_inference/" + "a" * 49,
         ]:
-            with self.subTest(text=text if text is None or len(str(text)) < 40 else "long"):
+            with self.subTest(
+                text=text if text is None or len(str(text)) < 40 else "long"
+            ):
                 with self.assertRaises(InvalidSecretRef) as ctx:
                     SecretRef.parse(text)
                 self.assertNotIn(hostile, str(ctx.exception))
@@ -155,7 +165,13 @@ class CredentialRequestTests(unittest.TestCase):
     ref = SecretRef(Environment.MOCK, Purpose.WEB_SEARCH, "mock-search-key")
 
     def make(self, **kw):
-        base = dict(task_id="T-1", run_id="R-1", agent_id="LR-06", ref=self.ref, reason_code=RequestReason.WEB_SEARCH_CALL)
+        base = dict(
+            task_id="T-1",
+            run_id="R-1",
+            agent_id="LR-06",
+            ref=self.ref,
+            reason_code=RequestReason.WEB_SEARCH_CALL,
+        )
         base.update(kw)
         return CredentialRequest(**base)
 

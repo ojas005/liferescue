@@ -165,6 +165,26 @@ class TestAPIEndpoints(unittest.TestCase):
         logs = res.json()
         self.assertGreater(len(logs), 0)
 
+    def test_demo_reset(self):
+        # Run a scenario to create demo data
+        self.client.post("/demo/scenarios/scenario_medical/run")
+        inc_res = self.client.get("/incidents?limit=10")
+        self.assertGreater(len(inc_res.json()), 0)
+
+        # Call reset
+        res = self.client.post("/demo/reset")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["status"], "success")
+
+        # Incidents should now be 0
+        inc_after = self.client.get("/incidents?limit=10")
+        self.assertEqual(len(inc_after.json()), 0)
+
+        # Alex Chen profile should still exist and be pristine
+        prof = self.client.get("/emergency-profile?user_id=usr_demo")
+        self.assertEqual(prof.status_code, 200)
+        self.assertEqual(prof.json()["blood_type"], "O+")
+
 
 if __name__ == "__main__":
     unittest.main()
