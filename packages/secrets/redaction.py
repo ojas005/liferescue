@@ -457,7 +457,7 @@ class Redactor:
             seen.add(id(cur))
             try:
                 args = " ".join(str(a) for a in cur.args)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 args = ""
             parts.append(f"{type(cur).__name__}: {args}")
             cur = cur.__cause__ or cur.__context__

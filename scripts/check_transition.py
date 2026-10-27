@@ -177,7 +177,7 @@ def _branch_problem(value):
             _BRANCH_MODULE = module
         return _BRANCH_MODULE.validate(value)
     except (
-        Exception
+        Exception  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
     ):  # fail closed: any problem loading the branch validator is a denial
         return "branch-name validator could not be loaded"
 
@@ -829,8 +829,10 @@ def _rework_label_change_problems(transition_id, before, after):
         return []
     verb = "add" if REWORK_LABEL in after else "remove"
     return [
-        f"{transition_id} may not {verb} the label {REWORK_LABEL!r} (only send_to_rework, "
-        f"complete_rework, return_to_todo and reopen change it)"
+        (
+            f"{transition_id} may not {verb} the label {REWORK_LABEL!r} (only send_to_rework, "
+            f"complete_rework, return_to_todo and reopen change it)"
+        )
     ]
 
 
@@ -955,8 +957,10 @@ def _evaluate(
     if chosen is None:
         return _deny(
             [
-                f"transition {from_status!r} -> {to_status!r} is not allowed with the current labels "
-                f"(for example the rework-complete path needs exec-rework present, the normal path needs it absent)"
+                (
+                    f"transition {from_status!r} -> {to_status!r} is not allowed with the current labels "
+                    f"(for example the rework-complete path needs exec-rework present, the normal path needs it absent)"
+                )
             ]
         )
     tid = chosen["id"]
@@ -1124,7 +1128,7 @@ def check_transition(
             actor_id,
             owner_id,
         )
-    except Exception:  # fail closed: an unexpected failure is never an "allow"
+    except Exception:  # noqa: BLE001 - fail closed: an unexpected failure is never an "allow"
         return _deny(["internal error while checking the request"])
 
 
@@ -1177,7 +1181,7 @@ def main(argv=None):
         with open(args.request, encoding="utf-8") as fh:
             request = json.load(fh)
         if not isinstance(request, dict):
-            raise ValueError("request is not an object")
+            raise ValueError("request is not an object")  # noqa: TRY004 - ValueError on purpose: the caller fail-closes on ValueError; TypeError would escape it
         allowed_keys = {
             "from_status",
             "to_status",

@@ -182,9 +182,9 @@ class ProtectedIssues(unittest.TestCase):
         for n in (1, 2, 3):
             with self.subTest(n=n):
                 r = check(
-                    title="KAN-%d x" % n,
-                    body="https://liferescue.atlassian.net/browse/KAN-%d" % n,
-                    branch="feature/KAN-%d-x" % n,
+                    title=f"KAN-{n} x",
+                    body=f"https://liferescue.atlassian.net/browse/KAN-{n}",
+                    branch=f"feature/KAN-{n}-x",
                 )
                 self.assertFalse(r.ok)
                 self.assertIn("PROTECTED_ISSUE", codes(r))
@@ -192,7 +192,7 @@ class ProtectedIssues(unittest.TestCase):
     def test_kan_4_and_larger_are_not_protected(self):
         for n in (4, 10, 20, 100):
             self.assertTrue(
-                check(title="x", body="KAN-%d" % n, branch="feature/KAN-%d-x" % n).ok, n
+                check(title="x", body=f"KAN-{n}", branch=f"feature/KAN-{n}-x").ok, n
             )
 
     def test_jira_url_pointing_at_a_protected_issue_is_denied(self):
@@ -217,7 +217,7 @@ class ProtectedIssues(unittest.TestCase):
         # KAN-10 .. KAN-30 contain the digits but are different issues
         for n in (10, 11, 12, 13, 21, 30, 31, 32, 33):
             self.assertTrue(
-                check(title="x", body="KAN-%d" % n, branch="feature/KAN-%d-x" % n).ok, n
+                check(title="x", body=f"KAN-{n}", branch=f"feature/KAN-{n}-x").ok, n
             )
 
 
@@ -400,10 +400,10 @@ class HostileInput(unittest.TestCase):
     def test_injection_strings_are_data(self):
         canary = os.path.join(tempfile.mkdtemp(), "canary")
         payloads = [
-            "$(touch %s)" % canary,
-            "`touch %s`" % canary,
-            "; touch %s" % canary,
-            "__import__('os').system('touch %s')" % canary,
+            f"$(touch {canary})",
+            f"`touch {canary}`",
+            f"; touch {canary}",
+            f"__import__('os').system('touch {canary}')",
             "{{7*7}}",
             "${jndi:ldap://x/a}",
             "<script>alert(1)</script>",
@@ -626,6 +626,7 @@ class CommandLineContract(unittest.TestCase):
                 text=True,
                 env=env,
                 cwd=tempfile.gettempdir(),
+                check=False,
             )
 
         r = run(good_env())
@@ -654,7 +655,7 @@ class CommandLineContract(unittest.TestCase):
         canary = "KAN20_CANARY_" + uuid.uuid4().hex
         env = dict(good_env(), PR_BODY="none")
         env["SOME_OTHER_VAR"] = canary
-        code, out, err = run_main(env)
+        _code, out, err = run_main(env)
         self.assertNotIn(canary, out + err)
 
 
@@ -716,11 +717,11 @@ def load_mutant(replacements):
         source = fh.read()
     for old, new in replacements:
         if source.count(old) != 1:
-            raise AssertionError("mutation target not found exactly once: %r" % old)
+            raise AssertionError(f"mutation target not found exactly once: {old!r}")
         source = source.replace(old, new)
     module = types.ModuleType("check_pr_link_mutant")
     module.__file__ = SCRIPT
-    exec(compile(source, SCRIPT, "exec"), module.__dict__)
+    exec(compile(source, SCRIPT, "exec"), module.__dict__)  # noqa: S102 - mutation test executes this repo's own script source (mutated), never external input
     return module
 
 

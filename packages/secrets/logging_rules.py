@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import threading
 from collections.abc import Mapping
@@ -37,7 +38,7 @@ def _num(v) -> bool:
     return (
         isinstance(v, (int, float))
         and not isinstance(v, bool)
-        and v == v
+        and not math.isnan(v)
         and abs(v) < 1e9
     )
 

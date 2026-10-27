@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from .errors import ConfigurationError
 from .secret_types import Environment
@@ -82,7 +82,7 @@ class BrokerConfig:
         object.__setattr__(self, "served_environments", frozenset(envs))
 
     # ---- loading ---------------------------------------------------------------------
-    _SECONDS = {
+    _SECONDS: ClassVar[dict[str, str]] = {
         "default_ttl_seconds": "default_ttl",
         "max_ttl_seconds": "max_ttl",
         "max_ttl_real_credential_seconds": "max_ttl_real_credential",

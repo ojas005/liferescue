@@ -192,10 +192,10 @@ def run_cli(name, author, cwd):
         [sys.executable, GATE],
         env=env,
         cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
 
 
@@ -282,9 +282,9 @@ class MatrixTests(unittest.TestCase):
                 [sys.executable, GATE],
                 env=env,
                 cwd=self.tmp.name,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 text=True,
+                check=False,
             )
 
         for name, author, verdict, label in ALL:
@@ -304,10 +304,10 @@ class MatrixTests(unittest.TestCase):
         proc = subprocess.run(
             [sys.executable, GATE],
             env={"PATH": os.environ.get("PATH", "")},
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             cwd=self.tmp.name,
+            check=False,
         )
         self.assertEqual(proc.returncode, 2)
 
@@ -319,10 +319,10 @@ class MatrixTests(unittest.TestCase):
                     "PATH": os.environ.get("PATH", ""),
                     "BRANCH_NAME": "feature/KAN-20-x",
                 },
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 text=True,
                 cwd=self.tmp.name,
+                check=False,
             )
             self.assertEqual(proc.returncode, 2, args)
             self.assertNotIn(args[0] or "\0", proc.stdout + proc.stderr)
@@ -347,11 +347,11 @@ class MatrixTests(unittest.TestCase):
             "BRANCH_NAME": "feature/KAN-20-$(touch CANARYFILE2);`touch CANARYFILE2`",
         }
         subprocess.run(
-            ["bash", "-c", '"%s" "%s"' % (sys.executable, GATE)],
+            ["bash", "-c", f'"{sys.executable}" "{GATE}"'],
             env=env,
             cwd=self.tmp.name,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
+            check=False,
         )
         self.assertFalse(os.path.exists(os.path.join(self.tmp.name, "CANARYFILE2")))
 

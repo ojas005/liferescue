@@ -96,7 +96,7 @@ def main(argv=None, environ=None):
         needs = json.loads(env["NEEDS_JSON"])
         event_name = env["EVENT_NAME"]
         if not isinstance(needs, dict):
-            raise ValueError("NEEDS_JSON is not an object")
+            raise ValueError("NEEDS_JSON is not an object")  # noqa: TRY004 - ValueError on purpose: the caller fail-closes on ValueError; TypeError would escape it
     except (KeyError, ValueError):
         print(
             "error: NEEDS_JSON (JSON object) and EVENT_NAME are required",

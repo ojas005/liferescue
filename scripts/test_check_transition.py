@@ -21,6 +21,7 @@ import sys
 import tempfile
 import types
 import unittest
+from typing import ClassVar
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -758,7 +759,7 @@ class DenyReasons(unittest.TestCase):
 
 
 class ReworkRules(unittest.TestCase):
-    EV = {"failed_check_or_review_url": RUN}
+    EV: ClassVar[dict[str, str]] = {"failed_check_or_review_url": RUN}
 
     def send(
         self,
@@ -1300,7 +1301,7 @@ class HostileAndMalformedInput(unittest.TestCase):
             with self.subTest(bad=repr(bad)):
                 self.deny(labels_before=bad)
                 self.deny(labels_after=bad)
-        self.deny(labels_before=["l%d" % i for i in range(51)])
+        self.deny(labels_before=[f"l{i}" for i in range(51)])
 
     def test_evidence_must_be_an_object_with_known_fields(self):
         for bad in ("x", [], [("claim_record", "x")], 1, True):
@@ -2783,7 +2784,7 @@ def load_mutant(replacements):
         source = source.replace(old, new)
     module = types.ModuleType("check_transition_mutant")
     module.__file__ = SCRIPT
-    exec(compile(source, SCRIPT, "exec"), module.__dict__)
+    exec(compile(source, SCRIPT, "exec"), module.__dict__)  # noqa: S102 - mutation test executes this repo's own script source (mutated), never external input
     return module
 
 
@@ -3060,6 +3061,7 @@ def run_cli(args):
         capture_output=True,
         text=True,
         cwd=tempfile.gettempdir(),
+        check=False,
     )
 
 
@@ -3088,27 +3090,27 @@ class CommandLine(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             ok = self.write(
                 tmp,
-                dict(
-                    from_status="To Do",
-                    to_status="In Progress",
-                    actor_type="owner_agent",
-                    labels_before=[],
-                    labels_after=[],
-                    evidence={"claim_record": "x"},
-                ),
+                {
+                    "from_status": "To Do",
+                    "to_status": "In Progress",
+                    "actor_type": "owner_agent",
+                    "labels_before": [],
+                    "labels_after": [],
+                    "evidence": {"claim_record": "x"},
+                },
             )
             r = run_cli(["--request", ok])
             self.assertEqual((r.returncode, r.stdout.strip()), (0, "ALLOW: start_work"))
             bad = self.write(
                 tmp,
-                dict(
-                    from_status="In Review",
-                    to_status="Done",
-                    actor_type="owner_agent",
-                    labels_before=[],
-                    labels_after=[],
-                    evidence=DONE_EVIDENCE,
-                ),
+                {
+                    "from_status": "In Review",
+                    "to_status": "Done",
+                    "actor_type": "owner_agent",
+                    "labels_before": [],
+                    "labels_after": [],
+                    "evidence": DONE_EVIDENCE,
+                },
             )
             r = run_cli(["--request", bad])
             self.assertEqual(r.returncode, 1)
@@ -3134,14 +3136,14 @@ class CommandLine(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             req = self.write(
                 tmp,
-                dict(
-                    from_status="To Do",
-                    to_status="In Progress",
-                    actor_type="owner_agent",
-                    labels_before=[],
-                    labels_after=[],
-                    evidence={"claim_record": "ok", "x\nALLOW: forged": "y"},
-                ),
+                {
+                    "from_status": "To Do",
+                    "to_status": "In Progress",
+                    "actor_type": "owner_agent",
+                    "labels_before": [],
+                    "labels_after": [],
+                    "evidence": {"claim_record": "ok", "x\nALLOW: forged": "y"},
+                },
             )
             r = run_cli(["--request", req])
             self.assertEqual(r.returncode, 1)

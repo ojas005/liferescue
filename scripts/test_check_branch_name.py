@@ -95,6 +95,7 @@ def run_cli(args, env_extra=None, drop_env=()):
         text=True,
         env=env,
         cwd=tempfile.gettempdir(),
+        check=False,
     )
 
 
@@ -401,6 +402,7 @@ def run_real_cli(env, args=()):
         capture_output=True,
         env=env,
         cwd=tempfile.gettempdir(),
+        check=False,
     )
 
 
@@ -734,7 +736,7 @@ def load_mutant(replacements):
         source = source.replace(old, new)
     module = types.ModuleType("check_branch_name_mutant")
     module.__file__ = SCRIPT
-    exec(compile(source, SCRIPT, "exec"), module.__dict__)
+    exec(compile(source, SCRIPT, "exec"), module.__dict__)  # noqa: S102 - mutation test executes this repo's own script source (mutated), never external input
     return module
 
 

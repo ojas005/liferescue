@@ -103,14 +103,14 @@ class BackendConformanceMixin:
         backend.resolve(ref, ttl=timedelta(seconds=1))
 
     def test_conformance_unknown_ref_raises_unknown_ref_without_leaking(self):
-        backend, ref, canary = self.ready()
+        backend, _ref, canary = self.ready()
         with self.assertRaises(UnknownRef) as ctx:
             backend.resolve(self.ref("mock-not-provisioned"), ttl=self.TTL)
         self.assertNotIn(canary, str(ctx.exception) + repr(ctx.exception))
         self.assertNotIn("not-provisioned", str(ctx.exception))
 
     def test_conformance_wrong_environment_refs_are_refused(self):
-        backend, ref, canary = self.ready()
+        backend, _ref, _canary = self.ready()
         for env in Environment:
             if env is self.ENVIRONMENT:
                 continue
@@ -121,7 +121,7 @@ class BackendConformanceMixin:
                 )
 
     def test_conformance_revoke_is_idempotent_and_tolerates_unknown_leases(self):
-        backend, ref, canary = self.ready()
+        backend, ref, _canary = self.ready()
         backend.revoke(ref, "lease-id-that-never-existed-0000")
         backend.revoke(ref, "lease-id-that-never-existed-0000")
         backend.resolve(ref, ttl=self.TTL)
@@ -149,7 +149,7 @@ class BackendConformanceMixin:
                 v = backend.resolve(ref, ttl=self.TTL)
                 with v.reveal() as raw:
                     results.append(raw)
-            except BaseException as exc:  # pragma: no cover - would fail the test
+            except BaseException as exc:  # pragma: no cover - would fail the test  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 errors.append(exc)
 
         threads = [threading.Thread(target=work) for _ in range(16)]
@@ -181,7 +181,7 @@ class BackendConformanceMixin:
             def __iter__(self):
                 raise AssertionError("backend touched env/file/network")
 
-        backend, ref, canary = self.ready()
+        backend, ref, _canary = self.ready()
         with (
             mock.patch.object(os, "environ", Trap()),
             mock.patch.object(os, "getenv", Trap()),

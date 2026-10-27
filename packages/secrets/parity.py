@@ -234,17 +234,15 @@ def _gen_private_key() -> tuple:
     return pos, neg
 
 
-CORPUS_GENERATORS: dict[str, Callable[[], tuple]] = dict(
-    [
-        ("liferescue-xai-api-key", _gen_xai),
-        ("liferescue-nvidia-api-key", _gen_nvidia),
-        ("liferescue-tavily-api-key", _gen_tavily),
-        ("liferescue-atlassian-api-token", _gen_atlassian),
-        ("liferescue-nebius-credential-assignment", _gen_nebius),
-        ("liferescue-url-embedded-password", _gen_url),
-        ("liferescue-github-app-private-key-file-ref", _gen_private_key),
-    ]
-)
+CORPUS_GENERATORS: dict[str, Callable[[], tuple]] = {
+    "liferescue-xai-api-key": _gen_xai,
+    "liferescue-nvidia-api-key": _gen_nvidia,
+    "liferescue-tavily-api-key": _gen_tavily,
+    "liferescue-atlassian-api-token": _gen_atlassian,
+    "liferescue-nebius-credential-assignment": _gen_nebius,
+    "liferescue-url-embedded-password": _gen_url,
+    "liferescue-github-app-private-key-file-ref": _gen_private_key,
+}
 
 
 def run_parity(toml_path: Path, patterns: PatternSet | None = None) -> ParityReport:

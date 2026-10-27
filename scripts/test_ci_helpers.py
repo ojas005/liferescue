@@ -150,9 +150,9 @@ class GateTests(unittest.TestCase):
         return subprocess.run(
             [sys.executable, os.path.join(HERE, "ci_gate.py")],
             env=full,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
+            check=False,
         )
 
     def test_cli_exit_codes(self):
@@ -241,7 +241,7 @@ class DryRunTests(unittest.TestCase):
                 del env["DRY_RUN"]
             else:
                 env["DRY_RUN"] = value
-            rc, rec, summary = self.run_main(env)
+            rc, rec, _summary = self.run_main(env)
             self.assertEqual(rc, 3, value)
             self.assertIsNone(rec)  # nothing written
 

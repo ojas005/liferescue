@@ -12,6 +12,7 @@ Key properties:
 
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -169,10 +170,10 @@ class SecretValue:
         raise TypeError("SecretValue cannot be copied")
 
     def __del__(self) -> None:  # best-effort wipe when dropped
-        try:
+        with contextlib.suppress(
+            Exception
+        ):  # pragma: no cover - best effort in __del__
             self.wipe()
-        except Exception:  # pragma: no cover
-            pass
 
 
 @dataclass(frozen=True)

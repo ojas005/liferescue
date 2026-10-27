@@ -146,7 +146,7 @@ class RedactingLogFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             message = record.getMessage()
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             message = "[unformattable log message dropped]"
         redact_record_message(
             record, message, lambda t: self._r.redact_text(t, sink="log")

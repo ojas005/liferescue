@@ -37,7 +37,7 @@ import os
 import re
 import sys
 from collections import namedtuple
-from collections.abc import Mapping, Sequence
+from typing import List, Mapping, Optional, Sequence, Tuple  # noqa: UP035 - Python 3.8 compat (test_python_38_compatible_syntax)
 from urllib.parse import urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -73,7 +73,7 @@ CODES = {
     "JIRA_URL_BAD_FORM": "a Jira URL uses a port or form that is not accepted",
 }
 
-Problem = tuple[str, str]
+Problem = Tuple[str, str]  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
 PrLinkResult = namedtuple("PrLinkResult", ["ok", "key", "problems", "branch_note"])
 
 _KEY_IN_BRANCH = re.compile(r"^[a-z]+/KAN-([1-9][0-9]*)-")
@@ -101,7 +101,7 @@ def escaped(text: str) -> str:
     return ascii(text)
 
 
-def _branch_problem(branch: str) -> str | None:
+def _branch_problem(branch: str) -> Optional[str]:  # noqa: UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
     """Run scripts/check-branch-name.py validate(); 'UNAVAILABLE' if it cannot be loaded."""
     global _BRANCH_MODULE
     try:
@@ -114,11 +114,13 @@ def _branch_problem(branch: str) -> str | None:
             _BRANCH_MODULE = module
         result = _BRANCH_MODULE.validate(branch)
         return None if result is None else str(result)
-    except Exception:  # fail closed: any problem loading the validator is a denial
+    except Exception:  # noqa: BLE001 - fail closed: any problem loading the validator is a denial
         return "UNAVAILABLE"
 
 
-def _text_input_problem(value: object, limit: int, allow_newlines: bool) -> str | None:
+def _text_input_problem(
+    value: object, limit: int, allow_newlines: bool
+) -> Optional[str]:  # noqa: UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
     if not isinstance(value, str):
         return "not text"
     if len(value) > limit:
@@ -130,7 +132,7 @@ def _text_input_problem(value: object, limit: int, allow_newlines: bool) -> str 
     return None
 
 
-def _url_tokens(text: str) -> list[str]:
+def _url_tokens(text: str) -> List[str]:  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     tokens = []
     for match in _URL_TOKEN.finditer(text):
         token = match.group(0)
@@ -140,9 +142,9 @@ def _url_tokens(text: str) -> list[str]:
     return tokens
 
 
-def _scan_urls(text: str, branch_key_number: int, problems: list[Problem]) -> list[str]:
+def _scan_urls(text: str, branch_key_number: int, problems: List[Problem]) -> List[str]:  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     """Check every URL in `text`. Return the list of ACCEPTED Jira URL keys (as 'KAN-<n>' strings)."""
-    accepted: list[str] = []
+    accepted: List[str] = []  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     for token in _url_tokens(text):
         rest = token.split("://", 1)[1]
         rawnet = re.split(r"[/?#]", rest, maxsplit=1)[0]
@@ -191,13 +193,13 @@ def _scan_urls(text: str, branch_key_number: int, problems: list[Problem]) -> li
         if _PROTECTED_PROJECT_TOKEN.search(tail):
             problems.append(("PROTECTED_ISSUE_LINK", CODES["PROTECTED_ISSUE_LINK"]))
         if re.search(
-            r"(?<![A-Za-z0-9_-])KAN-%d(?![A-Za-z0-9_-])" % branch_key_number, tail
+            rf"(?<![A-Za-z0-9_-])KAN-{branch_key_number}(?![A-Za-z0-9_-])", tail
         ):
-            accepted.append("KAN-%d" % branch_key_number)
+            accepted.append(f"KAN-{branch_key_number}")
     return accepted
 
 
-def _scan_hostlike(text: str, problems: list[Problem]) -> None:
+def _scan_hostlike(text: str, problems: List[Problem]) -> None:  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     """Scheme-less look-alikes such as 'liferescue.atlassian.net.evil.com/browse/KAN-20'."""
     for match in _HOSTLIKE.finditer(text):
         token = match.group(0).lower()
@@ -216,14 +218,14 @@ def check_pr_link(title: object, body: object, branch: object) -> PrLinkResult:
     """Return PrLinkResult(ok, key, problems, branch_note). Never raises; fails closed."""
     try:
         return _check(title, body, branch)
-    except Exception:  # an unexpected failure is never an "ok"
+    except Exception:  # noqa: BLE001 - an unexpected failure is never an "ok"
         return PrLinkResult(
             False, None, (("INPUT_MALFORMED", CODES["INPUT_MALFORMED"]),), None
         )
 
 
 def _check(title: object, body: object, branch: object) -> PrLinkResult:
-    problems: list[Problem] = []
+    problems: List[Problem] = []  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     bad_input = (
         _text_input_problem(title, MAX_TITLE, False),
         _text_input_problem(body, MAX_BODY, True),
@@ -254,7 +256,7 @@ def _check(title: object, body: object, branch: object) -> PrLinkResult:
         _scan_urls(title + "\n" + body, 0, problems)
         return PrLinkResult(False, None, _dedupe(problems), escaped(branch))
     number = int(key_match.group(1))
-    key = "KAN-%d" % number
+    key = f"KAN-{number}"
 
     # 5. protected issues (proposed assumption)
     if number in PROTECTED_KAN_NUMBERS:
@@ -282,7 +284,7 @@ def _check(title: object, body: object, branch: object) -> PrLinkResult:
     return PrLinkResult(not final, key, final, None)
 
 
-def _dedupe(problems: list[Problem]) -> tuple[Problem, ...]:
+def _dedupe(problems: List[Problem]) -> Tuple[Problem, ...]:  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     seen = []
     for item in problems:
         if item not in seen:
@@ -297,17 +299,15 @@ def _dedupe(problems: list[Problem]) -> tuple[Problem, ...]:
 
 def _read_inputs(
     environ: Mapping[str, str],
-) -> tuple[tuple[object, object, object] | None, str | None]:
+) -> Tuple[Optional[Tuple[object, object, object]], Optional[str]]:  # noqa: UP006,UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
     """Return ((title, body, branch), None) or (None, usage_error_text). Texts are fixed strings."""
     path = environ.get(ENV_FILE)
     individual = [name for name in (ENV_TITLE, ENV_BODY, ENV_BRANCH) if name in environ]
     if path is not None:
         if individual:
-            return None, "set either %s or the variables %s/%s/%s, not both" % (
-                ENV_FILE,
-                ENV_TITLE,
-                ENV_BODY,
-                ENV_BRANCH,
+            return (
+                None,
+                f"set either {ENV_FILE} or the variables {ENV_TITLE}/{ENV_BODY}/{ENV_BRANCH}, not both",
             )
         try:
             if os.path.getsize(path) > MAX_FILE_BYTES:
@@ -329,17 +329,16 @@ def _read_inputs(
         name for name in (ENV_TITLE, ENV_BODY, ENV_BRANCH) if name not in environ
     ]
     if missing:
-        return None, "set the environment variables %s, %s and %s (or %s)" % (
-            ENV_TITLE,
-            ENV_BODY,
-            ENV_BRANCH,
-            ENV_FILE,
+        return (
+            None,
+            f"set the environment variables {ENV_TITLE}, {ENV_BODY} and {ENV_BRANCH} (or {ENV_FILE})",
         )
     return (environ[ENV_TITLE], environ[ENV_BODY], environ[ENV_BRANCH]), None
 
 
 def main(
-    argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None
+    argv: Optional[Sequence[str]] = None,  # noqa: UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
+    environ: Optional[Mapping[str, str]] = None,  # noqa: UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
 ) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     environ = os.environ if environ is None else environ
@@ -356,10 +355,10 @@ def main(
         return 2
     result = check_pr_link(*inputs)
     if result.ok:
-        print("OK: PR is linked to Jira issue %s" % result.key)
+        print(f"OK: PR is linked to Jira issue {result.key}")
         return 0
     for code, text in result.problems:
-        print("INVALID %s: %s" % (code, text), file=sys.stderr)
+        print(f"INVALID {code}: {text}", file=sys.stderr)
     if result.branch_note is not None:
         print("branch (escaped): " + result.branch_note, file=sys.stderr)
     return 1

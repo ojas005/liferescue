@@ -248,7 +248,7 @@ class CredentialBroker:
             policy = loader()
             if not isinstance(policy, Policy):
                 failed = True
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             failed = True
         with self._lock:
             self._policy = None if failed else policy
@@ -264,7 +264,7 @@ class CredentialBroker:
                 handle = self._request_locked(req)
             except _Refuse as r:
                 refusal = r.reason
-            except Exception:
+            except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 refusal = DenialReason.INTERNAL_ERROR
             if refusal is not None:
                 self._record_denial(req, refusal)
@@ -295,7 +295,7 @@ class CredentialBroker:
                 requested_ttl=None if ttl is None else timedelta(seconds=ttl),
                 correlation_id=data.get("correlation_id"),
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             failed = True
         if failed:
             with self._lock:
@@ -387,7 +387,7 @@ class CredentialBroker:
                 failure = DenialReason.BACKEND_ERROR
         except UnknownRef:
             failure = DenialReason.UNKNOWN_REF
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             failure = DenialReason.BACKEND_ERROR
         if failure is not None:
             raise _Refuse(failure)
@@ -410,7 +410,7 @@ class CredentialBroker:
             self._emit_strict(
                 self._event(AuditEventType.LEASE_ISSUED, "issued", lease=lease)
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             # cannot audit -> do not hand out a credential
             self._discard_lease_silently(lease)
             raise _Refuse(DenialReason.INTERNAL_ERROR)
@@ -435,7 +435,7 @@ class CredentialBroker:
                 scoped = self._use_locked(handle, caller, context)
             except _Refuse as r:
                 refusal = r.reason
-            except Exception:
+            except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 refusal = DenialReason.INTERNAL_ERROR
             if refusal is not None:
                 self._record_use_denial(handle, context, refusal)
@@ -588,7 +588,7 @@ class CredentialBroker:
                 and mono < self._last_mono
             ):
                 fault = True
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             fault = True
         if fault:
             raise _Refuse(DenialReason.CLOCK_FAULT)
@@ -620,7 +620,7 @@ class CredentialBroker:
         failed = False
         try:
             live = bool(self._tasks.is_live(task_id, run_id, agent_id))
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             failed = True
         if failed:
             raise _Refuse(DenialReason.TASK_REGISTRY_UNAVAILABLE)
@@ -631,7 +631,7 @@ class CredentialBroker:
         healthy = False
         try:
             healthy = self._backend.health() is True
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             healthy = False
         if not healthy:
             self._emit_best_effort(
@@ -722,7 +722,7 @@ class CredentialBroker:
                 self._backend.revoke(lease.ref, lease.lease_id)
                 ok = True
                 break
-            except Exception:
+            except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 ok = False
         if not ok:
             self._emit_best_effort(
@@ -767,12 +767,12 @@ class CredentialBroker:
         src = lease if lease is not None else req
         ids: dict = {}
         if src is not None:
-            ids = dict(
-                task_id=src.task_id,
-                run_id=src.run_id,
-                agent_id=src.agent_id,
-                ref=src.ref.to_string(),
-            )
+            ids = {
+                "task_id": src.task_id,
+                "run_id": src.run_id,
+                "agent_id": src.agent_id,
+                "ref": src.ref.to_string(),
+            }
         if lease is not None:
             ids["lease_id"] = lease.lease_id
             correlation = correlation or lease.correlation_id
@@ -798,7 +798,7 @@ class CredentialBroker:
     def _emit_best_effort(self, event: AuditEvent) -> None:
         try:
             self.audit_sink.emit(event)
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             self.metrics.inc("audit_sink_failures")
         self._maybe_alert(event)
 
@@ -808,7 +808,7 @@ class CredentialBroker:
             if self._alert_handler is not None:
                 try:
                     self._alert_handler(event)
-                except Exception:
+                except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                     self.metrics.inc("alert_handler_failures")
 
     def _record_denial(self, req, reason: DenialReason) -> None:
@@ -841,19 +841,19 @@ class CredentialBroker:
         )
         ids = {}
         if lease is not None:
-            ids = dict(
-                task_id=lease.task_id,
-                run_id=lease.run_id,
-                agent_id=lease.agent_id,
-                lease_id=lease.lease_id,
-                ref=lease.ref.to_string(),
-            )
+            ids = {
+                "task_id": lease.task_id,
+                "run_id": lease.run_id,
+                "agent_id": lease.agent_id,
+                "lease_id": lease.lease_id,
+                "ref": lease.ref.to_string(),
+            }
         else:
-            ids = dict(
-                agent_id=getattr(context, "agent_id", None),
-                task_id=getattr(context, "task_id", None),
-                run_id=getattr(context, "run_id", None),
-            )
+            ids = {
+                "agent_id": getattr(context, "agent_id", None),
+                "task_id": getattr(context, "task_id", None),
+                "run_id": getattr(context, "run_id", None),
+            }
         misuse = reason in MISUSE_REASONS
         event = make_event(
             AuditEventType.MISUSE_SUSPECTED if misuse else AuditEventType.LEASE_DENIED,
@@ -889,7 +889,7 @@ class CredentialBroker:
     def _safe_wall(self) -> datetime:
         try:
             return self._clock.wall()
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             return datetime.fromtimestamp(0, tz=UTC)
 
 
