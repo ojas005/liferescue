@@ -87,6 +87,9 @@ def run_demo_scenario(
     # 5. Retrieve complete timeline
     timeline = orch.get_timeline(incident.incident_id)
 
+    # Re-read so the response carries the triaged urgency/status (bug: was the pre-analysis copy)
+    incident = orch.incident_repo.get(incident.incident_id) or incident
+
     return RunDemoResponse(
         scenario_id=scenario_id,
         incident=incident,
