@@ -43,10 +43,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # 1. CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=cfg.cors_allowlist(),  # SEC-06: explicit allowlist, never "*"
+        allow_credentials=False,  # auth is an explicit X-Demo-Token header, not cookies
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-Demo-Token", "X-Request-ID", "X-Correlation-ID"],
     )
 
     # 2. Security and correlation middleware

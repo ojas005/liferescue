@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     nvidia_model: str = Field(default="nvidia/nemotron-3-super-120b-a12b")
     nvidia_base_url: str = Field(default="https://api.tokenfactory.nebius.com/v1/")
     ai_timeout_s: float = Field(default=20.0, ge=1.0, le=60.0)
+    # SEC-06: explicit CORS allowlist (comma-separated). Empty -> localhost/127.0.0.1 on `port`.
+    cors_origins: str = Field(default="")
+
+    def cors_allowlist(self) -> list[str]:
+        if self.cors_origins.strip():
+            return [o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip() and o.strip() != "*"]
+        return [f"http://localhost:{self.port}", f"http://127.0.0.1:{self.port}"]
 
 
 def get_settings() -> Settings:
