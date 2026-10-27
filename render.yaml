@@ -20,7 +20,7 @@ services:
       - key: DEMO_MODE
         value: "true"
       - key: TRUST_PROXY
-        value: "1"              # behind Render's proxy: rate-limit on the rightmost (proxy-appended) X-Forwarded-For hop
+        value: "1"              # behind Render/Cloudflare: rate-limit key = CF-Connecting-IP (fallback: rightmost XFF hop)
       - key: RATE_LIMIT_REQUESTS
         value: "20"
       - key: RATE_LIMIT_WINDOW_S

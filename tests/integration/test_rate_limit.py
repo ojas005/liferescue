@@ -164,6 +164,40 @@ class TestRateLimit(unittest.TestCase):
         self.assertFalse(is_limited("POST", "/contacts"))
 
 
+class TestCloudflareClientIp(unittest.TestCase):
+    def test_cf_connecting_ip_is_bucket_key_behind_proxy(self):
+        c = _client(rate_limit_requests=2, rate_limit_window_s=60, trust_proxy=True)
+        # Render+Cloudflare: rightmost XFF hop is a varying proxy IP; CF-Connecting-IP is the client
+        codes = [
+            c.post(
+                "/incidents",
+                json=BODY,
+                headers={
+                    "CF-Connecting-IP": "203.0.113.9",
+                    "X-Forwarded-For": f"6.6.6.6, 203.0.113.9, 10.0.0.{i}",
+                },
+            ).status_code
+            for i in range(4)
+        ]
+        self.assertEqual(codes, [201, 201, 429, 429])
+        other = {"CF-Connecting-IP": "198.51.100.7", "X-Forwarded-For": "10.0.0.9"}
+        self.assertEqual(
+            c.post("/incidents", json=BODY, headers=other).status_code, 201
+        )
+
+    def test_cf_header_ignored_without_trust_proxy(self):
+        c = _client(rate_limit_requests=1, rate_limit_window_s=60)
+        self.assertEqual(c.post("/incidents", json=BODY).status_code, 201)
+        h = {"CF-Connecting-IP": "198.51.100.7"}
+        self.assertEqual(c.post("/incidents", json=BODY, headers=h).status_code, 429)
+
+    def test_invalid_cf_header_falls_back(self):
+        c = _client(rate_limit_requests=1, rate_limit_window_s=60, trust_proxy=True)
+        h = {"CF-Connecting-IP": "not-an-ip", "X-Forwarded-For": "9.9.9.9"}
+        self.assertEqual(c.post("/incidents", json=BODY, headers=h).status_code, 201)
+        self.assertEqual(c.post("/incidents", json=BODY, headers=h).status_code, 429)
+
+
 class TestSharedAcrossWorkers(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
