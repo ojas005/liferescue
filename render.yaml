@@ -20,11 +20,13 @@ services:
       - key: DEMO_MODE
         value: "true"
       - key: TRUST_PROXY
-        value: "1"              # behind Render's proxy: rate-limit on first X-Forwarded-For hop
+        value: "1"              # behind Render's proxy: rate-limit on the rightmost (proxy-appended) X-Forwarded-For hop
       - key: RATE_LIMIT_REQUESTS
         value: "20"
       - key: RATE_LIMIT_WINDOW_S
         value: "60"
+      - key: AI_GLOBAL_CALLS_PER_MINUTE
+        value: "30"             # global cap on Nebius calls (spend ceiling)
       - key: NEBIUS_API_KEY
         sync: false
       - key: DEMO_ACCESS_TOKEN

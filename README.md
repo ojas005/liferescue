@@ -146,7 +146,8 @@ python apps/api/run.py
 | `DEMO_MODE` | `true` | Demo mode (actions simulated) |
 | `RATE_LIMIT_REQUESTS` | `20` | Max POSTs per client IP per window on `/incidents`, `/incidents/{id}/analyze`, `/demo/scenarios/{id}/run`, `/demo/reset` (`0` disables). Over limit → HTTP 429 |
 | `RATE_LIMIT_WINDOW_S` | `60` | Rate-limit window in seconds |
-| `TRUST_PROXY` | `0` | `1` = use the first `X-Forwarded-For` hop as client IP (only behind a trusted proxy such as Render); otherwise the socket peer is used |
+| `TRUST_PROXY` | `0` | `1` = use the rightmost `X-Forwarded-For` hop (the one appended by a trusted proxy such as Render) as client IP; client-supplied left hops and `X-Real-IP` are ignored. `0` = socket peer only |
+| `AI_GLOBAL_CALLS_PER_MINUTE` | `30` | Global ceiling on outbound Nebius/NVIDIA model calls across all clients and workers (`0` = no cap). Over the cap, analysis uses the labelled mock fallback (`mock_fallback: global_rate_limit`) |
 
 ### 3. Open the Experience
 - **Interactive Web App:** [http://127.0.0.1:8000](http://127.0.0.1:8000)
@@ -275,7 +276,7 @@ HOST=0.0.0.0 python apps/api/run.py
 - **R-05 (Low):** the broadened life-threat lexicon over-escalates some benign phrases (e.g. "traffic is not moving", "floppy disk") to CRITICAL. Over-escalation is the safe direction, but noisy.
 
 - **Invalid-JSON fallback (Low):** Nemotron occasionally returns a reply that is not valid JSON. LifeRescue then falls back to deterministic triage and the UI shows a **MOCK fallback** badge — expected, but it can appear during a live demo. (A crash on this path was fixed in PR #27.)
-- **Rate limiting is per instance (Low):** counters are in process memory, so they reset on restart and are not shared across replicas. Fine for a single-instance demo; not a production control.
+- **Rate-limit scope (Low):** counters live in a SQLite file next to the database (`<DB_PATH>.ratelimit`), so they are shared by all workers on one host and survive worker restarts, but not across separate hosts/replicas, and they reset when the (ephemeral) filesystem is wiped. Fine for a single-instance demo; not a production control.
 - **Render free hosting (if used):** the service spins down after 15 min idle (about 1 min cold start) and its filesystem is ephemeral, so the SQLite demo data resets on restart, redeploy or spin-down (demo data is re-seeded at startup). See `render.yaml`.
 - **Startup refusal output (Low):** when the bind policy refuses to start (non-localhost without `DEMO_ACCESS_TOKEN`), the message is shown inside a Python stack trace rather than as a clean one-line error.
 

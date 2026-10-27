@@ -12,7 +12,7 @@ import json
 import logging
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, Literal
 
 from packages.domain.interfaces import AIProvider
@@ -526,7 +526,10 @@ class NVIDIAAIProvider(AIProvider):
         base_url: str | None = None,
         timeout_s: float | None = None,
         transport: object | None = None,
+        call_gate: Callable[[], bool] | None = None,
     ):
+        # KAN-50: call_gate() returning False means the global model-call budget is spent.
+        self._call_gate = call_gate
         # LR 08 N-03: an explicit api_key (even "") is authoritative; env is read only when omitted.
         self.api_key = (
             api_key
@@ -601,6 +604,9 @@ class NVIDIAAIProvider(AIProvider):
                 "Refusing non-https NVIDIA_BASE_URL; key not sent; labelled mock fallback"
             )
             return self._fallback(incident, profile, contacts, "insecure_base_url")
+        if self._call_gate is not None and not self._call_gate():
+            logger.warning("Global model-call ceiling reached; labelled mock fallback")
+            return self._fallback(incident, profile, contacts, "global_rate_limit")
         import httpx
 
         try:
@@ -696,5 +702,18 @@ def create_ai_provider(
             model=getattr(settings, "nvidia_model", None),
             base_url=getattr(settings, "nvidia_base_url", None),
             timeout_s=getattr(settings, "ai_timeout_s", None),
+            call_gate=_global_call_gate(settings),
         )
     return MockAIProvider()
+
+
+def _global_call_gate(settings: object) -> Callable[[], bool] | None:
+    limit = int(getattr(settings, "ai_global_calls_per_minute", 0) or 0)
+    if limit <= 0:
+        return None
+    from packages.storage.rate_limit import GLOBAL_AI_KEY, RateLimiter, store_path_for
+
+    limiter = RateLimiter(
+        limit, 60.0, db_path=store_path_for(str(getattr(settings, "db_path", "")))
+    )
+    return lambda: limiter.allow(GLOBAL_AI_KEY)[0]
