@@ -17,12 +17,13 @@ LIFE_THREAT_CONDITIONS: dict[str, re.Pattern[str]] = {
     "self_harm": re.compile(
         _W
         + r"(suicid\w*|kill (myself|himself|herself|themselves)|end (my|his|her) life|"
-        r"self[- ]?harm\w*|cut(ting)? (myself|my wrists?)|want to die|take my (own )?life|overdos\w* on purpose)"
+        r"self[- ]?harm\w*|cut(ting)? (myself|my wrists?)|want to die|take my (own )?life|overdos\w* on purpose|end(ing)? it all|end(ing)? (my|his|her|their) (own )?life|"
+        r"(do ?n.?t|do not) want to (live|be alive|be here)|better off dead|no reason to live|(is|was|found) hanging|hang(ed|ing) (myself|himself|herself|themselves))"
     ),
     "overdose_poisoning": re.compile(
         _W
-        + r"(overdos\w*|took (too many|a bottle of|all (my|the|her|his)) (pills|tablets|medication)|"
-        r"poison\w*|swallowed (bleach|chemicals?|pills|battery|detergent)|opioid|fentanyl|heroin)"
+        + r"(overdos\w*|o\.?d\.?\'?d\b|o\.?d\.?(\'?ed)? on\b|took (too many|a bottle of|all (my|the|her|his)) (pills|tablets|medication)|"
+        r"(took|taken|swallowed|ate|downed) (a |an |the )?(whole |entire |full )?(bottle|packet|pack|box|handful|strip)s? of|poison\w*|swallowed (bleach|chemicals?|pills|battery|detergent)|opioid|fentanyl|heroin)"
     ),
     "seizure": re.compile(_W + r"(seizure\w*|convuls\w*|fitting|epileptic fit)"),
     "drowning": re.compile(
@@ -32,7 +33,7 @@ LIFE_THREAT_CONDITIONS: dict[str, re.Pattern[str]] = {
     "not_breathing": re.compile(
         _W + r"(not breathing|isn'?t breathing|stopped breathing|no pulse|no heartbeat|"
         r"cannot breathe|can'?t breathe|difficulty breathing|struggling to breathe|shortness of breath|"
-        r"turning blue|cyanosis|suffocat\w*)"
+        r"turning blue|turned blue|gone blue|(is|are|looks?|went|going) (limp and )?blue|blue lips|lips (are )?blue|cyanosis|suffocat\w*)"
     ),
     "choking": re.compile(
         _W + r"(chok\w*|something stuck in (his|her|my|their) throat)"
@@ -40,7 +41,7 @@ LIFE_THREAT_CONDITIONS: dict[str, re.Pattern[str]] = {
     "unconscious": re.compile(
         _W
         + r"(unconscious|unresponsive|not responding|won'?t wake( up)?|passed out|fainted|collapsed|"
-        r"not waking)"
+        r"not waking|(isn\'?t|is not|not|stopped|hasn\'?t been) moving|motionless|lifeless|(is|was|went|gone) limp|floppy)"
     ),
     "cardiac": re.compile(
         _W + r"(chest pain|chest pressure|chest tightness|heart attack|cardiac|angina)"
@@ -62,7 +63,8 @@ LIFE_THREAT_CONDITIONS: dict[str, re.Pattern[str]] = {
     "major_trauma": re.compile(
         _W
         + r"(stabbed|stab wound|been shot|gunshot|shot (in|at)|head trauma|skull fracture|"
-        r"spinal injury|impaled|electrocut\w*|amputat\w*|crushed)"
+        r"spinal injury|impaled|electrocut\w*|amputat\w*|crushed|"
+        r"(jumped|fell|fallen|falling) (off|from|out of) (the |a |an |his |her |their )?(roof|balcony|building|bridge|ladder|window|cliff|tower|terrace|height))"
     ),
     "obstetric": re.compile(
         _W
