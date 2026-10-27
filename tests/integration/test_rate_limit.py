@@ -198,6 +198,25 @@ class TestCloudflareClientIp(unittest.TestCase):
         self.assertEqual(c.post("/incidents", json=BODY, headers=h).status_code, 429)
 
 
+class TestKeyDiagnostics(unittest.TestCase):
+    def test_diag_logs_shape_without_ips(self):
+        import apps.api.ratelimit as rlmod
+
+        rlmod._DIAG_REMAINING = 5
+        c = _client(rate_limit_requests=5, rate_limit_window_s=60, trust_proxy=True)
+        with self.assertLogs("apps.api.ratelimit", level="WARNING") as cm:
+            c.post(
+                "/incidents",
+                json=BODY,
+                headers={"X-Forwarded-For": "203.0.113.5, 198.51.100.6"},
+            )
+        out = "\n".join(cm.output)
+        self.assertIn("source=xff-rightmost", out)
+        self.assertIn("xff_hops=2", out)
+        self.assertNotIn("203.0.113.5", out)
+        self.assertNotIn("198.51.100.6", out)
+
+
 class TestSharedAcrossWorkers(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
