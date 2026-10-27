@@ -176,6 +176,11 @@ class RiskAssessment(StrictModel):
     requires_escalation: bool
     escalation_reason: str = ""
     policy_rule_triggered: str = ""
+    # deterministic life-threat conditions found in the incident text (triage_rules.LIFE_THREAT_CONDITIONS)
+    conditions: list[str] = Field(default_factory=list)
+    # advisory flags only (e.g. suspected prompt injection); never lower urgency
+    security_flags: list[str] = Field(default_factory=list)
+    model_urgency: UrgencyLevel | None = None
     medical_disclaimer: str = (
         "LifeRescue provides AI emergency assistance and safety triage guidance. "
         "It does not replace professional emergency services or certified medical diagnosis."

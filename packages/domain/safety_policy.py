@@ -16,6 +16,13 @@ from __future__ import annotations
 import re
 from typing import Sequence
 
+from packages.domain.triage_rules import (
+    UNSAFE_ADVICE,
+    describe_conditions,
+    detect_conditions,
+    normalise_text,
+    vetted_steps,
+)
 from packages.domain.models import (
     AIAnalysis,
     EmergencyContact,
@@ -77,10 +84,35 @@ LIFE_THREATENING_PATTERNS = [
     ),
 ]
 
+_URGENCY_ORDER = [UrgencyLevel.LOW, UrgencyLevel.MEDIUM, UrgencyLevel.HIGH, UrgencyLevel.CRITICAL]
+
+
+def max_urgency(*levels: UrgencyLevel | None) -> UrgencyLevel:
+    vals = [lv for lv in levels if lv is not None]
+    return max(vals, key=_URGENCY_ORDER.index) if vals else UrgencyLevel.MEDIUM
+
+
+# Suspected prompt-injection markers: ADVISORY flag only (SEC-02), never a triage outcome.
+INJECTION_MARKERS = [
+    re.compile(r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions|rules)", re.IGNORECASE),
+    re.compile(r"you\s+are\s+now\s+a\s+", re.IGNORECASE),
+    re.compile(r"(jailbreak|dan\s+mode|<script|classify\s+(this\s+)?as\s+(low|medium))", re.IGNORECASE),
+]
+
+CRISIS_LINE_TEXT = (
+    "Crisis support (simulated display): 988 Suicide & Crisis Lifeline (US, call or text 988); "
+    "India Tele-MANAS 14416 or 112; elsewhere call your local emergency number."
+)
+
 MEDICAL_DISCLAIMER = (
     "LifeRescue provides AI-assisted emergency response coordination and safety triage guidance. "
     "It is NOT a medical diagnosis and does NOT replace calling professional emergency dispatchers (such as 911/112)."
 )
+
+
+def _category_of(plan: ResponsePlan) -> str:
+    m = re.search(r"around (\w+) emergency", plan.rationale or "")
+    return m.group(1) if m else "general"
 
 
 class SafetyPolicyEngine:
@@ -98,27 +130,41 @@ class SafetyPolicyEngine:
         self, incident: Incident, analysis: AIAnalysis | None = None
     ) -> RiskAssessment:
         """Evaluate raw incident text and AI analysis to determine true urgency and escalation."""
-        combined_text = incident.description.lower() + " " + incident.title.lower()
+        incident_text = f"{incident.title} {incident.description}"
+        combined_text = normalise_text(incident_text)
         if analysis:
-            combined_text += " " + analysis.summary.lower()
+            combined_text += " " + normalise_text(analysis.summary)
 
-        # Check for life-threatening trigger words
-        is_life_threatening = False
-        trigger_reason = ""
-        for pattern in LIFE_THREATENING_PATTERNS:
-            match = pattern.search(combined_text)
-            if match:
-                is_life_threatening = True
-                trigger_reason = f"Detected acute critical symptom: '{match.group(0)}'"
-                break
+        # Deterministic floor (SEC-01): conditions come from the user's own text, never only from the model.
+        conditions = detect_conditions(incident_text)
+        is_life_threatening = bool(conditions)
+        trigger_reason = (
+            f"Detected acute critical symptom(s): {describe_conditions(incident_text)}" if conditions else ""
+        )
+        if not is_life_threatening:
+            for pattern in LIFE_THREATENING_PATTERNS:  # legacy lexicon kept (never weakened)
+                match = pattern.search(combined_text)
+                if match:
+                    is_life_threatening = True
+                    trigger_reason = f"Detected acute critical symptom: '{match.group(0)}'"
+                    break
 
-        # Determine urgency (Policy overrides LLM if life-threatening condition detected)
-        urgency = UrgencyLevel.MEDIUM
-        if analysis:
-            urgency = analysis.urgency
+        security_flags = [
+            "suspected_prompt_injection"
+            for pat in INJECTION_MARKERS
+            if pat.search(incident_text)
+        ][:1]
+        if analysis and analysis.extracted_facts.get("security_flag"):
+            security_flags = sorted(set(security_flags) | {"suspected_prompt_injection"})
+
+        # The model may only RAISE urgency above the deterministic floor (SEC-03).
+        model_urgency = analysis.urgency if analysis else None
+        floor = UrgencyLevel.CRITICAL if is_life_threatening else (
+            UrgencyLevel.MEDIUM if (security_flags or analysis is None) else UrgencyLevel.LOW
+        )
+        urgency = max_urgency(floor, model_urgency)
 
         if is_life_threatening:
-            urgency = UrgencyLevel.CRITICAL
             escalation_required = True
         elif urgency in (UrgencyLevel.HIGH, UrgencyLevel.CRITICAL):
             escalation_required = True
@@ -137,6 +183,9 @@ class SafetyPolicyEngine:
             if is_life_threatening
             else "RULE_STANDARD_TRIAGE",
             medical_disclaimer=MEDICAL_DISCLAIMER,
+            conditions=conditions,
+            security_flags=security_flags,
+            model_urgency=model_urgency,
         )
 
     def vet_response_plan(
@@ -199,12 +248,41 @@ class SafetyPolicyEngine:
                     break
             if is_prohibited:
                 continue
+            if UNSAFE_ADVICE.search(action_content):
+                policy_notes.append(f"Blocked unsafe advice in action '{action.title}'")
+                continue
+
+            # Displayed safety steps come only from the vetted step library (SEC-03)
+            if action.action_type == ResponseActionType.DISPLAY_INSTRUCTIONS:
+                steps = vetted_steps(risk.conditions, _category_of(proposed_plan), risk.requires_escalation)
+                action = action.model_copy(
+                    update={
+                        "description": "\n".join(f"- {st}" for st in steps),
+                        "payload": {"steps": steps, "source": "vetted_step_library", "disclaimer": MEDICAL_DISCLAIMER},
+                    }
+                )
 
             # Enforce confirmation for sensitive custom actions
             if action.action_type == ResponseActionType.CUSTOM:
                 action.requires_confirmation = True
 
             vetted_actions.append(action)
+
+        # 2b. Self-harm: always add a crisis-line resource (SEC-01)
+        if "self_harm" in risk.conditions:
+            vetted_actions.append(
+                ResponseAction(
+                    action_type=ResponseActionType.DISPLAY_INSTRUCTIONS,
+                    title="Crisis Line Resource",
+                    description=CRISIS_LINE_TEXT,
+                    is_escalation=False,
+                    requires_confirmation=False,
+                    status=ResponseActionStatus.PENDING,
+                    payload={"resource": "crisis_line", "source": "vetted_step_library"},
+                    mocked=True,
+                )
+            )
+            policy_notes.append("Safety policy added crisis-line resource.")
 
         # 3. If there are primary emergency contacts and incident is HIGH/CRITICAL, ensure contact notification is present
         if risk.urgency in (UrgencyLevel.HIGH, UrgencyLevel.CRITICAL) and contacts:
