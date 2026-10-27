@@ -5,6 +5,7 @@ External (http/https/mailto) links and pure anchors are NOT checked (no network 
 Fenced code blocks and inline code spans are skipped.
 Exit code 1 if any relative link target is missing.
 """
+
 import os
 import re
 import sys
@@ -22,7 +23,7 @@ def md_files(root):
 
 
 def strip_code(text):
-    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     return re.sub(r"`[^`\n]*`", "", text)
 
 

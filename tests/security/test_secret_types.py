@@ -1,4 +1,5 @@
 """KAN-45 step 1 tests: SecretValue (T-02), SecretRef, request/handle types."""
+
 import copy
 import json
 import pickle
@@ -35,9 +36,9 @@ class SecretValueDoesNotLeak(unittest.TestCase):
             format(self.value, ">40"),
             f"{self.value}",
             f"{self.value!r}",
-            "%s" % self.value,
-            "%r" % self.value,
-            "{}".format(self.value),
+            f"{self.value}",
+            f"{self.value!r}",
+            f"{self.value}",
             repr([self.value]),
             repr({"k": self.value}),
             str((self.value,)),
@@ -51,10 +52,12 @@ class SecretValueDoesNotLeak(unittest.TestCase):
         with self.assertRaises(TypeError) as ctx:
             json.dumps({"v": self.value})
         self.assertNoCanary(str(ctx.exception))
-        self.assertEqual(json.loads(json.dumps({"v": self.value}, default=str)), {"v": "[REDACTED]"})
+        self.assertEqual(
+            json.loads(json.dumps({"v": self.value}, default=str)), {"v": "[REDACTED]"}
+        )
 
     def test_pickle_all_protocols_refused(self):
-        for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             with self.subTest(protocol=proto):
                 with self.assertRaises(TypeError) as ctx:
                     pickle.dumps(self.value, protocol=proto)
@@ -85,38 +88,40 @@ class SecretValueDoesNotLeak(unittest.TestCase):
         class Boom(Exception):
             pass
 
-        with self.assertRaises(Boom) as ctx:
-            with self.value.reveal() as raw:
-                raise Boom("generic")
+        with self.assertRaises(Boom) as ctx, self.value.reveal() as _raw:
+            raise Boom("generic")
         self.assertNoCanary(repr(ctx.exception))
 
     def test_wipe_zeroes_buffer_and_blocks_reveal(self):
         self.value.wipe()
         self.assertTrue(self.value.wiped)
         self.assertEqual(set(self.value._buf), {0})
-        with self.assertRaises(SecretWiped) as ctx:
-            with self.value.reveal():
-                pass
+        with self.assertRaises(SecretWiped) as ctx, self.value.reveal():
+            pass
         self.assertNoCanary(str(ctx.exception))
 
     def test_rejects_empty_or_non_str(self):
         for bad in ("", None, 5, b"bytes"):
-            with self.subTest(bad=bad):
-                with self.assertRaises(TypeError):
-                    SecretValue(bad)  # type: ignore[arg-type]
+            with self.subTest(bad=bad), self.assertRaises(TypeError):
+                SecretValue(bad)  # type: ignore[arg-type]
 
 
 class PackageNameSafety(unittest.TestCase):
     def test_stdlib_secrets_module_is_not_shadowed(self):
         import secrets
 
-        self.assertTrue(hasattr(secrets, "token_urlsafe"), "stdlib 'secrets' is shadowed; run from the repo root")
+        self.assertTrue(
+            hasattr(secrets, "token_urlsafe"),
+            "stdlib 'secrets' is shadowed; run from the repo root",
+        )
 
 
 class SecretRefTests(unittest.TestCase):
     def test_roundtrip(self):
         ref = SecretRef(Environment.MOCK, Purpose.MODEL_INFERENCE, "mock-model-key")
-        self.assertEqual(ref.to_string(), "secretref://mock/model_inference/mock-model-key")
+        self.assertEqual(
+            ref.to_string(), "secretref://mock/model_inference/mock-model-key"
+        )
         self.assertEqual(SecretRef.parse(ref.to_string()), ref)
 
     def test_unknown_parts_fail_closed_without_echoing_input(self):
@@ -135,7 +140,9 @@ class SecretRefTests(unittest.TestCase):
             None,
             "secretref://mock/model_inference/" + "a" * 49,
         ]:
-            with self.subTest(text=text if text is None or len(str(text)) < 40 else "long"):
+            with self.subTest(
+                text=text if text is None or len(str(text)) < 40 else "long"
+            ):
                 with self.assertRaises(InvalidSecretRef) as ctx:
                     SecretRef.parse(text)
                 self.assertNotIn(hostile, str(ctx.exception))
@@ -155,7 +162,13 @@ class CredentialRequestTests(unittest.TestCase):
     ref = SecretRef(Environment.MOCK, Purpose.WEB_SEARCH, "mock-search-key")
 
     def make(self, **kw):
-        base = dict(task_id="T-1", run_id="R-1", agent_id="LR-06", ref=self.ref, reason_code=RequestReason.WEB_SEARCH_CALL)
+        base = {
+            "task_id": "T-1",
+            "run_id": "R-1",
+            "agent_id": "LR-06",
+            "ref": self.ref,
+            "reason_code": RequestReason.WEB_SEARCH_CALL,
+        }
         base.update(kw)
         return CredentialRequest(**base)
 
@@ -166,15 +179,15 @@ class CredentialRequestTests(unittest.TestCase):
     def test_invalid_ids_and_codes_rejected_without_echo(self):
         secretish = make_canary("x ", 16)  # contains a space: invalid id shape
         for kw in [
-            dict(task_id=secretish),
-            dict(run_id=""),
-            dict(agent_id="LR 06"),
-            dict(agent_id="a" * 65),
-            dict(task_id=None),
-            dict(reason_code="model_call"),
-            dict(ref="secretref://mock/web_search/x"),
-            dict(requested_ttl=15),
-            dict(correlation_id="bad id"),
+            {"task_id": secretish},
+            {"run_id": ""},
+            {"agent_id": "LR 06"},
+            {"agent_id": "a" * 65},
+            {"task_id": None},
+            {"reason_code": "model_call"},
+            {"ref": "secretref://mock/web_search/x"},
+            {"requested_ttl": 15},
+            {"correlation_id": "bad id"},
         ]:
             with self.subTest(kw=list(kw)):
                 with self.assertRaises(InvalidRequest) as ctx:

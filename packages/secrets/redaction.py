@@ -15,6 +15,7 @@ This module is the second layer. It provides:
 No partial reveal (spec 6.5): never a prefix, suffix, length or hash of a secret. The only marker is
 ``[REDACTED:<kind>]``.
 """
+
 from __future__ import annotations
 
 import base64
@@ -26,9 +27,10 @@ import json
 import re
 import traceback
 import uuid
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any
 from urllib.parse import quote, quote_plus
 
 from .errors import ConfigurationError
@@ -66,7 +68,14 @@ MAX_DEPTH = 20
 MAX_TEXT = 5_000_000
 
 
-_SCALAR_TEXT_TYPES = (_dt.datetime, _dt.date, _dt.time, _dt.timedelta, decimal.Decimal, uuid.UUID)
+_SCALAR_TEXT_TYPES = (
+    _dt.datetime,
+    _dt.date,
+    _dt.time,
+    _dt.timedelta,
+    decimal.Decimal,
+    uuid.UUID,
+)
 
 
 def marker(kind: str) -> str:
@@ -78,9 +87,9 @@ def marker(kind: str) -> str:
 class PatternRule:
     rule_id: str
     kind: str
-    regex: "re.Pattern[str]"
+    regex: re.Pattern[str]
     group: int
-    gitleaks_rule: Optional[str]
+    gitleaks_rule: str | None
     allow_match: tuple  # compiled regexes; a match whose text matches any of these is NOT redacted
 
 
@@ -89,29 +98,52 @@ class PatternSet:
         self.rules = tuple(rules)
 
     @classmethod
-    def from_mapping(cls, doc: Any) -> "PatternSet":
-        if not isinstance(doc, Mapping) or doc.get("version") != 1 or not isinstance(doc.get("rules"), list):
+    def from_mapping(cls, doc: Any) -> PatternSet:
+        if (
+            not isinstance(doc, Mapping)
+            or doc.get("version") != 1
+            or not isinstance(doc.get("rules"), list)
+        ):
             raise ConfigurationError("patterns file has the wrong shape")
         rules, seen = [], set()
         for item in doc["rules"]:
             if not isinstance(item, Mapping):
                 raise ConfigurationError("pattern rule must be a mapping")
             try:
-                rule_id, kind, regex, group = item["id"], item["kind"], item["regex"], item["group"]
+                rule_id, kind, regex, group = (
+                    item["id"],
+                    item["kind"],
+                    item["regex"],
+                    item["group"],
+                )
                 compiled = re.compile(regex)
-                allow = tuple(re.compile(a) for a in item.get("allow_match_regexes", []))
+                allow = tuple(
+                    re.compile(a) for a in item.get("allow_match_regexes", [])
+                )
             except (KeyError, re.error, TypeError):
                 raise ConfigurationError("pattern rule invalid") from None
-            if not isinstance(rule_id, str) or rule_id in seen or not re.fullmatch(r"[a-z0-9_]{1,40}", str(kind)):
+            if (
+                not isinstance(rule_id, str)
+                or rule_id in seen
+                or not re.fullmatch(r"[a-z0-9_]{1,40}", str(kind))
+            ):
                 raise ConfigurationError("pattern rule id/kind invalid")
-            if not isinstance(group, int) or isinstance(group, bool) or not 0 <= group <= compiled.groups:
+            if (
+                not isinstance(group, int)
+                or isinstance(group, bool)
+                or not 0 <= group <= compiled.groups
+            ):
                 raise ConfigurationError("pattern rule group invalid")
             seen.add(rule_id)
-            rules.append(PatternRule(rule_id, kind, compiled, group, item.get("gitleaks_rule"), allow))
+            rules.append(
+                PatternRule(
+                    rule_id, kind, compiled, group, item.get("gitleaks_rule"), allow
+                )
+            )
         return cls(rules)
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "PatternSet":
+    def load(cls, path: Path | None = None) -> PatternSet:
         target = Path(path) if path is not None else PATTERNS_PATH
         doc = None
         failed = False
@@ -123,12 +155,12 @@ class PatternSet:
             raise ConfigurationError("patterns file unreadable or invalid")
         return cls.from_mapping(doc)
 
-    def scanner_mirrored(self) -> "PatternSet":
+    def scanner_mirrored(self) -> PatternSet:
         """Only the rules that mirror a ``.gitleaks.toml`` rule (what the CI scanner would flag)."""
         return PatternSet(r for r in self.rules if r.gitleaks_rule)
 
     def spans(self, text: str) -> list:
-        out = []
+        out: list = []
         for rule in self.rules:
             for m in rule.regex.finditer(text):
                 if any(a.search(m.group(0)) for a in rule.allow_match):
@@ -176,11 +208,13 @@ def value_variants(value: str) -> set:
     forms.add(html.escape(value, quote=True))
     forms.add(data.hex())
     forms.add(data.hex().upper())
-    forms.add(re.sub(r"([^A-Za-z0-9])", r"\\\1", value))  # backslash-escaped punctuation
+    forms.add(
+        re.sub(r"([^A-Za-z0-9])", r"\\\1", value)
+    )  # backslash-escaped punctuation
     return {f for f in forms if f}
 
 
-def split_regex(value: str) -> Optional["re.Pattern[str]"]:
+def split_regex(value: str) -> re.Pattern[str] | None:
     """Regex matching ``value`` with whitespace, line breaks, backslashes, quotes or '+' between characters."""
     if len(value) < MIN_VARIANT_LEN or len(value) > MAX_SPLIT_LEN:
         return None
@@ -196,14 +230,20 @@ class KnownValueMatcher:
         forms = set()
         for v in self.key:
             forms |= value_variants(v)
-        ordered = sorted(forms, key=len, reverse=True)  # longest first so partial overlaps lose
-        self._literal = re.compile("|".join(re.escape(f) for f in ordered)) if ordered else None
+        ordered = sorted(
+            forms, key=len, reverse=True
+        )  # longest first so partial overlaps lose
+        self._literal = (
+            re.compile("|".join(re.escape(f) for f in ordered)) if ordered else None
+        )
         self._split = [r for r in (split_regex(v) for v in self.key) if r is not None]
 
     def spans(self, text: str) -> list:
-        out = []
+        out: list = []
         if self._literal is not None:
-            out.extend((m.start(), m.end(), SECRET_KIND) for m in self._literal.finditer(text))
+            out.extend(
+                (m.start(), m.end(), SECRET_KIND) for m in self._literal.finditer(text)
+            )
         for rx in self._split:
             out.extend((m.start(), m.end(), SECRET_KIND) for m in rx.finditer(text))
         return out
@@ -228,9 +268,9 @@ class Redactor:
 
     def __init__(
         self,
-        leased_values: Optional[LeasedValues] = None,
+        leased_values: LeasedValues | None = None,
         *,
-        patterns: Optional[PatternSet] = None,
+        patterns: PatternSet | None = None,
         metrics=None,
         key_exempt: Iterable[str] = (),
         extra_values: Iterable[str] = (),
@@ -238,7 +278,9 @@ class Redactor:
         self._leased = leased_values
         self._patterns = patterns if patterns is not None else PatternSet.load()
         self._metrics = metrics
-        self._exempt = frozenset(self._norm_key(k) for k in key_exempt)  # explicit, reviewed exemptions only
+        self._exempt = frozenset(
+            self._norm_key(k) for k in key_exempt
+        )  # explicit, reviewed exemptions only
         self._extra = tuple(extra_values)
         self._matcher = KnownValueMatcher(())
 
@@ -300,7 +342,14 @@ class Redactor:
         return "".join(out)
 
     # ---- structures ----
-    def redact(self, obj: Any, *, sink: str = "unknown", _depth: int = 0, _seen: Optional[set] = None) -> Any:
+    def redact(
+        self,
+        obj: Any,
+        *,
+        sink: str = "unknown",
+        _depth: int = 0,
+        _seen: set | None = None,
+    ) -> Any:
         """Deep-copy ``obj`` with secrets removed. Mapping keys matching the key-name rule have their
         whole value replaced by ``[REDACTED:field]``. Unknown object types become ``[REDACTED:object]``."""
         if _depth > MAX_DEPTH:
@@ -325,23 +374,39 @@ class Redactor:
             seen = seen | {id(obj)}
             out = {}
             for key, value in obj.items():
-                safe_key = self.redact_text(key, sink=sink) if isinstance(key, str) else self.redact(key, sink=sink, _depth=_depth + 1, _seen=seen)
+                safe_key = (
+                    self.redact_text(key, sink=sink)
+                    if isinstance(key, str)
+                    else self.redact(key, sink=sink, _depth=_depth + 1, _seen=seen)
+                )
                 if self.is_denied_key(key):
                     self._count(FIELD_KIND, sink)
                     out[safe_key] = marker(FIELD_KIND)
                 else:
-                    out[safe_key] = self.redact(value, sink=sink, _depth=_depth + 1, _seen=seen)
+                    out[safe_key] = self.redact(
+                        value, sink=sink, _depth=_depth + 1, _seen=seen
+                    )
             return out
         if isinstance(obj, (list, tuple, set, frozenset)):
             seen = seen | {id(obj)}
-            items = [self.redact(v, sink=sink, _depth=_depth + 1, _seen=seen) for v in obj]
-            return items if isinstance(obj, list) else tuple(items) if isinstance(obj, tuple) else items
+            items = [
+                self.redact(v, sink=sink, _depth=_depth + 1, _seen=seen) for v in obj
+            ]
+            return (
+                items
+                if isinstance(obj, list)
+                else tuple(items)
+                if isinstance(obj, tuple)
+                else items
+            )
         if isinstance(obj, BaseException):
             return self.redact_exception(obj, sink=sink)
         self._count(OBJECT_KIND, sink)
         return marker(OBJECT_KIND)
 
-    def find_leaks_in(self, obj: Any, *, _depth: int = 0, _seen: Optional[set] = None) -> tuple:
+    def find_leaks_in(
+        self, obj: Any, *, _depth: int = 0, _seen: set | None = None
+    ) -> tuple:
         """Kinds of secrets found anywhere in a structure (keys, values, denied key names)."""
         kinds: set = set()
         self._scan(obj, kinds, 0, set())
@@ -380,17 +445,21 @@ class Redactor:
         elif isinstance(obj, BaseException):
             kinds.update(self.find_leaks(self.redact_exception_raw_text(obj)))
         else:
-            kinds.add(OBJECT_KIND)  # unknown object types cannot be inspected: treated as unsafe
+            kinds.add(
+                OBJECT_KIND
+            )  # unknown object types cannot be inspected: treated as unsafe
 
     # ---- exceptions ----
     @staticmethod
     def redact_exception_raw_text(exc: BaseException, max_chain: int = 6) -> str:
-        parts, seen, cur = [], set(), exc
+        parts: list[str] = []
+        seen: set[int] = set()
+        cur: BaseException | None = exc
         while cur is not None and id(cur) not in seen and len(parts) < max_chain:
             seen.add(id(cur))
             try:
                 args = " ".join(str(a) for a in cur.args)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 args = ""
             parts.append(f"{type(cur).__name__}: {args}")
             cur = cur.__cause__ or cur.__context__
@@ -407,4 +476,6 @@ class Redactor:
     # ---- metrics ----
     def _count(self, kind: str, sink: str) -> None:
         if self._metrics is not None:
-            self._metrics.inc("redactions", f"{kind}:{sink}")  # counts by kind and sink only, never content
+            self._metrics.inc(
+                "redactions", f"{kind}:{sink}"
+            )  # counts by kind and sink only, never content

@@ -5,6 +5,7 @@ not on ``main`` yet (it is a PROPOSED LR 08 draft, owned by the secret-controls 
 SKIPPED, loudly, until it exists. The harness itself is tested here against a TOML generated from patterns.json
 and against deliberately drifted copies, so a broken harness cannot report a false 'ok'.
 """
+
 import os
 import sys
 import tempfile
@@ -25,7 +26,12 @@ def real_config_path():
 
 def toml_from_patterns(patterns: PatternSet, drop=(), regex_override=None) -> str:
     """A .gitleaks.toml-shaped file mirroring the mapped rules, for harness self-tests."""
-    out = ['title = "generated mirror for harness self-test"', "[extend]", "useDefault = true", ""]
+    out = [
+        'title = "generated mirror for harness self-test"',
+        "[extend]",
+        "useDefault = true",
+        "",
+    ]
     for rule in patterns.rules:
         if not rule.gitleaks_rule or rule.gitleaks_rule in drop:
             continue
@@ -35,7 +41,13 @@ def toml_from_patterns(patterns: PatternSet, drop=(), regex_override=None) -> st
         if rule.group:
             out.append(f"secretGroup = {rule.group}")
         if rule.allow_match:
-            out += ["[[rules.allowlists]]", "regexTarget = 'match'", "regexes = [" + ", ".join(f"'''{a.pattern}'''" for a in rule.allow_match) + "]"]
+            out += [
+                "[[rules.allowlists]]",
+                "regexTarget = 'match'",
+                "regexes = ["
+                + ", ".join(f"'''{a.pattern}'''" for a in rule.allow_match)
+                + "]",
+            ]
         out.append("")
     return "\n".join(out)
 
@@ -67,28 +79,62 @@ class HarnessSelfTest(unittest.TestCase):
         self.assertEqual(mapped, set(CORPUS_GENERATORS))
 
     def test_drift_in_a_regex_is_detected(self):
-        drifted = toml_from_patterns(self.patterns, regex_override={"liferescue-xai-api-key": r"\bxai-[A-Za-z0-9]{30,}\b"})
+        drifted = toml_from_patterns(
+            self.patterns,
+            regex_override={"liferescue-xai-api-key": r"\bxai-[A-Za-z0-9]{30,}\b"},
+        )
         report = run_parity(self.write(drifted), self.patterns)
         self.assertFalse(report.ok)
         self.assertTrue(any("xai" in m for m in report.mismatches), report.mismatches)
         # the scanner would flag a shorter token that the redactor lets through: reported as a real divergence, not a corpus bug
-        self.assertTrue(any("xai" in m and "gitleaks=match python=no match" in m for m in report.mismatches), report.mismatches)
+        self.assertTrue(
+            any(
+                "xai" in m and "gitleaks=match python=no match" in m
+                for m in report.mismatches
+            ),
+            report.mismatches,
+        )
 
     def test_looser_and_tighter_url_rule_is_detected(self):
-        loose = toml_from_patterns(self.patterns, regex_override={"liferescue-url-embedded-password": r"""(?i)\b(?:postgres|https?)://[^\s:/@]+:([^\s@]{1,})@[^\s]+"""})
+        loose = toml_from_patterns(
+            self.patterns,
+            regex_override={
+                "liferescue-url-embedded-password": r"""(?i)\b(?:postgres|https?)://[^\s:/@]+:([^\s@]{1,})@[^\s]+"""
+            },
+        )
         self.assertFalse(run_parity(self.write(loose), self.patterns).ok)
 
     def test_rule_missing_on_either_side_is_detected(self):
-        missing_in_toml = toml_from_patterns(self.patterns, drop=("liferescue-tavily-api-key",))
+        missing_in_toml = toml_from_patterns(
+            self.patterns, drop=("liferescue-tavily-api-key",)
+        )
         report = run_parity(self.write(missing_in_toml), self.patterns)
-        self.assertTrue(any("maps to a gitleaks rule that does not exist" in p for p in report.problems))
-        extra = toml_from_patterns(self.patterns) + "\n[[rules]]\nid = 'liferescue-new-provider'\nregex = '''\\bnewp-[a-z]{20,}\\b'''\n"
+        self.assertTrue(
+            any(
+                "maps to a gitleaks rule that does not exist" in p
+                for p in report.problems
+            )
+        )
+        extra = (
+            toml_from_patterns(self.patterns)
+            + "\n[[rules]]\nid = 'liferescue-new-provider'\nregex = '''\\bnewp-[a-z]{20,}\\b'''\n"
+        )
         report = run_parity(self.write(extra), self.patterns)
-        self.assertTrue(any("no redactor pattern: liferescue-new-provider" in p for p in report.problems))
+        self.assertTrue(
+            any(
+                "no redactor pattern: liferescue-new-provider" in p
+                for p in report.problems
+            )
+        )
 
     def test_allowlist_difference_is_detected(self):
-        text = toml_from_patterns(self.patterns).replace("regexTarget = 'match'", "regexTarget = 'match'\n# dropped", 1)
-        no_allow = text.replace("(password|changeme|example|placeholder|<[^>]+>|\\$\\{[^}]+\\}|\\*+|x{3,})", "(nothing-matches-this)")
+        text = toml_from_patterns(self.patterns).replace(
+            "regexTarget = 'match'", "regexTarget = 'match'\n# dropped", 1
+        )
+        no_allow = text.replace(
+            "(password|changeme|example|placeholder|<[^>]+>|\\$\\{[^}]+\\}|\\*+|x{3,})",
+            "(nothing-matches-this)",
+        )
         self.assertNotEqual(text, no_allow)
         self.assertFalse(run_parity(self.write(no_allow), self.patterns).ok)
 
@@ -103,9 +149,13 @@ class RealConfigParity(unittest.TestCase):
     def test_python_redactor_agrees_with_repository_gitleaks_toml(self):
         path = real_config_path()
         if path is None:
-            self.skipTest("SKIPPED: no .gitleaks.toml in the repository (proposed LR 08 draft not merged) and KAN45_GITLEAKS_CONFIG unset")
+            self.skipTest(
+                "SKIPPED: no .gitleaks.toml in the repository (proposed LR 08 draft not merged) and KAN45_GITLEAKS_CONFIG unset"
+            )
         report = run_parity(path)
-        self.assertEqual(report.mismatches, [], "pattern drift between redactor and scanner")
+        self.assertEqual(
+            report.mismatches, [], "pattern drift between redactor and scanner"
+        )
         self.assertEqual(report.problems, [])
         self.assertGreater(report.samples, 100)
 

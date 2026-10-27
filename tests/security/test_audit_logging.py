@@ -1,13 +1,14 @@
 """KAN-45 step 4 tests: audit event shape and completeness (T-30), logging/telemetry allow-lists (T-18)."""
+
 import io
 import json
 import logging
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from fixtures_broker import DB_REF, MODEL_REF, SEARCH_REF, Rig
-from packages.secrets.audit import AUDIT_FIELDS, AuditEventType as E, make_event
-from packages.secrets.codes import DenialReason as D, RevokeReason
+from packages.secrets.audit import AUDIT_FIELDS, make_event
+from packages.secrets.audit import AuditEventType as E
+from packages.secrets.codes import RevokeReason
 from packages.secrets.errors import Denied
 from packages.secrets.logging_rules import (
     CREDENTIAL_LOGGER_NAME,
@@ -18,11 +19,15 @@ from packages.secrets.logging_rules import (
     allowed_fields,
     install_credential_log_filter,
     log_credential_event,
-    sanitize_fields,
 )
-from packages.secrets.telemetry import SafeSpanExporter, exception_fields, sanitize_span_attributes
-from packages.secrets.testing import make_canary
 from packages.secrets.tasks import TaskState
+from packages.secrets.telemetry import (
+    SafeSpanExporter,
+    exception_fields,
+    sanitize_span_attributes,
+)
+from packages.secrets.testing import make_canary
+from tests.security.fixtures_broker import MODEL_REF, SEARCH_REF, Rig
 
 
 def types(rig):
@@ -44,7 +49,9 @@ class AuditShape(unittest.TestCase):
             self.assertEqual(ts.utcoffset(), timedelta(0))
             self.assertIsInstance(d["alert"], bool)
             self.assertTrue(d["correlation_id"])
-            self.assertEqual((d["task_id"], d["run_id"], d["agent_id"]), ("T-1", "R-1", "LR-06"))
+            self.assertEqual(
+                (d["task_id"], d["run_id"], d["agent_id"]), ("T-1", "R-1", "LR-06")
+            )
             self.assertEqual(d["ref"], MODEL_REF.to_string())
             ids.add(d["event_id"])
             for k, v in d.items():
@@ -59,14 +66,30 @@ class AuditShape(unittest.TestCase):
 
     def test_make_event_sanitises_hostile_field_values(self):
         hostile = make_canary("bad value ", 20)
-        ev = make_event(E.LEASE_DENIED, wall=datetime(2026, 1, 1, tzinfo=timezone.utc), outcome="denied", task_id=hostile, agent_id=hostile,
-                        run_id=hostile, correlation_id=hostile, lease_id=hostile, ref=hostile, reason_code=hostile)
+        ev = make_event(
+            E.LEASE_DENIED,
+            wall=datetime(2026, 1, 1, tzinfo=UTC),
+            outcome="denied",
+            task_id=hostile,
+            agent_id=hostile,
+            run_id=hostile,
+            correlation_id=hostile,
+            lease_id=hostile,
+            ref=hostile,
+            reason_code=hostile,
+        )
         self.assertNotIn(hostile, repr(ev.to_dict()))
         self.assertEqual(ev.task_id, "invalid")
         with self.assertRaises(ValueError):
-            make_event(E.LEASE_DENIED, wall=datetime(2026, 1, 1, tzinfo=timezone.utc), outcome=hostile)
+            make_event(
+                E.LEASE_DENIED,
+                wall=datetime(2026, 1, 1, tzinfo=UTC),
+                outcome=hostile,
+            )
         with self.assertRaises(ValueError):
-            make_event(E.LEASE_DENIED, wall=datetime(2026, 1, 1), outcome="denied")  # naive time
+            make_event(
+                E.LEASE_DENIED, wall=datetime(2026, 1, 1), outcome="denied"
+            )  # naive time
 
     def test_event_has_no_field_that_could_hold_free_text_or_values(self):
         self.assertNotIn("message", AUDIT_FIELDS)
@@ -89,12 +112,16 @@ class AuditCompleteness(unittest.TestCase):
             rig.use(h)
         with self.assertRaises(Denied):
             rig.use(h)
-        self.assertEqual(types(rig)[4:], ["lease_expired", "lease_denied", "lease_denied"])
+        self.assertEqual(
+            types(rig)[4:], ["lease_expired", "lease_denied", "lease_denied"]
+        )
         self.assertEqual(len(rig.events(E.LEASE_EXPIRED)), 1)
         rig.broker.sweep()
         rig.broker.revoke_task("T-1", reason_code=RevokeReason.TASK_END)
         self.assertEqual(len(rig.events(E.LEASE_EXPIRED)), 1)
-        self.assertEqual(len(rig.events(E.LEASE_REVOKED)), 0, "an expired lease is not revoked again")
+        self.assertEqual(
+            len(rig.events(E.LEASE_REVOKED)), 0, "an expired lease is not revoked again"
+        )
 
     def test_denial_has_requested_then_denied(self):
         rig = Rig()
@@ -125,7 +152,15 @@ class AuditCompleteness(unittest.TestCase):
         rig.clock.advance(3600)
         rig.broker.sweep()
         seen = {e.event_type for e in rig.sink.events}
-        for needed in ("lease_requested", "lease_issued", "lease_used", "lease_denied", "lease_expired", "misuse_suspected", "backend_unhealthy"):
+        for needed in (
+            "lease_requested",
+            "lease_issued",
+            "lease_used",
+            "lease_denied",
+            "lease_expired",
+            "misuse_suspected",
+            "backend_unhealthy",
+        ):
             self.assertIn(needed, seen)
         text = rig.all_audit_text()
         for canary in rig.canaries.values():
@@ -137,7 +172,9 @@ class LoggingAllowList(unittest.TestCase):
         self.stream = io.StringIO()
         self.handler = logging.StreamHandler(self.stream)
         self.handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
-        self.logger = logging.getLogger(CREDENTIAL_LOGGER_NAME + "." + make_canary("t", 8))
+        self.logger = logging.getLogger(
+            CREDENTIAL_LOGGER_NAME + "." + make_canary("t", 8)
+        )
         self.logger.propagate = False
         self.logger.setLevel(logging.DEBUG)
         self.logger.addHandler(self.handler)
@@ -152,25 +189,52 @@ class LoggingAllowList(unittest.TestCase):
 
     def test_structured_event_logs_only_allow_listed_fields(self):
         log_credential_event(
-            self.logger, "lease_issued",
-            {"lease_id": "A" * 22, "agent_id": "LR-06", "task_id": "T-1", "token": self.canary, "prompt": self.canary,
-             "api_key": self.canary, "headers": {"Authorization": self.canary}, "ttl_s": 900},
+            self.logger,
+            "lease_issued",
+            {
+                "lease_id": "A" * 22,
+                "agent_id": "LR-06",
+                "task_id": "T-1",
+                "token": self.canary,
+                "prompt": self.canary,
+                "api_key": self.canary,
+                "headers": {"Authorization": self.canary},
+                "ttl_s": 900,
+            },
         )
         out = self.out()
         self.assertIn("lease_id=" + "A" * 22, out)
         self.assertIn("agent_id=LR-06", out)
         self.assertIn("ttl_s=900", out)
-        for banned in ("token", "prompt", "api_key", "headers", "Authorization", self.canary):
+        for banned in (
+            "token",
+            "prompt",
+            "api_key",
+            "headers",
+            "Authorization",
+            self.canary,
+        ):
             self.assertNotIn(banned, out)
 
     def test_invalid_shapes_are_replaced_not_logged(self):
-        log_credential_event(self.logger, "lease_issued", {"agent_id": self.canary + " with spaces", "ref": self.canary, "ttl_s": self.canary, "reason_code": self.canary})
+        log_credential_event(
+            self.logger,
+            "lease_issued",
+            {
+                "agent_id": self.canary + " with spaces",
+                "ref": self.canary,
+                "ttl_s": self.canary,
+                "reason_code": self.canary,
+            },
+        )
         out = self.out()
         self.assertNotIn(self.canary, out)
         self.assertEqual(out.count("invalid"), 4)
 
     def test_unknown_event_type_logs_nothing_but_its_name_class(self):
-        log_credential_event(self.logger, "made_up_event", {"agent_id": "LR-06", "task_id": "T-1"})
+        log_credential_event(
+            self.logger, "made_up_event", {"agent_id": "LR-06", "task_id": "T-1"}
+        )
         self.assertNotIn("LR-06", self.out())
         self.assertIn("event_type=unknown", self.out())
 
@@ -192,7 +256,9 @@ class LoggingAllowList(unittest.TestCase):
             self.logger.setLevel(level)
             self.logger.debug("debug detail %s", self.canary)
             self.logger.log(logging.DEBUG, "x", extra={"password": self.canary})
-            log_credential_event(self.logger, "lease_used", {"agent_id": "LR-06", "headers": self.canary})
+            log_credential_event(
+                self.logger, "lease_used", {"agent_id": "LR-06", "headers": self.canary}
+            )
             self.assertNotIn(self.canary, self.out())
             self.assertNotIn("headers", self.out())
 
@@ -200,6 +266,7 @@ class LoggingAllowList(unittest.TestCase):
         class DumpAll(logging.Formatter):
             def format(self, record):
                 return json.dumps({k: str(v) for k, v in record.__dict__.items()})
+
         self.handler.setFormatter(DumpAll())
         log_credential_event(self.logger, "lease_used", {"agent_id": "LR-06"})
         self.assertNotIn(self.canary, self.out())
@@ -220,16 +287,28 @@ class LoggingAllowList(unittest.TestCase):
         buf = io.StringIO()
         rig.broker.audit_sink = StreamAuditSink(buf)
         rig.request()
-        lines = [json.loads(l) for l in buf.getvalue().splitlines()]
-        self.assertEqual([l["event_type"] for l in lines], ["lease_requested", "lease_issued"])
-        for l in lines:
-            self.assertEqual(tuple(sorted(l)), tuple(sorted(AUDIT_FIELDS)))
+        lines = [json.loads(record) for record in buf.getvalue().splitlines()]
+        self.assertEqual(
+            [record["event_type"] for record in lines],
+            ["lease_requested", "lease_issued"],
+        )
+        for record in lines:
+            self.assertEqual(tuple(sorted(record)), tuple(sorted(AUDIT_FIELDS)))
         self.assertNotIn(rig.canaries[MODEL_REF], buf.getvalue())
 
     def test_allow_list_tables_are_consistent(self):
         for event_type, fields in EVENT_ALLOW_LIST.items():
             self.assertTrue(fields <= set(FIELD_SHAPES), event_type)
-        for forbidden in ("prompt", "body", "headers", "token", "value", "password", "message", "env"):
+        for forbidden in (
+            "prompt",
+            "body",
+            "headers",
+            "token",
+            "value",
+            "password",
+            "message",
+            "env",
+        ):
             for fields in EVENT_ALLOW_LIST.values():
                 self.assertNotIn(forbidden, fields)
         self.assertEqual(allowed_fields("nope"), frozenset())
@@ -260,7 +339,7 @@ class TelemetryAllowList(unittest.TestCase):
         exporter.record_span(canary + "!bad name")
         text = repr(exported)
         self.assertNotIn(canary, text)
-        name, attrs = exported[0]
+        _name, attrs = exported[0]
         self.assertEqual(attrs["agent_id"], "LR-06")
         self.assertEqual(attrs["error_class"], "RuntimeError")
         self.assertEqual(attrs["task_id"], "invalid")
@@ -279,11 +358,13 @@ class TelemetryAllowList(unittest.TestCase):
             fields = exception_fields(outer)
         self.assertEqual(fields, {"error_class": "KeyError"})
         self.assertEqual(exception_fields(None), {})
-        self.assertNotIn(canary, repr(sanitize_span_attributes({"error_class": canary + " x"})))
+        self.assertNotIn(
+            canary, repr(sanitize_span_attributes({"error_class": canary + " x"}))
+        )
 
     def test_broker_audit_events_through_exporter_path(self):
         rig = Rig()
-        h = rig.request()
+        rig.request()
         exported = []
         exporter = SafeSpanExporter(lambda n, a: exported.append(a))
         for ev in rig.sink.events:

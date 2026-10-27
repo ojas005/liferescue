@@ -37,7 +37,7 @@ import os
 import re
 import sys
 from collections import namedtuple
-from typing import List, Mapping, Optional, Sequence, Tuple
+from typing import List, Mapping, Optional, Sequence, Tuple  # noqa: UP035 - Python 3.8 compat (test_python_38_compatible_syntax)
 from urllib.parse import urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -73,16 +73,20 @@ CODES = {
     "JIRA_URL_BAD_FORM": "a Jira URL uses a port or form that is not accepted",
 }
 
-Problem = Tuple[str, str]
+Problem = Tuple[str, str]  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
 PrLinkResult = namedtuple("PrLinkResult", ["ok", "key", "problems", "branch_note"])
 
 _KEY_IN_BRANCH = re.compile(r"^[a-z]+/KAN-([1-9][0-9]*)-")
 # a KAN-<n> token: not glued to other word characters or hyphens/digits on either side
 _KEY_TOKEN = re.compile(r"(?<![A-Za-z0-9_-])KAN-([1-9][0-9]*)(?![A-Za-z0-9_-])")
-_PROTECTED_PROJECT_TOKEN = re.compile(r"(?<![A-Za-z0-9_-])(SAM1)-([1-9][0-9]*)(?![A-Za-z0-9_-])")
+_PROTECTED_PROJECT_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9_-])(SAM1)-([1-9][0-9]*)(?![A-Za-z0-9_-])"
+)
 # The look-behinds make every match start at a token boundary, so long runs of token characters
 # cannot cause quadratic backtracking.
-_URL_TOKEN = re.compile(r"(?i)(?<![a-z0-9+.-])[a-z][a-z0-9+.-]*://(?:\[[^\s\[\]<>()\"'`]*\])?[^\s<>()\[\]\"'`]*")
+_URL_TOKEN = re.compile(
+    r"(?i)(?<![a-z0-9+.-])[a-z][a-z0-9+.-]*://(?:\[[^\s\[\]<>()\"'`]*\])?[^\s<>()\[\]\"'`]*"
+)
 _HOSTLIKE = re.compile(r"(?i)(?<![a-z0-9.-])[a-z0-9-]+(?:\.[a-z0-9-]+)+")
 _BAD_CONTROL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u202a-\u202e\u2066-\u2069]")
 _TRAILING = ".,;:!?*_~"
@@ -97,22 +101,26 @@ def escaped(text: str) -> str:
     return ascii(text)
 
 
-def _branch_problem(branch: str) -> Optional[str]:
+def _branch_problem(branch: str) -> Optional[str]:  # noqa: UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
     """Run scripts/check-branch-name.py validate(); 'UNAVAILABLE' if it cannot be loaded."""
     global _BRANCH_MODULE
     try:
         if _BRANCH_MODULE is None:
-            spec = importlib.util.spec_from_file_location("kan20_check_branch_name", BRANCH_VALIDATOR_PATH)
+            spec = importlib.util.spec_from_file_location(
+                "kan20_check_branch_name", BRANCH_VALIDATOR_PATH
+            )
             module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
             spec.loader.exec_module(module)  # type: ignore[union-attr]
             _BRANCH_MODULE = module
         result = _BRANCH_MODULE.validate(branch)
         return None if result is None else str(result)
-    except Exception:  # fail closed: any problem loading the validator is a denial
+    except Exception:  # noqa: BLE001 - fail closed: any problem loading the validator is a denial
         return "UNAVAILABLE"
 
 
-def _text_input_problem(value: object, limit: int, allow_newlines: bool) -> Optional[str]:
+def _text_input_problem(
+    value: object, limit: int, allow_newlines: bool
+) -> Optional[str]:  # noqa: UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
     if not isinstance(value, str):
         return "not text"
     if len(value) > limit:
@@ -124,7 +132,7 @@ def _text_input_problem(value: object, limit: int, allow_newlines: bool) -> Opti
     return None
 
 
-def _url_tokens(text: str) -> List[str]:
+def _url_tokens(text: str) -> List[str]:  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     tokens = []
     for match in _URL_TOKEN.finditer(text):
         token = match.group(0)
@@ -134,9 +142,9 @@ def _url_tokens(text: str) -> List[str]:
     return tokens
 
 
-def _scan_urls(text: str, branch_key_number: int, problems: List[Problem]) -> List[str]:
+def _scan_urls(text: str, branch_key_number: int, problems: List[Problem]) -> List[str]:  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     """Check every URL in `text`. Return the list of ACCEPTED Jira URL keys (as 'KAN-<n>' strings)."""
-    accepted: List[str] = []
+    accepted: List[str] = []  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     for token in _url_tokens(text):
         rest = token.split("://", 1)[1]
         rawnet = re.split(r"[/?#]", rest, maxsplit=1)[0]
@@ -161,9 +169,15 @@ def _scan_urls(text: str, branch_key_number: int, problems: List[Problem]) -> Li
             problems.append(("LOOKALIKE_HOST", CODES["LOOKALIKE_HOST"]))
             continue
         exact = host_l == JIRA_HOST
-        mentions_jira_in_tail = JIRA_HOST in tail.lower() or "atlassian.net" in tail.lower()
+        mentions_jira_in_tail = (
+            JIRA_HOST in tail.lower() or "atlassian.net" in tail.lower()
+        )
         if not exact:
-            if "liferescue" in host_l or "atlassian.net" in host_l or mentions_jira_in_tail:
+            if (
+                "liferescue" in host_l
+                or "atlassian.net" in host_l
+                or mentions_jira_in_tail
+            ):
                 problems.append(("LOOKALIKE_HOST", CODES["LOOKALIKE_HOST"]))
             continue
         # exact Jira host from here on
@@ -178,12 +192,14 @@ def _scan_urls(text: str, branch_key_number: int, problems: List[Problem]) -> Li
                 problems.append(("PROTECTED_ISSUE_LINK", CODES["PROTECTED_ISSUE_LINK"]))
         if _PROTECTED_PROJECT_TOKEN.search(tail):
             problems.append(("PROTECTED_ISSUE_LINK", CODES["PROTECTED_ISSUE_LINK"]))
-        if re.search(r"(?<![A-Za-z0-9_-])KAN-%d(?![A-Za-z0-9_-])" % branch_key_number, tail):
-            accepted.append("KAN-%d" % branch_key_number)
+        if re.search(
+            rf"(?<![A-Za-z0-9_-])KAN-{branch_key_number}(?![A-Za-z0-9_-])", tail
+        ):
+            accepted.append(f"KAN-{branch_key_number}")
     return accepted
 
 
-def _scan_hostlike(text: str, problems: List[Problem]) -> None:
+def _scan_hostlike(text: str, problems: List[Problem]) -> None:  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     """Scheme-less look-alikes such as 'liferescue.atlassian.net.evil.com/browse/KAN-20'."""
     for match in _HOSTLIKE.finditer(text):
         token = match.group(0).lower()
@@ -202,12 +218,14 @@ def check_pr_link(title: object, body: object, branch: object) -> PrLinkResult:
     """Return PrLinkResult(ok, key, problems, branch_note). Never raises; fails closed."""
     try:
         return _check(title, body, branch)
-    except Exception:  # an unexpected failure is never an "ok"
-        return PrLinkResult(False, None, (("INPUT_MALFORMED", CODES["INPUT_MALFORMED"]),), None)
+    except Exception:  # noqa: BLE001 - an unexpected failure is never an "ok"
+        return PrLinkResult(
+            False, None, (("INPUT_MALFORMED", CODES["INPUT_MALFORMED"]),), None
+        )
 
 
 def _check(title: object, body: object, branch: object) -> PrLinkResult:
-    problems: List[Problem] = []
+    problems: List[Problem] = []  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     bad_input = (
         _text_input_problem(title, MAX_TITLE, False),
         _text_input_problem(body, MAX_BODY, True),
@@ -215,13 +233,20 @@ def _check(title: object, body: object, branch: object) -> PrLinkResult:
     )
     if any(bad_input):
         problems.append(("INPUT_MALFORMED", CODES["INPUT_MALFORMED"]))
-        return PrLinkResult(False, None, tuple(problems), escaped(branch) if isinstance(branch, str) else None)
+        return PrLinkResult(
+            False,
+            None,
+            tuple(problems),
+            escaped(branch) if isinstance(branch, str) else None,
+        )
     assert isinstance(title, str) and isinstance(body, str) and isinstance(branch, str)
 
     # 1. branch
     why = _branch_problem(branch)
     if why == "UNAVAILABLE":
-        problems.append(("BRANCH_VALIDATOR_UNAVAILABLE", CODES["BRANCH_VALIDATOR_UNAVAILABLE"]))
+        problems.append(
+            ("BRANCH_VALIDATOR_UNAVAILABLE", CODES["BRANCH_VALIDATOR_UNAVAILABLE"])
+        )
     elif why is not None:
         problems.append(("BRANCH_INVALID", CODES["BRANCH_INVALID"]))
     key_match = _KEY_IN_BRANCH.match(branch) if why is None else None
@@ -231,7 +256,7 @@ def _check(title: object, body: object, branch: object) -> PrLinkResult:
         _scan_urls(title + "\n" + body, 0, problems)
         return PrLinkResult(False, None, _dedupe(problems), escaped(branch))
     number = int(key_match.group(1))
-    key = "KAN-%d" % number
+    key = f"KAN-{number}"
 
     # 5. protected issues (proposed assumption)
     if number in PROTECTED_KAN_NUMBERS:
@@ -251,13 +276,15 @@ def _check(title: object, body: object, branch: object) -> PrLinkResult:
 
     # 3. the body must carry the key (bare or in an accepted Jira URL)
     if not (in_body or body_urls):
-        problems.append(("BODY_LACKS_JIRA_REFERENCE", CODES["BODY_LACKS_JIRA_REFERENCE"]))
+        problems.append(
+            ("BODY_LACKS_JIRA_REFERENCE", CODES["BODY_LACKS_JIRA_REFERENCE"])
+        )
 
     final = _dedupe(problems)
     return PrLinkResult(not final, key, final, None)
 
 
-def _dedupe(problems: List[Problem]) -> Tuple[Problem, ...]:
+def _dedupe(problems: List[Problem]) -> Tuple[Problem, ...]:  # noqa: UP006 - Python 3.8 compat (test_python_38_compatible_syntax)
     seen = []
     for item in problems:
         if item not in seen:
@@ -270,17 +297,17 @@ def _dedupe(problems: List[Problem]) -> Tuple[Problem, ...]:
 # ---------------------------------------------------------------------------------------------
 
 
-def _read_inputs(environ: Mapping[str, str]) -> Tuple[Optional[Tuple[object, object, object]], Optional[str]]:
+def _read_inputs(
+    environ: Mapping[str, str],
+) -> Tuple[Optional[Tuple[object, object, object]], Optional[str]]:  # noqa: UP006,UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
     """Return ((title, body, branch), None) or (None, usage_error_text). Texts are fixed strings."""
     path = environ.get(ENV_FILE)
     individual = [name for name in (ENV_TITLE, ENV_BODY, ENV_BRANCH) if name in environ]
     if path is not None:
         if individual:
-            return None, "set either %s or the variables %s/%s/%s, not both" % (
-                ENV_FILE,
-                ENV_TITLE,
-                ENV_BODY,
-                ENV_BRANCH,
+            return (
+                None,
+                f"set either {ENV_FILE} or the variables {ENV_TITLE}/{ENV_BODY}/{ENV_BRANCH}, not both",
             )
         try:
             if os.path.getsize(path) > MAX_FILE_BYTES:
@@ -290,21 +317,37 @@ def _read_inputs(environ: Mapping[str, str]) -> Tuple[Optional[Tuple[object, obj
         except (OSError, ValueError):
             return None, "the input file cannot be read as JSON"
         if not isinstance(data, dict) or set(data) != {"title", "body", "branch"}:
-            return None, 'the input file must be a JSON object with exactly the keys "title", "body", "branch"'
-        body = "" if data["body"] is None else data["body"]  # GitHub sends null for an empty body
+            return (
+                None,
+                'the input file must be a JSON object with exactly the keys "title", "body", "branch"',
+            )
+        body = (
+            "" if data["body"] is None else data["body"]
+        )  # GitHub sends null for an empty body
         return (data["title"], body, data["branch"]), None
-    missing = [name for name in (ENV_TITLE, ENV_BODY, ENV_BRANCH) if name not in environ]
+    missing = [
+        name for name in (ENV_TITLE, ENV_BODY, ENV_BRANCH) if name not in environ
+    ]
     if missing:
-        return None, "set the environment variables %s, %s and %s (or %s)" % (ENV_TITLE, ENV_BODY, ENV_BRANCH, ENV_FILE)
+        return (
+            None,
+            f"set the environment variables {ENV_TITLE}, {ENV_BODY} and {ENV_BRANCH} (or {ENV_FILE})",
+        )
     return (environ[ENV_TITLE], environ[ENV_BODY], environ[ENV_BRANCH]), None
 
 
-def main(argv: Optional[Sequence[str]] = None, environ: Optional[Mapping[str, str]] = None) -> int:
+def main(
+    argv: Optional[Sequence[str]] = None,  # noqa: UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
+    environ: Optional[Mapping[str, str]] = None,  # noqa: UP045 - Python 3.8 compat (test_python_38_compatible_syntax)
+) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     environ = os.environ if environ is None else environ
     # No option parsing at all: any argument is refused without being looked at or printed.
     if argv:
-        print("error: this script takes no arguments; see docs/pr-jira-link-check.md", file=sys.stderr)
+        print(
+            "error: this script takes no arguments; see docs/pr-jira-link-check.md",
+            file=sys.stderr,
+        )
         return 2
     inputs, usage = _read_inputs(environ)
     if inputs is None:
@@ -312,10 +355,10 @@ def main(argv: Optional[Sequence[str]] = None, environ: Optional[Mapping[str, st
         return 2
     result = check_pr_link(*inputs)
     if result.ok:
-        print("OK: PR is linked to Jira issue %s" % result.key)
+        print(f"OK: PR is linked to Jira issue {result.key}")
         return 0
     for code, text in result.problems:
-        print("INVALID %s: %s" % (code, text), file=sys.stderr)
+        print(f"INVALID {code}: {text}", file=sys.stderr)
     if result.branch_note is not None:
         print("branch (escaped): " + result.branch_note, file=sys.stderr)
     return 1

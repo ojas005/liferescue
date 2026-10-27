@@ -11,6 +11,7 @@ Any future ``SecretBackend`` (deferred real adapters included) must pass this su
 
 The suite never uses a real credential: values are random canaries generated per test.
 """
+
 from __future__ import annotations
 
 import builtins
@@ -80,7 +81,14 @@ class BackendConformanceMixin:
     def test_conformance_value_never_appears_in_repr_str_format_pickle_copy(self):
         backend, ref, canary = self.ready()
         value = backend.resolve(ref, ttl=self.TTL)
-        for text in (repr(value), str(value), format(value), f"{value}", repr([value]), repr({"v": value})):
+        for text in (
+            repr(value),
+            str(value),
+            format(value),
+            f"{value}",
+            repr([value]),
+            repr({"v": value}),
+        ):
             self.assertNotIn(canary, text)
         for fn in (pickle.dumps, copy.copy, copy.deepcopy):
             with self.assertRaises(TypeError):
@@ -95,22 +103,25 @@ class BackendConformanceMixin:
         backend.resolve(ref, ttl=timedelta(seconds=1))
 
     def test_conformance_unknown_ref_raises_unknown_ref_without_leaking(self):
-        backend, ref, canary = self.ready()
+        backend, _ref, canary = self.ready()
         with self.assertRaises(UnknownRef) as ctx:
             backend.resolve(self.ref("mock-not-provisioned"), ttl=self.TTL)
         self.assertNotIn(canary, str(ctx.exception) + repr(ctx.exception))
         self.assertNotIn("not-provisioned", str(ctx.exception))
 
     def test_conformance_wrong_environment_refs_are_refused(self):
-        backend, ref, canary = self.ready()
+        backend, _ref, _canary = self.ready()
         for env in Environment:
             if env is self.ENVIRONMENT:
                 continue
             with self.assertRaises(BackendError):
-                backend.resolve(SecretRef(env, Purpose.MODEL_INFERENCE, "mock-conformance-key"), ttl=self.TTL)
+                backend.resolve(
+                    SecretRef(env, Purpose.MODEL_INFERENCE, "mock-conformance-key"),
+                    ttl=self.TTL,
+                )
 
     def test_conformance_revoke_is_idempotent_and_tolerates_unknown_leases(self):
-        backend, ref, canary = self.ready()
+        backend, ref, _canary = self.ready()
         backend.revoke(ref, "lease-id-that-never-existed-0000")
         backend.revoke(ref, "lease-id-that-never-existed-0000")
         backend.resolve(ref, ttl=self.TTL)
@@ -138,7 +149,7 @@ class BackendConformanceMixin:
                 v = backend.resolve(ref, ttl=self.TTL)
                 with v.reveal() as raw:
                     results.append(raw)
-            except BaseException as exc:  # pragma: no cover - would fail the test
+            except BaseException as exc:  # pragma: no cover - would fail the test  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 errors.append(exc)
 
         threads = [threading.Thread(target=work) for _ in range(16)]
@@ -149,7 +160,9 @@ class BackendConformanceMixin:
 
     def test_conformance_isolated_backends_touch_no_env_file_or_network(self):
         if not self.ISOLATED:
-            self.skipTest("backend is not declared ISOLATED (a real adapter legitimately uses the network)")
+            self.skipTest(
+                "backend is not declared ISOLATED (a real adapter legitimately uses the network)"
+            )
         import os
 
         class Trap:
@@ -168,10 +181,14 @@ class BackendConformanceMixin:
             def __iter__(self):
                 raise AssertionError("backend touched env/file/network")
 
-        backend, ref, canary = self.ready()
-        with mock.patch.object(os, "environ", Trap()), mock.patch.object(os, "getenv", Trap()), mock.patch.object(
-            builtins, "open", Trap()
-        ), mock.patch.object(socket, "socket", Trap()), mock.patch.object(socket, "getaddrinfo", Trap()):
+        backend, ref, _canary = self.ready()
+        with (
+            mock.patch.object(os, "environ", Trap()),
+            mock.patch.object(os, "getenv", Trap()),
+            mock.patch.object(builtins, "open", Trap()),
+            mock.patch.object(socket, "socket", Trap()),
+            mock.patch.object(socket, "getaddrinfo", Trap()),
+        ):
             backend.resolve(ref, ttl=self.TTL)
             backend.revoke(ref, "lease-id-0000000000000")
             backend.health()

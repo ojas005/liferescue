@@ -14,6 +14,7 @@ output-safety invariants the workflow depends on:
   * a canary secret in another environment variable is never printed;
   * a name containing $(...) or backticks does not execute (a canary file is never created).
 """
+
 import importlib.util
 import os
 import subprocess
@@ -25,6 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 GATE = os.path.join(HERE, "ci_branch_gate.py")
 
 _spec = importlib.util.spec_from_file_location("ci_branch_gate", GATE)
+assert _spec is not None and _spec.loader is not None
 gate = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gate)
 
@@ -47,8 +49,18 @@ VALID = [
 ]
 EXEMPT = [
     ("chore/bootstrap-repository-baseline", None, "exempt", "legacy exemption (PR #1)"),
-    ("docs/KAN-orchestration-agent-assignment-registry", None, "exempt", "legacy exemption (PR #2)"),
-    ("dependabot/github_actions/actions/checkout-8", BOT, "exempt", "dependabot by dependabot[bot]"),
+    (
+        "docs/KAN-orchestration-agent-assignment-registry",
+        None,
+        "exempt",
+        "legacy exemption (PR #2)",
+    ),
+    (
+        "dependabot/github_actions/actions/checkout-8",
+        BOT,
+        "exempt",
+        "dependabot by dependabot[bot]",
+    ),
     ("dependabot/pip/foo-1.2.3", BOT, "exempt", "dependabot, dots allowed"),
 ]
 HOSTILE = [
@@ -70,10 +82,25 @@ HOSTILE = [
     ("feature/KAN-20-x\r", None, "invalid", "trailing carriage return"),
     ("feature/KAN-20-x\t", None, "invalid", "trailing tab"),
     ("::error::pwned", None, "invalid", "workflow command as name"),
-    ("feature/KAN-20-x\n::error::pwned", None, "invalid", "workflow command on second line"),
-    ("feature/KAN-20-x\n::set-output name=a::b", None, "invalid", "set-output injection"),
+    (
+        "feature/KAN-20-x\n::error::pwned",
+        None,
+        "invalid",
+        "workflow command on second line",
+    ),
+    (
+        "feature/KAN-20-x\n::set-output name=a::b",
+        None,
+        "invalid",
+        "set-output injection",
+    ),
     ("feature/KAN-20-x\n::add-mask::y", None, "invalid", "add-mask injection"),
-    ("feature/KAN-20-x\n::stop-commands::tok", None, "invalid", "stop-commands injection"),
+    (
+        "feature/KAN-20-x\n::stop-commands::tok",
+        None,
+        "invalid",
+        "stop-commands injection",
+    ),
     ("-feature/KAN-20-x", None, "invalid", "leading dash"),
     ("--help", None, "invalid", "option-looking name"),
     ("-", None, "invalid", "single dash"),
@@ -113,17 +140,37 @@ HOSTILE = [
     ("chore/bootstrap-repository-baseline-2", None, "invalid", "exempt name + suffix"),
     ("chore/bootstrap-repository-baselin", None, "invalid", "exempt name truncated"),
     ("Chore/bootstrap-repository-baseline", None, "invalid", "exempt name, other case"),
-    ("docs/KAN-orchestration-agent-assignment-registry/x", None, "invalid", "exempt name + path"),
+    (
+        "docs/KAN-orchestration-agent-assignment-registry/x",
+        None,
+        "invalid",
+        "exempt name + path",
+    ),
     # dependabot exemption is only for dependabot[bot] and safe characters
     ("dependabot/github_actions/x", None, "invalid", "dependabot name, no author"),
     ("dependabot/github_actions/x", "ojas005", "invalid", "dependabot name by a human"),
-    ("dependabot/github_actions/x", "dependabot[bot]\n", "invalid", "author with newline"),
+    (
+        "dependabot/github_actions/x",
+        "dependabot[bot]\n",
+        "invalid",
+        "author with newline",
+    ),
     ("dependabot/github_actions/x", "Dependabot[bot]", "invalid", "author other case"),
     ("dependabot/../x", BOT, "invalid", "dependabot with dot-dot segment"),
     ("dependabot/a..b", BOT, "invalid", "dependabot with embedded dot-dot"),
     ("dependabot/a b", BOT, "invalid", "dependabot with space"),
-    ("dependabot/$(touch CANARYFILE)", BOT, "invalid", "dependabot with command substitution"),
-    ("dependabot/x\n::error::pwned", BOT, "invalid", "dependabot with newline injection"),
+    (
+        "dependabot/$(touch CANARYFILE)",
+        BOT,
+        "invalid",
+        "dependabot with command substitution",
+    ),
+    (
+        "dependabot/x\n::error::pwned",
+        BOT,
+        "invalid",
+        "dependabot with newline injection",
+    ),
     ("dependabot/x\n", BOT, "invalid", "dependabot with trailing newline"),
     ("dependabot/", BOT, "invalid", "dependabot with empty suffix"),
     ("dependabot", BOT, "invalid", "dependabot without slash"),
@@ -135,12 +182,21 @@ ALL = VALID + EXEMPT + HOSTILE
 
 
 def run_cli(name, author, cwd):
-    env = {"PATH": os.environ.get("PATH", ""), "BRANCH_NAME": name, "SECRET_CANARY": CANARY}
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "BRANCH_NAME": name,
+        "SECRET_CANARY": CANARY,
+    }
     if author is not None:
         env["PR_AUTHOR_LOGIN"] = author
     return subprocess.run(
-        [sys.executable, GATE], env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        universal_newlines=True, timeout=30,
+        [sys.executable, GATE],
+        env=env,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
 
 
@@ -165,17 +221,24 @@ class MatrixTests(unittest.TestCase):
                 proc = run_cli(name, author, self.tmp.name)
                 out = proc.stdout + proc.stderr
                 # exit code: 0 for valid/exempt, exactly 1 for invalid (never 0, never a crash)
-                self.assertEqual(proc.returncode, 0 if verdict in ("valid", "exempt") else 1, out)
+                self.assertEqual(
+                    proc.returncode, 0 if verdict in ("valid", "exempt") else 1, out
+                )
                 # in-process verdict agrees with the CLI
                 got, _ = gate.classify(name, author, validator)
                 self.assertEqual(got, verdict)
                 # plain text, no raw control characters other than "\n" line ends
-                self.assertTrue(all(c == "\n" or (c.isprintable() and ord(c) < 0x7F) for c in out), ascii(out))
+                self.assertTrue(
+                    all(c == "\n" or (c.isprintable() and ord(c) < 0x7F) for c in out),
+                    ascii(out),
+                )
                 # nothing in the output may start a workflow command, except the one FIXED annotation
                 for line in out.splitlines():
                     if line.lstrip().startswith("::"):
                         self.assertEqual(line, FIXED_ANNOTATION)
-                self.assertEqual(out.count(FIXED_ANNOTATION), 0 if verdict != "invalid" else 1)
+                self.assertEqual(
+                    out.count(FIXED_ANNOTATION), 0 if verdict != "invalid" else 1
+                )
                 # a name with control characters is never echoed raw (only its escaped form). A "::" in the middle
                 # of an escaped line is harmless: the runner acts on a workflow command only at the START of a line.
                 if any(not c.isprintable() or ord(c) > 0x7E for c in name):
@@ -184,12 +247,17 @@ class MatrixTests(unittest.TestCase):
                 self.assertNotIn(CANARY, out)
                 # bounded output: the name is truncated at 120 characters
                 self.assertLess(len(out), 3000)
-        self.assertFalse(os.path.exists(os.path.join(self.tmp.name, "CANARYFILE")), "a branch name was executed")
+        self.assertFalse(
+            os.path.exists(os.path.join(self.tmp.name, "CANARYFILE")),
+            "a branch name was executed",
+        )
 
     def test_expected_exit_codes_are_never_zero_for_invalid(self):
         for name, author, verdict, label in HOSTILE:
             if verdict == "invalid":
-                self.assertNotEqual(run_cli(name, author, self.tmp.name).returncode, 0, label)
+                self.assertNotEqual(
+                    run_cli(name, author, self.tmp.name).returncode, 0, label
+                )
 
     def test_stdout_vs_stderr_of_valid_name(self):
         proc = run_cli("feature/KAN-20-x", None, self.tmp.name)
@@ -198,52 +266,103 @@ class MatrixTests(unittest.TestCase):
 
     def test_exempt_output_is_fixed_text(self):
         proc = run_cli("chore/bootstrap-repository-baseline", None, self.tmp.name)
-        self.assertEqual(proc.stdout, "EXEMPT: legacy: bootstrap baseline branch (PR #1, merged)\n")
+        self.assertEqual(
+            proc.stdout, "EXEMPT: legacy: bootstrap baseline branch (PR #1, merged)\n"
+        )
 
     def test_exempt_only_mode(self):
         def run(name, author, mode):
-            env = {"PATH": os.environ.get("PATH", ""), "BRANCH_NAME": name, "BRANCH_GATE_MODE": mode}
+            env = {
+                "PATH": os.environ.get("PATH", ""),
+                "BRANCH_NAME": name,
+                "BRANCH_GATE_MODE": mode,
+            }
             if author is not None:
                 env["PR_AUTHOR_LOGIN"] = author
-            return subprocess.run([sys.executable, GATE], env=env, cwd=self.tmp.name, stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE, universal_newlines=True)
+            return subprocess.run(
+                [sys.executable, GATE],
+                env=env,
+                cwd=self.tmp.name,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
         for name, author, verdict, label in ALL:
             with self.subTest(label=label):
                 proc = run(name, author, "exempt-only")
                 self.assertEqual(proc.returncode, 0 if verdict == "exempt" else 1)
-                self.assertEqual(proc.stdout, "EXEMPT\n" if verdict == "exempt" else "NOT-EXEMPT\n")
+                self.assertEqual(
+                    proc.stdout, "EXEMPT\n" if verdict == "exempt" else "NOT-EXEMPT\n"
+                )
                 self.assertEqual(proc.stderr, "")
         for bad_mode in ("exempt", "EXEMPT-ONLY", "x\n::error::y", "1"):
-            self.assertEqual(run("feature/KAN-20-x", None, bad_mode).returncode, 2, bad_mode)
+            self.assertEqual(
+                run("feature/KAN-20-x", None, bad_mode).returncode, 2, bad_mode
+            )
 
     def test_unset_branch_name_is_usage_error(self):
-        proc = subprocess.run([sys.executable, GATE], env={"PATH": os.environ.get("PATH", "")}, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, universal_newlines=True, cwd=self.tmp.name)
+        proc = subprocess.run(
+            [sys.executable, GATE],
+            env={"PATH": os.environ.get("PATH", "")},
+            capture_output=True,
+            text=True,
+            cwd=self.tmp.name,
+            check=False,
+        )
         self.assertEqual(proc.returncode, 2)
 
     def test_arguments_are_refused_and_not_echoed(self):
         for args in (["-h"], ["--help"], ["--"], ["feature/KAN-20-x"], ["$(id)"], [""]):
-            proc = subprocess.run([sys.executable, GATE] + args, env={"PATH": os.environ.get("PATH", ""), "BRANCH_NAME": "feature/KAN-20-x"},
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, cwd=self.tmp.name)
+            proc = subprocess.run(
+                [sys.executable, GATE] + args,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "BRANCH_NAME": "feature/KAN-20-x",
+                },
+                capture_output=True,
+                text=True,
+                cwd=self.tmp.name,
+                check=False,
+            )
             self.assertEqual(proc.returncode, 2, args)
             self.assertNotIn(args[0] or "\0", proc.stdout + proc.stderr)
 
     def test_nul_byte_and_non_str_in_process(self):
         validator = gate._load_validator()
-        for bad in ("feature/KAN-20-x\x00", "feature/KAN-20-x\x00::error::y", None, b"feature/KAN-20-x", 5):
-            self.assertEqual(gate.classify(bad, None, validator)[0], "invalid", repr(bad))
+        for bad in (
+            "feature/KAN-20-x\x00",
+            "feature/KAN-20-x\x00::error::y",
+            None,
+            b"feature/KAN-20-x",
+            5,
+        ):
+            self.assertEqual(
+                gate.classify(bad, None, validator)[0], "invalid", repr(bad)
+            )
 
     def test_shell_metacharacters_do_not_run_when_passed_through_env(self):
         # the workflow equivalent: env var -> `run: python3 scripts/ci_branch_gate.py` (no interpolation)
-        env = {"PATH": os.environ.get("PATH", ""), "BRANCH_NAME": "feature/KAN-20-$(touch CANARYFILE2);`touch CANARYFILE2`"}
-        subprocess.run(["bash", "-c", '"%s" "%s"' % (sys.executable, GATE)], env=env, cwd=self.tmp.name,
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "BRANCH_NAME": "feature/KAN-20-$(touch CANARYFILE2);`touch CANARYFILE2`",
+        }
+        subprocess.run(
+            ["bash", "-c", f'"{sys.executable}" "{GATE}"'],
+            env=env,
+            cwd=self.tmp.name,
+            capture_output=True,
+            check=False,
+        )
         self.assertFalse(os.path.exists(os.path.join(self.tmp.name, "CANARYFILE2")))
 
     def test_exemption_list_is_exactly_the_documented_set(self):
         self.assertEqual(
             set(gate.EXACT_EXEMPTIONS),
-            {"chore/bootstrap-repository-baseline", "docs/KAN-orchestration-agent-assignment-registry"},
+            {
+                "chore/bootstrap-repository-baseline",
+                "docs/KAN-orchestration-agent-assignment-registry",
+            },
         )
         validator = gate._load_validator()
         # every exemption entry really is a name the rule rejects (otherwise the entry is dead weight)

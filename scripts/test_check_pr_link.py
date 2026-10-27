@@ -21,6 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "check_pr_link.py")
 
 _spec = importlib.util.spec_from_file_location("check_pr_link", SCRIPT)
+assert _spec is not None and _spec.loader is not None
 cpl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cpl)
 
@@ -66,7 +67,11 @@ class ValidInputs(unittest.TestCase):
 
     def test_other_keys_may_be_mentioned_next_to_the_branch_key(self):
         self.assertTrue(check(body="KAN-20 follows KAN-19 and KAN-26.").ok)
-        self.assertTrue(check(body="KAN-20; not touching KAN-1 or SAM1-5 (plain text is not a link)").ok)
+        self.assertTrue(
+            check(
+                body="KAN-20; not touching KAN-1 or SAM1-5 (plain text is not a link)"
+            ).ok
+        )
 
     def test_multi_line_body_and_prose_mentioning_the_project(self):
         body = "LifeRescue project.\r\nLifeRescue. Next sentence.\n\n- KAN-20\n\ttab\n"
@@ -81,7 +86,9 @@ class ValidInputs(unittest.TestCase):
             self.assertTrue(check(branch=t + "/KAN-20-x").ok, t)
 
     def test_large_issue_numbers(self):
-        self.assertTrue(check(title="x", body="KAN-12345", branch="feature/KAN-12345-x").ok)
+        self.assertTrue(
+            check(title="x", body="KAN-12345", branch="feature/KAN-12345-x").ok
+        )
 
 
 class MissingAndMismatchedKey(unittest.TestCase):
@@ -97,7 +104,10 @@ class MissingAndMismatchedKey(unittest.TestCase):
         self.assertEqual(codes(r), ["BODY_LACKS_JIRA_REFERENCE"])
 
     def test_different_key(self):
-        for title, body in (("KAN-21 x", "KAN-21"), ("x", "https://liferescue.atlassian.net/browse/KAN-21")):
+        for title, body in (
+            ("KAN-21 x", "KAN-21"),
+            ("x", "https://liferescue.atlassian.net/browse/KAN-21"),
+        ):
             with self.subTest(title=title, body=body):
                 r = check(title=title, body=body)
                 self.assertFalse(r.ok)
@@ -173,31 +183,43 @@ class ProtectedIssues(unittest.TestCase):
         for n in (1, 2, 3):
             with self.subTest(n=n):
                 r = check(
-                    title="KAN-%d x" % n,
-                    body="https://liferescue.atlassian.net/browse/KAN-%d" % n,
-                    branch="feature/KAN-%d-x" % n,
+                    title=f"KAN-{n} x",
+                    body=f"https://liferescue.atlassian.net/browse/KAN-{n}",
+                    branch=f"feature/KAN-{n}-x",
                 )
                 self.assertFalse(r.ok)
                 self.assertIn("PROTECTED_ISSUE", codes(r))
 
     def test_kan_4_and_larger_are_not_protected(self):
         for n in (4, 10, 20, 100):
-            self.assertTrue(check(title="x", body="KAN-%d" % n, branch="feature/KAN-%d-x" % n).ok, n)
+            self.assertTrue(
+                check(title="x", body=f"KAN-{n}", branch=f"feature/KAN-{n}-x").ok, n
+            )
 
     def test_jira_url_pointing_at_a_protected_issue_is_denied(self):
-        for tail in ("browse/KAN-1", "browse/KAN-2", "browse/KAN-3", "browse/SAM1-7", "browse/SAM1-1?x=KAN-20"):
+        for tail in (
+            "browse/KAN-1",
+            "browse/KAN-2",
+            "browse/KAN-3",
+            "browse/SAM1-7",
+            "browse/SAM1-1?x=KAN-20",
+        ):
             with self.subTest(tail=tail):
                 r = check(body=URL + " https://liferescue.atlassian.net/" + tail)
                 self.assertFalse(r.ok)
                 self.assertIn("PROTECTED_ISSUE_LINK", codes(r))
 
     def test_protected_key_in_prose_is_not_a_link(self):
-        self.assertTrue(check(body=BODY + "\nUnrelated to KAN-1, KAN-2, KAN-3 and SAM1-1.").ok)
+        self.assertTrue(
+            check(body=BODY + "\nUnrelated to KAN-1, KAN-2, KAN-3 and SAM1-1.").ok
+        )
 
     def test_look_alikes_of_protected_numbers(self):
         # KAN-10 .. KAN-30 contain the digits but are different issues
         for n in (10, 11, 12, 13, 21, 30, 31, 32, 33):
-            self.assertTrue(check(title="x", body="KAN-%d" % n, branch="feature/KAN-%d-x" % n).ok, n)
+            self.assertTrue(
+                check(title="x", body=f"KAN-{n}", branch=f"feature/KAN-{n}-x").ok, n
+            )
 
 
 LOOKALIKE_BODIES = (
@@ -259,11 +281,32 @@ class LookalikeHosts(unittest.TestCase):
                 self.assertFalse(check(title="KAN-20 " + bad).ok)
 
     def test_specific_reason_codes(self):
-        self.assertIn("LOOKALIKE_HOST", codes(check(body="https://liferescue.atlassian.net.evil.com/browse/KAN-20")))
-        self.assertIn("LOOKALIKE_HOST", codes(check(body="https://evil.com/liferescue.atlassian.net/browse/KAN-20")))
-        self.assertIn("USERINFO_IN_URL", codes(check(body="https://user:pass@liferescue.atlassian.net/browse/KAN-20")))
-        self.assertIn("NON_HTTPS_JIRA_URL", codes(check(body="http://liferescue.atlassian.net/browse/KAN-20")))
-        self.assertIn("JIRA_URL_BAD_FORM", codes(check(body="https://liferescue.atlassian.net:8443/browse/KAN-20")))
+        self.assertIn(
+            "LOOKALIKE_HOST",
+            codes(
+                check(body="https://liferescue.atlassian.net.evil.com/browse/KAN-20")
+            ),
+        )
+        self.assertIn(
+            "LOOKALIKE_HOST",
+            codes(
+                check(body="https://evil.com/liferescue.atlassian.net/browse/KAN-20")
+            ),
+        )
+        self.assertIn(
+            "USERINFO_IN_URL",
+            codes(
+                check(body="https://user:pass@liferescue.atlassian.net/browse/KAN-20")
+            ),
+        )
+        self.assertIn(
+            "NON_HTTPS_JIRA_URL",
+            codes(check(body="http://liferescue.atlassian.net/browse/KAN-20")),
+        )
+        self.assertIn(
+            "JIRA_URL_BAD_FORM",
+            codes(check(body="https://liferescue.atlassian.net:8443/browse/KAN-20")),
+        )
 
     def test_the_exact_host_with_odd_path_is_not_a_lookalike(self):
         self.assertTrue(check(body="KAN-20 https://liferescue.atlassian.net/").ok)
@@ -292,7 +335,9 @@ class HostileInput(unittest.TestCase):
         self.assertFalse(check(title="", body="").ok)
         self.assertFalse(check(title="", body="", branch="").ok)
         self.assertFalse(check(body="   \n\t  ").ok)
-        self.assertTrue(check(title="", body=BODY).ok)  # an empty title is allowed when the body links the issue
+        self.assertTrue(
+            check(title="", body=BODY).ok
+        )  # an empty title is allowed when the body links the issue
 
     def test_newline_forging_in_branch_and_title(self):
         for branch in (
@@ -307,12 +352,30 @@ class HostileInput(unittest.TestCase):
         ):
             with self.subTest(branch=ascii(branch)):
                 self.assertFalse(check(branch=branch).ok)
-        for title in (TITLE + "\nOK: PR is linked", TITLE + "\r", "a\tb", TITLE + "\x00", "\x1b[31m" + TITLE):
+        for title in (
+            TITLE + "\nOK: PR is linked",
+            TITLE + "\r",
+            "a\tb",
+            TITLE + "\x00",
+            "\x1b[31m" + TITLE,
+        ):
             with self.subTest(title=ascii(title)):
                 self.assertFalse(check(title=title).ok)
 
     def test_control_characters_in_the_body_are_refused_but_line_breaks_are_fine(self):
-        for char in ("\x00", "\x01", "\x08", "\x0b", "\x0c", "\x1b", "\x7f", "\u202e", "\u202a", "\u2066", "\u2069"):
+        for char in (
+            "\x00",
+            "\x01",
+            "\x08",
+            "\x0b",
+            "\x0c",
+            "\x1b",
+            "\x7f",
+            "\u202e",
+            "\u202a",
+            "\u2066",
+            "\u2069",
+        ):
             with self.subTest(char=ascii(char)):
                 self.assertFalse(check(body=BODY + char).ok)
         self.assertTrue(check(body=BODY + "\r\n\t\n").ok)
@@ -338,10 +401,10 @@ class HostileInput(unittest.TestCase):
     def test_injection_strings_are_data(self):
         canary = os.path.join(tempfile.mkdtemp(), "canary")
         payloads = [
-            "$(touch %s)" % canary,
-            "`touch %s`" % canary,
-            "; touch %s" % canary,
-            "__import__('os').system('touch %s')" % canary,
+            f"$(touch {canary})",
+            f"`touch {canary}`",
+            f"; touch {canary}",
+            f"__import__('os').system('touch {canary}')",
             "{{7*7}}",
             "${jndi:ldap://x/a}",
             "<script>alert(1)</script>",
@@ -376,7 +439,9 @@ class HostileInput(unittest.TestCase):
             branch="feature/KAN-20-x\n" + secret,
         )
         self.assertNotIn(secret, repr(r.problems))  # reasons are fixed texts
-        self.assertEqual(r.branch_note, cpl.escaped("feature/KAN-20-x\n" + secret))  # the only echo: escaped branch
+        self.assertEqual(
+            r.branch_note, cpl.escaped("feature/KAN-20-x\n" + secret)
+        )  # the only echo: escaped branch
 
     def test_branch_validator_unavailable_fails_closed(self):
         original = cpl.BRANCH_VALIDATOR_PATH
@@ -420,7 +485,9 @@ def good_env():
 class CommandLineContract(unittest.TestCase):
     def test_ok(self):
         code, out, err = run_main(good_env())
-        self.assertEqual((code, out, err), (0, "OK: PR is linked to Jira issue KAN-20\n", ""))
+        self.assertEqual(
+            (code, out, err), (0, "OK: PR is linked to Jira issue KAN-20\n", "")
+        )
 
     def test_invalid_exit_1_with_fixed_codes_on_stderr(self):
         env = good_env()
@@ -463,11 +530,22 @@ class CommandLineContract(unittest.TestCase):
                 self.assertEqual(run_main(env)[0], 2)
 
     def test_any_argument_is_a_usage_error_and_is_not_echoed(self):
-        for arg in ("-h", "--help", "--", "--file", "x", "PR_BRANCH=feature/KAN-1-x", "", "$(id)"):
+        for arg in (
+            "-h",
+            "--help",
+            "--",
+            "--file",
+            "x",
+            "PR_BRANCH=feature/KAN-1-x",
+            "",
+            "$(id)",
+        ):
             with self.subTest(arg=arg):
                 code, out, err = run_main(good_env(), [arg])
                 self.assertEqual(code, 2)
-                self.assertNotIn(arg or "\0", out + err.replace("--help", "") if arg else "")
+                self.assertNotIn(
+                    arg or "\0", out + err.replace("--help", "") if arg else ""
+                )
                 self.assertEqual(out, "")
 
     def test_empty_values_are_set_but_invalid(self):
@@ -475,7 +553,10 @@ class CommandLineContract(unittest.TestCase):
         self.assertEqual(code, 1)
 
     def test_hostile_branch_is_echoed_escaped_and_bounded(self):
-        branch = "feature/KAN-20-x\nOK: PR is linked to Jira issue KAN-20\x1b[31m" + "A" * 500
+        branch = (
+            "feature/KAN-20-x\nOK: PR is linked to Jira issue KAN-20\x1b[31m"
+            + "A" * 500
+        )
         env = dict(good_env(), PR_BRANCH=branch)
         code, out, err = run_main(env)
         self.assertEqual(code, 1)
@@ -486,7 +567,11 @@ class CommandLineContract(unittest.TestCase):
         self.assertIn("[truncated]", err)
 
     def test_no_stdout_ok_line_for_hostile_title_or_body(self):
-        env = dict(good_env(), PR_TITLE="x\nOK: PR is linked to Jira issue KAN-20", PR_BODY="nothing")
+        env = dict(
+            good_env(),
+            PR_TITLE="x\nOK: PR is linked to Jira issue KAN-20",
+            PR_BODY="nothing",
+        )
         code, out, err = run_main(env)
         self.assertEqual((code, out), (1, ""))
         self.assertNotIn("OK:", err)
@@ -500,11 +585,15 @@ class CommandLineContract(unittest.TestCase):
                     fh.write(obj if isinstance(obj, str) else json.dumps(obj))
                 return {"PR_JSON_FILE": path}
 
-            self.assertEqual(run_main(write({"title": TITLE, "body": BODY, "branch": BRANCH}))[0], 0)
+            self.assertEqual(
+                run_main(write({"title": TITLE, "body": BODY, "branch": BRANCH}))[0], 0
+            )
             self.assertEqual(
                 run_main(write({"title": TITLE, "body": None, "branch": BRANCH}))[0], 1
             )  # null body = empty
-            self.assertEqual(run_main(write({"title": TITLE, "body": "x", "branch": BRANCH}))[0], 1)
+            self.assertEqual(
+                run_main(write({"title": TITLE, "body": "x", "branch": BRANCH}))[0], 1
+            )
             for bad in (
                 "{not json",
                 "[]",
@@ -516,7 +605,9 @@ class CommandLineContract(unittest.TestCase):
                 with self.subTest(bad=bad):
                     self.assertEqual(run_main(write(bad))[0], 2)
             # wrong types inside a well-formed object are invalid input (1), not a crash
-            self.assertEqual(run_main(write({"title": 5, "body": "b", "branch": "c"}))[0], 1)
+            self.assertEqual(
+                run_main(write({"title": 5, "body": "b", "branch": "c"}))[0], 1
+            )
             # the file and the variables may not be mixed
             env = write({"title": TITLE, "body": BODY, "branch": BRANCH})
             env.update(good_env())
@@ -536,10 +627,14 @@ class CommandLineContract(unittest.TestCase):
                 text=True,
                 env=env,
                 cwd=tempfile.gettempdir(),
+                check=False,
             )
 
         r = run(good_env())
-        self.assertEqual((r.returncode, r.stdout.strip()), (0, "OK: PR is linked to Jira issue KAN-20"))
+        self.assertEqual(
+            (r.returncode, r.stdout.strip()),
+            (0, "OK: PR is linked to Jira issue KAN-20"),
+        )
         r = run(dict(good_env(), PR_BODY="none"))
         self.assertEqual(r.returncode, 1)
         r = run({})
@@ -548,14 +643,20 @@ class CommandLineContract(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertNotIn("usage:", r.stdout + r.stderr.lower())
         # values that look like options or shell syntax are only data
-        r = run({"PR_TITLE": "--help", "PR_BODY": "-h $(id) KAN-20", "PR_BRANCH": "feature/KAN-20-x"})
+        r = run(
+            {
+                "PR_TITLE": "--help",
+                "PR_BODY": "-h $(id) KAN-20",
+                "PR_BRANCH": "feature/KAN-20-x",
+            }
+        )
         self.assertEqual(r.returncode, 0)
 
     def test_other_environment_variables_are_not_read_or_printed(self):
         canary = "KAN20_CANARY_" + uuid.uuid4().hex
         env = dict(good_env(), PR_BODY="none")
         env["SOME_OTHER_VAR"] = canary
-        code, out, err = run_main(env)
+        _code, out, err = run_main(env)
         self.assertNotIn(canary, out + err)
 
 
@@ -583,7 +684,15 @@ class StaticProperties(unittest.TestCase):
     def test_python_38_compatible_syntax(self):
         with open(SCRIPT, encoding="utf-8") as fh:
             source = fh.read()
-        for forbidden in ("match ", "removeprefix", "removesuffix", " | None", "list[", "dict[", "tuple["):
+        for forbidden in (
+            "match ",
+            "removeprefix",
+            "removesuffix",
+            " | None",
+            "list[",
+            "dict[",
+            "tuple[",
+        ):
             if forbidden == "match ":
                 self.assertNotRegex(source, r"(?m)^\s*match\s+\w+:\s*$")
             else:
@@ -598,7 +707,9 @@ PROTECTED_GUARD = "    if number in PROTECTED_KAN_NUMBERS:\n"
 LOOKALIKE_GUARD = '            if "liferescue" in host_l or "atlassian.net" in host_l or mentions_jira_in_tail:\n'
 KEY_GUARD = "    if not (in_title or in_body or title_urls or body_urls):\n"
 BODY_GUARD = "    if not (in_body or body_urls):\n"
-HOSTLIKE_GUARD = "        if token == JIRA_HOST:\n            continue  # HOSTLIKE_GUARD\n"
+HOSTLIKE_GUARD = (
+    "        if token == JIRA_HOST:\n            continue  # HOSTLIKE_GUARD\n"
+)
 USERINFO_GUARD = '        if "@" in rawnet:\n'
 
 
@@ -607,11 +718,11 @@ def load_mutant(replacements):
         source = fh.read()
     for old, new in replacements:
         if source.count(old) != 1:
-            raise AssertionError("mutation target not found exactly once: %r" % old)
+            raise AssertionError(f"mutation target not found exactly once: {old!r}")
         source = source.replace(old, new)
     module = types.ModuleType("check_pr_link_mutant")
     module.__file__ = SCRIPT
-    exec(compile(source, SCRIPT, "exec"), module.__dict__)
+    exec(compile(source, SCRIPT, "exec"), module.__dict__)  # noqa: S102 - mutation test executes this repo's own script source (mutated), never external input
     return module
 
 
@@ -622,16 +733,28 @@ def guard_protected(test, m):
 def guard_lookalike(test, m):
     # only the URL scan catches a Jira host name inside another URL's path
     test.assertFalse(
-        m.check_pr_link(TITLE, "KAN-20 https://evil.com/liferescue.atlassian.net/browse/KAN-20", BRANCH).ok
+        m.check_pr_link(
+            TITLE,
+            "KAN-20 https://evil.com/liferescue.atlassian.net/browse/KAN-20",
+            BRANCH,
+        ).ok
     )
     test.assertFalse(
-        m.check_pr_link(TITLE, "KAN-20 https://liferescue.atlassian.net.evil.com/browse/KAN-20", BRANCH).ok
+        m.check_pr_link(
+            TITLE,
+            "KAN-20 https://liferescue.atlassian.net.evil.com/browse/KAN-20",
+            BRANCH,
+        ).ok
     )
 
 
 def guard_hostlike(test, m):
     # a scheme-less look-alike is caught only by the host-like token scan
-    test.assertFalse(m.check_pr_link(TITLE, "KAN-20 see liferescue.atlassian.net.evil.com/browse/KAN-20", BRANCH).ok)
+    test.assertFalse(
+        m.check_pr_link(
+            TITLE, "KAN-20 see liferescue.atlassian.net.evil.com/browse/KAN-20", BRANCH
+        ).ok
+    )
 
 
 def guard_key(test, m):
@@ -645,12 +768,23 @@ def guard_body(test, m):
 
 
 def guard_userinfo(test, m):
-    test.assertFalse(m.check_pr_link(TITLE, "https://user:pass@liferescue.atlassian.net/browse/KAN-20", BRANCH).ok)
+    test.assertFalse(
+        m.check_pr_link(
+            TITLE, "https://user:pass@liferescue.atlassian.net/browse/KAN-20", BRANCH
+        ).ok
+    )
 
 
 class MutationChecks(unittest.TestCase):
     def test_unmutated_module_passes_every_guard_test(self):
-        for guard in (guard_protected, guard_lookalike, guard_hostlike, guard_key, guard_body, guard_userinfo):
+        for guard in (
+            guard_protected,
+            guard_lookalike,
+            guard_hostlike,
+            guard_key,
+            guard_body,
+            guard_userinfo,
+        ):
             guard(self, cpl)
 
     def test_removing_the_protected_issue_guard_is_caught(self):
@@ -659,10 +793,14 @@ class MutationChecks(unittest.TestCase):
 
     def test_removing_the_lookalike_host_guard_is_caught(self):
         with self.assertRaises(AssertionError):
-            guard_lookalike(self, load_mutant([(LOOKALIKE_GUARD, "            if False:\n")]))
+            guard_lookalike(
+                self, load_mutant([(LOOKALIKE_GUARD, "            if False:\n")])
+            )
 
     def test_removing_the_scheme_less_lookalike_scan_is_caught(self):
-        mutant = load_mutant([(HOSTLIKE_GUARD, "        if True:\n            continue\n")])
+        mutant = load_mutant(
+            [(HOSTLIKE_GUARD, "        if True:\n            continue\n")]
+        )
         with self.assertRaises(AssertionError):
             guard_hostlike(self, mutant)
 

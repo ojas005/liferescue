@@ -10,6 +10,7 @@ Design rules implemented here:
   * Exceptions raised to callers are ``Denied(reason_code)``, raised OUTSIDE ``except`` blocks so
     ``__cause__``/``__context__`` never chain to an exception that might carry a value.
 """
+
 from __future__ import annotations
 
 import hmac
@@ -17,9 +18,10 @@ import math
 import secrets as _stdlib_secrets
 import threading
 from collections import deque
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Callable, Iterable, Mapping, Optional
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from .agent_api import AgentCredentialClient
 from .audit import AuditEvent, AuditEventType, AuditSink, InMemoryAuditSink, make_event
@@ -27,8 +29,15 @@ from .backend import SecretBackend
 from .clock import Clock, SystemClock
 from .codes import DenialReason, RequestReason, RevokeReason
 from .config import BrokerConfig
-from .errors import ConfigurationError, Denied, InvalidRequest, PolicyError, SecretLeak, UnknownRef
-from .guards import RedactingAuditSink, SINKS
+from .errors import (
+    ConfigurationError,
+    Denied,
+    InvalidRequest,
+    PolicyError,
+    SecretLeak,
+    UnknownRef,
+)
+from .guards import SINKS, RedactingAuditSink
 from .leased_values import LeasedValues
 from .metrics import Metrics
 from .policy import Policy, load_policy
@@ -67,7 +76,13 @@ ALERT_REASONS = frozenset(
 )
 
 #: Denials of ``use`` that mean "someone presented a handle they should not" -> misuse_suspected.
-MISUSE_REASONS = frozenset({DenialReason.CONTEXT_MISMATCH, DenialReason.CALLER_NOT_GATEWAY, DenialReason.HANDLE_TAMPERED})
+MISUSE_REASONS = frozenset(
+    {
+        DenialReason.CONTEXT_MISMATCH,
+        DenialReason.CALLER_NOT_GATEWAY,
+        DenialReason.HANDLE_TAMPERED,
+    }
+)
 
 _WINDOW = 60.0  # seconds, rate-limit window (the spec limits are per minute)
 
@@ -93,7 +108,7 @@ class _Lease:
     expires_at: datetime
     state: LeaseState = LeaseState.ISSUED
     uses: int = 0
-    value: Optional[SecretValue] = field(default=None, repr=False)
+    value: SecretValue | None = field(default=None, repr=False)
 
 
 def _ids_of(obj, names: Iterable[str]) -> dict:
@@ -105,15 +120,15 @@ class CredentialBroker:
         self,
         *,
         backend: SecretBackend,
-        policy: Optional[Policy],
+        policy: Policy | None,
         task_registry: TaskRegistry,
-        config: Optional[BrokerConfig] = None,
-        clock: Optional[Clock] = None,
-        audit_sink: Optional[AuditSink] = None,
-        alert_handler: Optional[Callable[[AuditEvent], None]] = None,
+        config: BrokerConfig | None = None,
+        clock: Clock | None = None,
+        audit_sink: AuditSink | None = None,
+        alert_handler: Callable[[AuditEvent], None] | None = None,
         gateway_ids: Iterable[str] = (),
-        leased_values: Optional[LeasedValues] = None,
-        metrics: Optional[Metrics] = None,
+        leased_values: LeasedValues | None = None,
+        metrics: Metrics | None = None,
     ) -> None:
         # ---- startup guards (spec 5.4): fail closed, do not start in an unsafe configuration ----
         config = config if config is not None else BrokerConfig()
@@ -125,11 +140,19 @@ class CredentialBroker:
         if not isinstance(backend_env, Environment):
             raise ConfigurationError("backend must declare its environment")
         if backend_env is Environment.PRODUCTION:
-            raise ConfigurationError("a production backend cannot be attached for agent requests")
+            raise ConfigurationError(
+                "a production backend cannot be attached for agent requests"
+            )
         if backend_env not in config.served_environments:
-            raise ConfigurationError("backend environment is not in served_environments")
-        if task_registry is None or not callable(getattr(task_registry, "is_live", None)):
-            raise ConfigurationError("a task registry is required (fail closed without one)")
+            raise ConfigurationError(
+                "backend environment is not in served_environments"
+            )
+        if task_registry is None or not callable(
+            getattr(task_registry, "is_live", None)
+        ):
+            raise ConfigurationError(
+                "a task registry is required (fail closed without one)"
+            )
         if policy is not None and not isinstance(policy, Policy):
             raise ConfigurationError("policy must be a Policy")
 
@@ -139,7 +162,9 @@ class CredentialBroker:
         self._config = config
         self._clock = clock if clock is not None else SystemClock()
         self._alert_handler = alert_handler
-        self.leased_values = leased_values if leased_values is not None else LeasedValues()
+        self.leased_values = (
+            leased_values if leased_values is not None else LeasedValues()
+        )
         self.metrics = metrics if metrics is not None else Metrics()
         #: known-value + pattern redactor over the currently leased values (spec section 6)
         self.redactor = Redactor(self.leased_values, metrics=self.metrics)
@@ -153,12 +178,14 @@ class CredentialBroker:
         self._terminal_order: deque = deque()
         self._agent_hits: dict = {}
         self._global_hits: deque = deque()
-        self._last_mono: Optional[float] = None
-        self._last_sweep_mono: Optional[float] = None
+        self._last_mono: float | None = None
+        self._last_sweep_mono: float | None = None
 
         self._gateway_tokens: dict = {}
         for gid in gateway_ids:
-            self._gateway_tokens[check_id("gateway_id", gid)] = _stdlib_secrets.token_urlsafe(16)
+            self._gateway_tokens[check_id("gateway_id", gid)] = (
+                _stdlib_secrets.token_urlsafe(16)
+            )
         self._identities_issued = False
 
     # ------------------------------------------------------------- redaction (spec 4.2, section 6) --
@@ -197,7 +224,10 @@ class CredentialBroker:
             if self._identities_issued:
                 raise ConfigurationError("gateway identities already issued")
             self._identities_issued = True
-            return {gid: GatewayIdentity(gid, tok) for gid, tok in self._gateway_tokens.items()}
+            return {
+                gid: GatewayIdentity(gid, tok)
+                for gid, tok in self._gateway_tokens.items()
+            }
 
     def agent_client(self, agent_id: str) -> AgentCredentialClient:
         """The only broker surface handed to an agent runtime: ``request`` for ONE bound agent id."""
@@ -219,7 +249,7 @@ class CredentialBroker:
             policy = loader()
             if not isinstance(policy, Policy):
                 failed = True
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             failed = True
         with self._lock:
             self._policy = None if failed else policy
@@ -235,13 +265,13 @@ class CredentialBroker:
                 handle = self._request_locked(req)
             except _Refuse as r:
                 refusal = r.reason
-            except Exception:
+            except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 refusal = DenialReason.INTERNAL_ERROR
             if refusal is not None:
                 self._record_denial(req, refusal)
         if refusal is not None:
             raise Denied(refusal)
-        return handle
+        return cast(LeaseHandle, handle)  # set whenever refusal is None
 
     def request_wire(self, data: Mapping) -> LeaseHandle:
         """Request from untrusted plain data (e.g. a decoded tool call). Malformed input -> Denied, audited."""
@@ -251,18 +281,26 @@ class CredentialBroker:
             if not isinstance(data, Mapping):
                 raise InvalidRequest("request")
             ttl = data.get("requested_ttl_seconds")
-            if ttl is not None and (isinstance(ttl, bool) or not isinstance(ttl, (int, float)) or not math.isfinite(ttl)):
+            if ttl is not None and (
+                isinstance(ttl, bool)
+                or not isinstance(ttl, (int, float))
+                or not math.isfinite(ttl)
+            ):
                 raise InvalidRequest("requested_ttl_seconds")
             req = CredentialRequest(
-                task_id=data.get("task_id"),
-                run_id=data.get("run_id"),
-                agent_id=data.get("agent_id"),
+                task_id=cast(
+                    str, data.get("task_id")
+                ),  # validated by CredentialRequest
+                run_id=cast(str, data.get("run_id")),  # validated by CredentialRequest
+                agent_id=cast(
+                    str, data.get("agent_id")
+                ),  # validated by CredentialRequest
                 ref=SecretRef.parse(data.get("ref")),
                 reason_code=_parse_reason(data.get("reason_code")),
                 requested_ttl=None if ttl is None else timedelta(seconds=ttl),
                 correlation_id=data.get("correlation_id"),
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             failed = True
         if failed:
             with self._lock:
@@ -281,13 +319,20 @@ class CredentialBroker:
                 )
                 self.metrics.inc("leases_denied", DenialReason.MALFORMED_REQUEST.value)
             raise Denied(DenialReason.MALFORMED_REQUEST)
-        return self.request(req)
+        return self.request(cast(CredentialRequest, req))  # not None when not failed
 
     def _request_locked(self, req) -> LeaseHandle:
         if not isinstance(req, CredentialRequest):
             raise _Refuse(DenialReason.MALFORMED_REQUEST)
         correlation = req.correlation_id or _new_correlation_id()
-        self._emit_strict(self._event(AuditEventType.LEASE_REQUESTED, "requested", req=req, correlation=correlation))
+        self._emit_strict(
+            self._event(
+                AuditEventType.LEASE_REQUESTED,
+                "requested",
+                req=req,
+                correlation=correlation,
+            )
+        )
         mono = self._tick()
 
         # --- hard-coded, non-configurable refusal (spec 4.3 rule 2, I-5, T-14) ---
@@ -307,7 +352,11 @@ class CredentialBroker:
         if grant is None:
             raise _Refuse(DenialReason.NO_GRANT)
 
-        ceiling = self._config.max_ttl if grant.max_ttl is None else min(grant.max_ttl, self._config.max_ttl)
+        ceiling = (
+            self._config.max_ttl
+            if grant.max_ttl is None
+            else min(grant.max_ttl, self._config.max_ttl)
+        )
         if req.requested_ttl is None:
             # No TTL asked for: use the default, but never more than this grant allows.
             ttl = min(self._config.default_ttl, ceiling)
@@ -321,7 +370,11 @@ class CredentialBroker:
 
         self._require_task_live(req.task_id, req.run_id, req.agent_id)
 
-        live = [l for l in self._leases.values() if l.task_id == req.task_id and l.state is LeaseState.ISSUED]
+        live = [
+            l
+            for l in self._leases.values()
+            if l.task_id == req.task_id and l.state is LeaseState.ISSUED
+        ]
         if any(l.ref == req.ref for l in live):
             # T-10/T-11 pinned behaviour: DENY a second lease for (task, ref); no renewal exists.
             raise _Refuse(DenialReason.DUPLICATE_LEASE)
@@ -339,7 +392,7 @@ class CredentialBroker:
                 failure = DenialReason.BACKEND_ERROR
         except UnknownRef:
             failure = DenialReason.UNKNOWN_REF
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             failure = DenialReason.BACKEND_ERROR
         if failure is not None:
             raise _Refuse(failure)
@@ -357,18 +410,29 @@ class CredentialBroker:
             value=value,
         )
         self._leases[lease.lease_id] = lease
-        self.leased_values.add(lease.lease_id, value)
+        self.leased_values.add(lease.lease_id, cast(SecretValue, value))
         try:
-            self._emit_strict(self._event(AuditEventType.LEASE_ISSUED, "issued", lease=lease))
-        except Exception:
+            self._emit_strict(
+                self._event(AuditEventType.LEASE_ISSUED, "issued", lease=lease)
+            )
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             # cannot audit -> do not hand out a credential
             self._discard_lease_silently(lease)
             raise _Refuse(DenialReason.INTERNAL_ERROR)
         self.metrics.inc("leases_issued", req.ref.purpose.value)
-        return LeaseHandle(lease.lease_id, lease.ref, lease.task_id, lease.run_id, lease.agent_id, lease.expires_at)
+        return LeaseHandle(
+            lease.lease_id,
+            lease.ref,
+            lease.task_id,
+            lease.run_id,
+            lease.agent_id,
+            lease.expires_at,
+        )
 
     # ------------------------------------------------------------------------ use ------------
-    def use(self, handle: LeaseHandle, *, caller: GatewayIdentity, context: CallContext) -> ScopedSecret:
+    def use(
+        self, handle: LeaseHandle, *, caller: GatewayIdentity, context: CallContext
+    ) -> ScopedSecret:
         scoped = None
         refusal = None
         with self._lock:
@@ -376,13 +440,13 @@ class CredentialBroker:
                 scoped = self._use_locked(handle, caller, context)
             except _Refuse as r:
                 refusal = r.reason
-            except Exception:
+            except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 refusal = DenialReason.INTERNAL_ERROR
             if refusal is not None:
                 self._record_use_denial(handle, context, refusal)
         if refusal is not None:
             raise Denied(refusal)
-        return scoped
+        return cast(ScopedSecret, scoped)  # set whenever refusal is None
 
     def _use_locked(self, handle, caller, context) -> ScopedSecret:
         mono = self._tick()
@@ -402,7 +466,11 @@ class CredentialBroker:
             or handle.expires_at != lease.expires_at
         ):
             raise _Refuse(DenialReason.HANDLE_TAMPERED)
-        if (context.task_id, context.run_id, context.agent_id) != (lease.task_id, lease.run_id, lease.agent_id):
+        if (context.task_id, context.run_id, context.agent_id) != (
+            lease.task_id,
+            lease.run_id,
+            lease.agent_id,
+        ):
             raise _Refuse(DenialReason.CONTEXT_MISMATCH)
 
         self._expire_if_due(lease, mono)
@@ -415,12 +483,21 @@ class CredentialBroker:
             self._require_task_live(lease.task_id, lease.run_id, lease.agent_id)
         except _Refuse as r:
             if r.reason is DenialReason.TASK_NOT_LIVE:
-                self._revoke_lease(lease, RevokeReason.TASK_END)  # a lease must not outlive its task
+                self._revoke_lease(
+                    lease, RevokeReason.TASK_END
+                )  # a lease must not outlive its task
             raise
         if lease.uses >= self._config.max_uses_per_lease:
             raise _Refuse(DenialReason.USE_LIMIT_EXCEEDED)
 
-        self._emit_strict(self._event(AuditEventType.LEASE_USED, "used", lease=lease, correlation=context.correlation_id))
+        self._emit_strict(
+            self._event(
+                AuditEventType.LEASE_USED,
+                "used",
+                lease=lease,
+                correlation=context.correlation_id,
+            )
+        )
         lease.uses += 1
         self.metrics.inc("lease_uses", lease.ref.purpose.value)
         return ScopedSecret(lease.value._duplicate())
@@ -468,7 +545,10 @@ class CredentialBroker:
 
     def _maybe_sweep_locked(self, mono: float) -> int:
         last = self._last_sweep_mono
-        if last is not None and mono - last < self._config.sweep_interval.total_seconds():
+        if (
+            last is not None
+            and mono - last < self._config.sweep_interval.total_seconds()
+        ):
             return 0
         return self._expire_due(mono)
 
@@ -478,14 +558,17 @@ class CredentialBroker:
             return self._expire_due(self._tick_or_last())
 
     # ------------------------------------------------------------------ introspection ----------
-    def live_lease_count(self, task_id: Optional[str] = None) -> int:
+    def live_lease_count(self, task_id: str | None = None) -> int:
         with self._lock:
             self._expire_due(self._tick_or_last())
             return sum(
-                1 for l in self._leases.values() if l.state is LeaseState.ISSUED and (task_id is None or l.task_id == task_id)
+                1
+                for l in self._leases.values()
+                if l.state is LeaseState.ISSUED
+                and (task_id is None or l.task_id == task_id)
             )
 
-    def lease_state(self, lease_id: str) -> Optional[LeaseState]:
+    def lease_state(self, lease_id: str) -> LeaseState | None:
         with self._lock:
             lease = self._leases.get(lease_id)
             if lease is None:
@@ -500,11 +583,17 @@ class CredentialBroker:
         mono = 0.0
         try:
             mono = self._clock.monotonic()
-            if isinstance(mono, bool) or not isinstance(mono, (int, float)) or not math.isfinite(mono):
+            if (
+                (
+                    isinstance(mono, bool)
+                    or not isinstance(mono, (int, float))
+                    or not math.isfinite(mono)
+                )
+                or self._last_mono is not None
+                and mono < self._last_mono
+            ):
                 fault = True
-            elif self._last_mono is not None and mono < self._last_mono:
-                fault = True
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             fault = True
         if fault:
             raise _Refuse(DenialReason.CLOCK_FAULT)
@@ -536,7 +625,7 @@ class CredentialBroker:
         failed = False
         try:
             live = bool(self._tasks.is_live(task_id, run_id, agent_id))
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             failed = True
         if failed:
             raise _Refuse(DenialReason.TASK_REGISTRY_UNAVAILABLE)
@@ -547,10 +636,17 @@ class CredentialBroker:
         healthy = False
         try:
             healthy = self._backend.health() is True
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             healthy = False
         if not healthy:
-            self._emit_best_effort(self._event(AuditEventType.BACKEND_UNHEALTHY, "unhealthy", reason=DenialReason.BACKEND_UNHEALTHY, alert=True))
+            self._emit_best_effort(
+                self._event(
+                    AuditEventType.BACKEND_UNHEALTHY,
+                    "unhealthy",
+                    reason=DenialReason.BACKEND_UNHEALTHY,
+                    alert=True,
+                )
+            )
             self.metrics.inc("backend_unhealthy")
         return healthy
 
@@ -564,7 +660,9 @@ class CredentialBroker:
 
     def _new_lease_id(self) -> str:
         while True:
-            lease_id = _stdlib_secrets.token_urlsafe(16)  # 128 bits, URL-safe, not derived from anything
+            lease_id = _stdlib_secrets.token_urlsafe(
+                16
+            )  # 128 bits, URL-safe, not derived from anything
             if lease_id not in self._leases:
                 return lease_id
 
@@ -575,8 +673,14 @@ class CredentialBroker:
             if self._expire_if_due(lease, mono):
                 count += 1
         self._last_sweep_mono = mono
-        for agent_id in [a for a, dq in self._agent_hits.items() if not dq or mono - dq[-1] >= _WINDOW]:
-            del self._agent_hits[agent_id]  # bound memory: forget agents with no recent requests
+        for agent_id in [
+            a
+            for a, dq in self._agent_hits.items()
+            if not dq or mono - dq[-1] >= _WINDOW
+        ]:
+            del self._agent_hits[
+                agent_id
+            ]  # bound memory: forget agents with no recent requests
         return count
 
     def _expire_if_due(self, lease: _Lease, mono: float) -> bool:
@@ -585,7 +689,11 @@ class CredentialBroker:
         lease.state = LeaseState.EXPIRED
         self._drop_value(lease)
         self._backend_revoke(lease)
-        self._emit_best_effort(self._event(AuditEventType.LEASE_EXPIRED, "expired", lease=lease, code="ttl_expired"))
+        self._emit_best_effort(
+            self._event(
+                AuditEventType.LEASE_EXPIRED, "expired", lease=lease, code="ttl_expired"
+            )
+        )
         self.metrics.inc("leases_expired")
         self._note_terminal(lease)
         return True
@@ -596,7 +704,11 @@ class CredentialBroker:
         lease.state = LeaseState.REVOKED
         self._drop_value(lease)
         self._backend_revoke(lease)
-        self._emit_best_effort(self._event(AuditEventType.LEASE_REVOKED, "revoked", lease=lease, code=reason.value))
+        self._emit_best_effort(
+            self._event(
+                AuditEventType.LEASE_REVOKED, "revoked", lease=lease, code=reason.value
+            )
+        )
         self.metrics.inc("leases_revoked", reason.value)
         self._note_terminal(lease)
         return True
@@ -615,11 +727,17 @@ class CredentialBroker:
                 self._backend.revoke(lease.ref, lease.lease_id)
                 ok = True
                 break
-            except Exception:
+            except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                 ok = False
         if not ok:
             self._emit_best_effort(
-                self._event(AuditEventType.BACKEND_UNHEALTHY, "unhealthy", lease=lease, code="backend_revoke_failed", alert=True)
+                self._event(
+                    AuditEventType.BACKEND_UNHEALTHY,
+                    "unhealthy",
+                    lease=lease,
+                    code="backend_revoke_failed",
+                    alert=True,
+                )
             )
             self.metrics.inc("backend_revoke_failed")
 
@@ -643,18 +761,23 @@ class CredentialBroker:
         event_type: AuditEventType,
         outcome: str,
         *,
-        req: Optional[CredentialRequest] = None,
-        lease: Optional[_Lease] = None,
-        reason: Optional[DenialReason] = None,
-        code: Optional[str] = None,
-        alert: Optional[bool] = None,
-        correlation: Optional[str] = None,
+        req: CredentialRequest | None = None,
+        lease: _Lease | None = None,
+        reason: DenialReason | None = None,
+        code: str | None = None,
+        alert: bool | None = None,
+        correlation: str | None = None,
     ) -> AuditEvent:
         """Build an audit event from a request or a lease (ids and names only)."""
         src = lease if lease is not None else req
         ids: dict = {}
         if src is not None:
-            ids = dict(task_id=src.task_id, run_id=src.run_id, agent_id=src.agent_id, ref=src.ref.to_string())
+            ids = {
+                "task_id": src.task_id,
+                "run_id": src.run_id,
+                "agent_id": src.agent_id,
+                "ref": src.ref.to_string(),
+            }
         if lease is not None:
             ids["lease_id"] = lease.lease_id
             correlation = correlation or lease.correlation_id
@@ -680,7 +803,7 @@ class CredentialBroker:
     def _emit_best_effort(self, event: AuditEvent) -> None:
         try:
             self.audit_sink.emit(event)
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
             self.metrics.inc("audit_sink_failures")
         self._maybe_alert(event)
 
@@ -690,17 +813,23 @@ class CredentialBroker:
             if self._alert_handler is not None:
                 try:
                     self._alert_handler(event)
-                except Exception:
+                except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
                     self.metrics.inc("alert_handler_failures")
 
     def _record_denial(self, req, reason: DenialReason) -> None:
-        fields = _ids_of(req, ("task_id", "run_id", "agent_id")) if isinstance(req, CredentialRequest) else {}
+        fields = (
+            _ids_of(req, ("task_id", "run_id", "agent_id"))
+            if isinstance(req, CredentialRequest)
+            else {}
+        )
         ref = req.ref.to_string() if isinstance(req, CredentialRequest) else None
         event = make_event(
             AuditEventType.LEASE_DENIED,
             wall=self._safe_wall(),
             outcome="denied",
-            correlation_id=getattr(req, "correlation_id", None) if isinstance(req, CredentialRequest) else None,
+            correlation_id=getattr(req, "correlation_id", None)
+            if isinstance(req, CredentialRequest)
+            else None,
             ref=ref,
             reason_code=reason.value,
             alert=reason in ALERT_REASONS,
@@ -710,12 +839,26 @@ class CredentialBroker:
         self.metrics.inc("leases_denied", reason.value)
 
     def _record_use_denial(self, handle, context, reason: DenialReason) -> None:
-        lease = self._leases.get(getattr(handle, "lease_id", None)) if isinstance(getattr(handle, "lease_id", None), str) else None
+        lease = (
+            self._leases.get(getattr(handle, "lease_id", None))
+            if isinstance(getattr(handle, "lease_id", None), str)
+            else None
+        )
         ids = {}
         if lease is not None:
-            ids = dict(task_id=lease.task_id, run_id=lease.run_id, agent_id=lease.agent_id, lease_id=lease.lease_id, ref=lease.ref.to_string())
+            ids = {
+                "task_id": lease.task_id,
+                "run_id": lease.run_id,
+                "agent_id": lease.agent_id,
+                "lease_id": lease.lease_id,
+                "ref": lease.ref.to_string(),
+            }
         else:
-            ids = dict(agent_id=getattr(context, "agent_id", None), task_id=getattr(context, "task_id", None), run_id=getattr(context, "run_id", None))
+            ids = {
+                "agent_id": getattr(context, "agent_id", None),
+                "task_id": getattr(context, "task_id", None),
+                "run_id": getattr(context, "run_id", None),
+            }
         misuse = reason in MISUSE_REASONS
         event = make_event(
             AuditEventType.MISUSE_SUSPECTED if misuse else AuditEventType.LEASE_DENIED,
@@ -731,7 +874,11 @@ class CredentialBroker:
 
     def _audit_misuse_request(self, req, reason: DenialReason) -> None:
         with self._lock:
-            ids = _ids_of(req, ("task_id", "run_id", "agent_id")) if isinstance(req, CredentialRequest) else {}
+            ids = (
+                _ids_of(req, ("task_id", "run_id", "agent_id"))
+                if isinstance(req, CredentialRequest)
+                else {}
+            )
             self._emit_best_effort(
                 make_event(
                     AuditEventType.MISUSE_SUSPECTED,
@@ -747,8 +894,8 @@ class CredentialBroker:
     def _safe_wall(self) -> datetime:
         try:
             return self._clock.wall()
-        except Exception:
-            return datetime.fromtimestamp(0, tz=timezone.utc)
+        except Exception:  # noqa: BLE001 - fail-closed boundary: any failure becomes a denial/fallback and never propagates
+            return datetime.fromtimestamp(0, tz=UTC)
 
 
 # ---------------------------------------------------------------------------- helpers ---------

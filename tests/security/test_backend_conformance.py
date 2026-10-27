@@ -1,15 +1,16 @@
 """KAN-45 step 7 tests: backend conformance suite (T-27) run against the mock backend, plus proof that the
 suite fails for deliberately broken backends and that the broker works with any conforming backend."""
+
 import io
 import unittest
 from datetime import timedelta
 
-from fixtures_broker import DEFAULT_POLICY, Rig
-from packages.secrets.conformance import BackendConformanceMixin
 from packages.secrets.codes import RevokeReason
+from packages.secrets.conformance import BackendConformanceMixin
 from packages.secrets.errors import BackendError
 from packages.secrets.memory_backend import InMemoryBackend
 from packages.secrets.secret_types import Environment, SecretValue
+from tests.security.fixtures_broker import Rig
 
 
 class MockBackendConformance(BackendConformanceMixin, unittest.TestCase):
@@ -70,14 +71,20 @@ class SuiteDetectsBrokenBackends(unittest.TestCase):
                 return super().resolve(ref, ttl=ttl)._decode()
 
         names = failed_names(run_suite_against(PlainStr))
-        self.assertIn("test_conformance_issue_returns_secret_value_with_the_provisioned_value", names)
+        self.assertIn(
+            "test_conformance_issue_returns_secret_value_with_the_provisioned_value",
+            names,
+        )
 
     def test_backend_that_accepts_non_positive_ttl_fails(self):
         class NoTtlCheck(InMemoryBackend):
             def resolve(self, ref, *, ttl):
                 return super().resolve(ref, ttl=abs(ttl) + timedelta(seconds=1))
 
-        self.assertIn("test_conformance_ttl_must_be_positive", failed_names(run_suite_against(NoTtlCheck)))
+        self.assertIn(
+            "test_conformance_ttl_must_be_positive",
+            failed_names(run_suite_against(NoTtlCheck)),
+        )
 
     def test_backend_whose_errors_leak_the_value_fails(self):
         class LeakyErrors(InMemoryBackend):
@@ -86,24 +93,33 @@ class SuiteDetectsBrokenBackends(unittest.TestCase):
                     raise BackendError(f"down; last value was {self._values.get(ref)}")
                 return super().resolve(ref, ttl=ttl)
 
-        self.assertIn("test_conformance_health_is_a_bool_and_reports_outages", failed_names(run_suite_against(LeakyErrors)))
+        self.assertIn(
+            "test_conformance_health_is_a_bool_and_reports_outages",
+            failed_names(run_suite_against(LeakyErrors)),
+        )
 
     def test_backend_sharing_one_secretvalue_fails(self):
         class Shared(InMemoryBackend):
-            _cache = {}
+            _cache = {}  # noqa: RUF012 - test deliberately shares mutable state
 
             def resolve(self, ref, *, ttl):
                 v = super().resolve(ref, ttl=ttl)
                 return self._cache.setdefault(ref, v)
 
-        self.assertIn("test_conformance_each_resolve_returns_an_independent_object", failed_names(run_suite_against(Shared)))
+        self.assertIn(
+            "test_conformance_each_resolve_returns_an_independent_object",
+            failed_names(run_suite_against(Shared)),
+        )
 
     def test_backend_that_never_raises_unknown_ref_fails(self):
         class Anything(InMemoryBackend):
             def resolve(self, ref, *, ttl):
                 return SecretValue("mock-anything-" + "x" * 20)
 
-        self.assertIn("test_conformance_unknown_ref_raises_unknown_ref_without_leaking", failed_names(run_suite_against(Anything)))
+        self.assertIn(
+            "test_conformance_unknown_ref_raises_unknown_ref_without_leaking",
+            failed_names(run_suite_against(Anything)),
+        )
 
     def test_backend_that_reads_the_environment_fails_isolation(self):
         import os
@@ -113,14 +129,20 @@ class SuiteDetectsBrokenBackends(unittest.TestCase):
                 os.environ.get("HOME")
                 return super().resolve(ref, ttl=ttl)
 
-        self.assertIn("test_conformance_isolated_backends_touch_no_env_file_or_network", failed_names(run_suite_against(ReadsEnv, isolated=True)))
+        self.assertIn(
+            "test_conformance_isolated_backends_touch_no_env_file_or_network",
+            failed_names(run_suite_against(ReadsEnv, isolated=True)),
+        )
 
     def test_backend_whose_revoke_raises_for_unknown_lease_fails(self):
         class StrictRevoke(InMemoryBackend):
             def revoke(self, ref, lease_id):
                 raise KeyError("unknown lease")
 
-        self.assertIn("test_conformance_revoke_is_idempotent_and_tolerates_unknown_leases", failed_names(run_suite_against(StrictRevoke)))
+        self.assertIn(
+            "test_conformance_revoke_is_idempotent_and_tolerates_unknown_leases",
+            failed_names(run_suite_against(StrictRevoke)),
+        )
 
 
 class BrokerWorksWithAnyConformingBackend(unittest.TestCase):

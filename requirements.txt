@@ -1,0 +1,7 @@
+# LifeRescue Python runtime dependencies (single source; apps/api/requirements.txt includes this file).
+# Root location so CI (python-checks, dependency-scan pip-audit, SBOM) installs and audits them.
+fastapi>=0.115.0
+uvicorn>=0.30.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+httpx>=0.27.0

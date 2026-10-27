@@ -4,12 +4,12 @@ Properties (tested, T-15): reads no environment variable, no file, no network; v
 from a cryptographically strong random source and carry the visible non-provider prefix
 ``mock-`` so they cannot be mistaken for real keys.
 """
+
 from __future__ import annotations
 
 import secrets as _stdlib_secrets
 import threading
 from datetime import timedelta
-from typing import Optional
 
 from .errors import BackendError, UnknownRef
 from .secret_types import Environment, SecretRef, SecretValue
@@ -24,12 +24,12 @@ class InMemoryBackend:
         self._values: dict = {}
         self._lock = threading.Lock()
         self._healthy = True
-        self._fail_next: Optional[BaseException] = None
+        self._fail_next: BaseException | None = None
         self.resolve_count = 0
         self.revoked: list = []  # (ref, lease_id) pairs, for tests and the conformance suite
 
     # ---- setup / test controls -------------------------------------------------------
-    def provision(self, ref: SecretRef, value: Optional[str] = None) -> None:
+    def provision(self, ref: SecretRef, value: str | None = None) -> None:
         """Make ``ref`` resolvable. ``value`` defaults to ``mock-`` + 24 random bytes (urlsafe).
 
         An explicit ``value`` exists so tests can seed a canary they generated at runtime.

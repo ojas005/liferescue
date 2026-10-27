@@ -9,22 +9,26 @@ standard library has no YAML parser, so the policy is JSON (``policy.json``).
 PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL: the grants in ``policy.json`` (agent ids and
 mock secret names) are an illustrative mock-only set; Ojas approves real grant changes (spec Q6).
 """
+
 from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any
 
 from .errors import PolicyError
-from .secret_types import Environment, Purpose, SecretRef, _ID_RE, _NAME_RE
+from .secret_types import _ID_RE, _NAME_RE, Environment, Purpose, SecretRef
 
 MAX_POLICY_BYTES = 64 * 1024
 MAX_GRANTS = 200
 MAX_NAMES_PER_GRANT = 50
-MAX_NAME_SEGMENT = 16  # heuristic: a name segment longer than this looks like a value, not a name
+MAX_NAME_SEGMENT = (
+    16  # heuristic: a name segment longer than this looks like a value, not a name
+)
 MAX_GRANT_TTL_SECONDS = 24 * 3600
 DEFAULT_POLICY_PATH = Path(__file__).with_name("policy.json")
 
@@ -38,7 +42,7 @@ class Grant:
     purpose: Purpose
     names: frozenset
     environments: frozenset
-    max_ttl: Optional[timedelta] = None
+    max_ttl: timedelta | None = None
 
 
 @dataclass(frozen=True)
@@ -46,7 +50,7 @@ class Policy:
     grants: tuple = ()
     version: int = 1
 
-    def find_grant(self, agent_id: str, ref: SecretRef) -> Optional[Grant]:
+    def find_grant(self, agent_id: str, ref: SecretRef) -> Grant | None:
         """The grant covering (agent, purpose, name, environment), or None (deny by default)."""
         for grant in self.grants:
             if (
@@ -68,10 +72,10 @@ def _no_duplicates(pairs):
     return seen
 
 
-def load_policy(path: Optional[Path] = None) -> Policy:
+def load_policy(path: Path | None = None) -> Policy:
     """Load and validate a policy file (default: the packaged ``policy.json``). Fail closed."""
     target = Path(path) if path is not None else DEFAULT_POLICY_PATH
-    data: Optional[bytes] = None
+    data: bytes | None = None
     failed = False
     try:
         with open(target, "rb") as fh:
@@ -121,7 +125,11 @@ def policy_from_mapping(doc: Any) -> Policy:
 
 
 def _grant_from_mapping(item: Any) -> Grant:
-    if not isinstance(item, Mapping) or not set(item) <= _GRANT_KEYS or not {"agent_id", "purpose", "names", "environments"} <= set(item):
+    if (
+        not isinstance(item, Mapping)
+        or not set(item) <= _GRANT_KEYS
+        or not {"agent_id", "purpose", "names", "environments"} <= set(item)
+    ):
         raise PolicyError("grant has missing or unknown fields")
     agent_id = item["agent_id"]
     if not isinstance(agent_id, str) or not _ID_RE.match(agent_id):
@@ -149,7 +157,11 @@ def _grant_from_mapping(item: Any) -> Grant:
     max_ttl = None
     if "max_ttl_seconds" in item:
         secs = item["max_ttl_seconds"]
-        if isinstance(secs, bool) or not isinstance(secs, int) or not 0 < secs <= MAX_GRANT_TTL_SECONDS:
+        if (
+            isinstance(secs, bool)
+            or not isinstance(secs, int)
+            or not 0 < secs <= MAX_GRANT_TTL_SECONDS
+        ):
             raise PolicyError("grant max_ttl_seconds invalid")
         max_ttl = timedelta(seconds=secs)
     return Grant(agent_id, purpose, frozenset(names), frozenset(envs), max_ttl)

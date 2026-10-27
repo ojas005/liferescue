@@ -8,21 +8,36 @@ Until KAN-47 / ADR-0009 define the platform audit format, events go to a local s
 exactly these fields. The ``alert`` flag is a PROPOSED addition: it is the "alert signal" that
 spec I-7 / T-12 / T-13 require for fail-closed and burst conditions.
 """
+
 from __future__ import annotations
 
 import re
 import secrets as _stdlib_secrets
 import threading
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional, Protocol
+from typing import Protocol
 
 _ID_SHAPE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-_LEASE_SHAPE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")  # urlsafe base64 ids may start with "-" or "_"
+_LEASE_SHAPE = re.compile(
+    r"^[A-Za-z0-9_-]{16,64}$"
+)  # urlsafe base64 ids may start with "-" or "_"
 _REF_SHAPE = re.compile(r"^secretref://[a-z]{1,16}/[a-z_]{1,32}/[a-z][a-z0-9_-]{0,47}$")
 _CODE_SHAPE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
-OUTCOMES = frozenset({"requested", "issued", "denied", "used", "expired", "revoked", "blocked", "suspected", "unhealthy"})
+OUTCOMES = frozenset(
+    {
+        "requested",
+        "issued",
+        "denied",
+        "used",
+        "expired",
+        "revoked",
+        "blocked",
+        "suspected",
+        "unhealthy",
+    }
+)
 
 
 class AuditEventType(Enum):
@@ -58,21 +73,21 @@ class AuditEvent:
     event_id: str
     event_type: str
     timestamp: str  # UTC, ISO 8601
-    correlation_id: Optional[str]
-    task_id: Optional[str]
-    run_id: Optional[str]
-    agent_id: Optional[str]
-    lease_id: Optional[str]
-    ref: Optional[str]  # the secretref NAME, never a value
+    correlation_id: str | None
+    task_id: str | None
+    run_id: str | None
+    agent_id: str | None
+    lease_id: str | None
+    ref: str | None  # the secretref NAME, never a value
     outcome: str
-    reason_code: Optional[str]
+    reason_code: str | None
     alert: bool
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-def _clean(value, shape) -> Optional[str]:
+def _clean(value, shape) -> str | None:
     if value is None:
         return None
     if isinstance(value, str) and shape.match(value):
@@ -107,7 +122,7 @@ def make_event(
     return AuditEvent(
         event_id=new_event_id(),
         event_type=event_type.value,
-        timestamp=wall.astimezone(timezone.utc).isoformat(),
+        timestamp=wall.astimezone(UTC).isoformat(),
         correlation_id=_clean(correlation_id, _ID_SHAPE),
         task_id=_clean(task_id, _ID_SHAPE),
         run_id=_clean(run_id, _ID_SHAPE),

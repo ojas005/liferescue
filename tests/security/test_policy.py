@@ -1,4 +1,5 @@
 """KAN-45 step 2 tests: policy loader (T-03/T-04 policy side, T-14 policy side, T-26 policy side)."""
+
 import json
 import tempfile
 import unittest
@@ -6,7 +7,14 @@ from datetime import timedelta
 from pathlib import Path
 
 from packages.secrets.errors import PolicyError
-from packages.secrets.policy import DEFAULT_POLICY_PATH, Grant, Policy, load_policy, parse_policy, policy_from_mapping
+from packages.secrets.policy import (
+    DEFAULT_POLICY_PATH,
+    Grant,
+    Policy,
+    load_policy,
+    parse_policy,
+    policy_from_mapping,
+)
 from packages.secrets.secret_types import Environment, Purpose, SecretRef
 from packages.secrets.testing import make_canary
 
@@ -43,13 +51,24 @@ class PackagedPolicy(unittest.TestCase):
         self.assertIsNone(policy.find_grant("LR-04", ref), "wrong purpose for agent")
         other = SecretRef(Environment.MOCK, Purpose.MODEL_INFERENCE, "mock-other-key")
         self.assertIsNone(policy.find_grant("LR-06", other), "unlisted name")
-        test_env = SecretRef(Environment.TEST, Purpose.MODEL_INFERENCE, "mock-model-key")
-        self.assertIsNone(policy.find_grant("LR-06", test_env), "environment not granted")
-        prod = SecretRef(Environment.PRODUCTION, Purpose.MODEL_INFERENCE, "mock-model-key")
+        test_env = SecretRef(
+            Environment.TEST, Purpose.MODEL_INFERENCE, "mock-model-key"
+        )
+        self.assertIsNone(
+            policy.find_grant("LR-06", test_env), "environment not granted"
+        )
+        prod = SecretRef(
+            Environment.PRODUCTION, Purpose.MODEL_INFERENCE, "mock-model-key"
+        )
         self.assertIsNone(policy.find_grant("LR-06", prod))
 
     def test_empty_policy_denies_everything(self):
-        self.assertIsNone(Policy().find_grant("LR-06", SecretRef(Environment.MOCK, Purpose.WEB_SEARCH, "mock-search-key")))
+        self.assertIsNone(
+            Policy().find_grant(
+                "LR-06",
+                SecretRef(Environment.MOCK, Purpose.WEB_SEARCH, "mock-search-key"),
+            )
+        )
 
 
 class PolicyValidation(unittest.TestCase):
@@ -91,15 +110,13 @@ class PolicyValidation(unittest.TestCase):
             doc("not-a-mapping"),
         ]
         for i, bad in enumerate(bad_docs):
-            with self.subTest(case=i):
-                with self.assertRaises(PolicyError):
-                    policy_from_mapping(bad)
+            with self.subTest(case=i), self.assertRaises(PolicyError):
+                policy_from_mapping(bad)
 
     def test_invalid_json_and_duplicates_and_size(self):
         for text in ["", "{", "[]", '{"version":1,"version":1,"grants":[]}', "\xff"]:
-            with self.subTest(text=text):
-                with self.assertRaises(PolicyError):
-                    parse_policy(text)
+            with self.subTest(text=text), self.assertRaises(PolicyError):
+                parse_policy(text)
         with self.assertRaises(PolicyError):
             parse_policy(b"\xff\xfe\x00")
         with self.assertRaises(PolicyError):
@@ -135,16 +152,18 @@ class PolicyValidation(unittest.TestCase):
             "mock-" + "a1b2c3d4e5f6g7h8i9j0",  # one long segment
             "k1-2345-6789-0123",  # too many digits
         ]:
-            with self.subTest(name=name):
-                with self.assertRaises(PolicyError):
-                    policy_from_mapping(doc(grant(names=[name])))
+            with self.subTest(name=name), self.assertRaises(PolicyError):
+                policy_from_mapping(doc(grant(names=[name])))
 
     def test_packaged_policy_file_has_no_unexpected_content(self):
         text = DEFAULT_POLICY_PATH.read_text(encoding="utf-8")
         parsed = json.loads(text)
         self.assertEqual(set(parsed), {"version", "grants"})
         for g in parsed["grants"]:
-            self.assertLessEqual(set(g), {"agent_id", "purpose", "names", "environments", "max_ttl_seconds"})
+            self.assertLessEqual(
+                set(g),
+                {"agent_id", "purpose", "names", "environments", "max_ttl_seconds"},
+            )
 
 
 if __name__ == "__main__":

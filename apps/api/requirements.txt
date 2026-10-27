@@ -1,0 +1,2 @@
+# Kept for existing install instructions; the dependency list lives in the repository root.
+-r ../../requirements.txt

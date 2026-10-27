@@ -1,0 +1,10 @@
+# Exact gitleaks fingerprints of 9 historical SYNTHETIC findings (2026-10-04): example dev DB URLs, LRQA canary fixtures, test-only url passwords. KAN-50, approved by Ojas Sharma. No path/rule allowlists.
+858d12c696955db7ee4c0565c4598cc87a88e849:apps/api/README.md:liferescue-url-embedded-password:22
+858d12c696955db7ee4c0565c4598cc87a88e849:apps/api/README.md:liferescue-url-embedded-password:69
+caaaac64706758e9210bb1e679b60c016e2a58cc:tests/fixtures/golden/prompt_injection_cases.json:liferescue-nebius-credential-assignment:104
+caaaac64706758e9210bb1e679b60c016e2a58cc:tests/fixtures/redaction/fake_secrets.json:liferescue-nebius-credential-assignment:12
+98e14441dc96ee63427678ffe7031969ac1449cc:tests/security/scenarios.py:liferescue-url-embedded-password:105
+7b523b2888eca71dc3d640b054bb2d6b1789e64c:packages/secrets/parity.py:liferescue-url-embedded-password:127
+98e14441dc96ee63427678ffe7031969ac1449cc:tests/security/test_redaction.py:liferescue-url-embedded-password:139
+b8acb5014a5037480f93b70214f57fcc96b817ea:tests/security/test_audit_logging.py:liferescue-url-embedded-password:253
+98e14441dc96ee63427678ffe7031969ac1449cc:tests/security/test_guards.py:liferescue-url-embedded-password:103

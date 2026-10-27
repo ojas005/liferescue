@@ -6,13 +6,19 @@ Run from the repository root:  python3 -m unittest -v scripts/test_workflow_guar
 Standard library only, so the YAML is read with a small line scanner (not a YAML parser): it relies on
 the two-space layout used in this repository. actionlint (run separately) is the syntax authority.
 """
+
 import os
 import re
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WF_DIR = os.path.join(ROOT, ".github", "workflows")
-NEW_JOBS = ("branch-name", "python-unit-tests", "pr-link-check", "ci-gate")  # added by KAN-20 in ci.yml
+NEW_JOBS = (
+    "branch-name",
+    "python-unit-tests",
+    "pr-link-check",
+    "ci-gate",
+)  # added by KAN-20 in ci.yml
 UNTRUSTED = re.compile(
     r"github\.head_ref|github\.event\.workflow_run\.(head_branch|head_commit|display_title|head_repository|pull_requests)"
     r"|github\.event\.(pull_request|issue|comment|review|head_commit|commits)\.(title|body|head\.ref|head\.label|head\.repo)"
@@ -64,7 +70,10 @@ def run_blocks(lines):
         value = m.group(3)
         if re.match(r"^[|>][+-]?\s*(#.*)?$", value):
             j = i + 1
-            while j < len(lines) and (lines[j].strip() == "" or len(lines[j]) - len(lines[j].lstrip()) > key_col):
+            while j < len(lines) and (
+                lines[j].strip() == ""
+                or len(lines[j]) - len(lines[j].lstrip()) > key_col
+            ):
                 yield j + 1, lines[j]
                 j += 1
             i = j
@@ -81,54 +90,91 @@ class WorkflowGuards(unittest.TestCase):
     def test_no_expression_interpolation_inside_run(self):
         for wf in workflows():
             for n, text in run_blocks(read(wf)):
-                self.assertNotIn("${{", text, f"{wf}:{n}: expression inside run: (pass it through env instead)")
+                self.assertNotIn(
+                    "${{",
+                    text,
+                    f"{wf}:{n}: expression inside run: (pass it through env instead)",
+                )
 
     def test_untrusted_context_only_in_env_assignments(self):
         for wf in workflows():
             for n, line in enumerate(code_lines(read(wf)), 1):
                 if UNTRUSTED.search(line):
-                    self.assertRegex(line, ENV_LINE, f"{wf}: untrusted context outside an env assignment: {line.strip()}")
+                    self.assertRegex(
+                        line,
+                        ENV_LINE,
+                        f"{wf}: untrusted context outside an env assignment: {line.strip()}",
+                    )
 
     def test_branch_name_job_maps_only_the_branch_name(self):
         block = jobs(read("ci.yml"))["branch-name"]
         mapped = [l.strip() for l in block if "${{" in l]
         self.assertEqual(
             mapped,
-            ["BRANCH_NAME: ${{ github.head_ref }}", "PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}"],
+            [
+                "BRANCH_NAME: ${{ github.head_ref }}",
+                "PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}",
+            ],
         )
-        self.assertIn("if: github.event_name == 'pull_request'", "\n".join(l.strip() for l in block))
+        self.assertIn(
+            "if: github.event_name == 'pull_request'",
+            "\n".join(l.strip() for l in block),
+        )
 
     def test_pr_link_job_maps_text_only_through_env(self):
         block = jobs(read("ci.yml"))["pr-link-check"]
         mapped = sorted(l.strip() for l in block if "${{" in l)
-        self.assertEqual(mapped, sorted([
-            "PR_TITLE: ${{ github.event.pull_request.title }}",
-            "PR_BODY: ${{ github.event.pull_request.body }}",
-            "PR_BRANCH: ${{ github.event.pull_request.head.ref }}",
-            "BRANCH_NAME: ${{ github.event.pull_request.head.ref }}",
-            "PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}",
-        ]))
+        self.assertEqual(
+            mapped,
+            sorted(
+                [
+                    "PR_TITLE: ${{ github.event.pull_request.title }}",
+                    "PR_BODY: ${{ github.event.pull_request.body }}",
+                    "PR_BRANCH: ${{ github.event.pull_request.head.ref }}",
+                    "BRANCH_NAME: ${{ github.event.pull_request.head.ref }}",
+                    "PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}",
+                ]
+            ),
+        )
         text = "\n".join(block)
         self.assertIn("python3 scripts/check_pr_link.py", text)
         self.assertIn("PLACEHOLDER", text)
 
     def test_pull_request_types_include_edited(self):
-        self.assertIn("types: [opened, synchronize, reopened, edited]", "\n".join(read("ci.yml")))
+        self.assertIn(
+            "types: [opened, synchronize, reopened, edited]", "\n".join(read("ci.yml"))
+        )
 
     def test_no_pull_request_target_no_secrets_no_inputs(self):
         for wf in workflows():
             text = "\n".join(code_lines(read(wf)))
-            for needle in ("pull_request_target", "secrets.", "workflow_dispatch", "inputs.", "github.event.inputs", "vars."):
+            for needle in (
+                "pull_request_target",
+                "secrets.",
+                "workflow_dispatch",
+                "inputs.",
+                "github.event.inputs",
+                "vars.",
+            ):
                 self.assertNotIn(needle, text, f"{wf}: {needle}")
 
     def test_permissions_and_timeouts(self):
         for wf in workflows():
             lines = read(wf)
-            self.assertTrue(any(re.match(r"^permissions:", l) for l in lines), f"{wf}: no top-level permissions")
+            self.assertTrue(
+                any(re.match(r"^permissions:", l) for l in lines),
+                f"{wf}: no top-level permissions",
+            )
             for job, block in jobs(lines).items():
-                self.assertTrue(any("timeout-minutes:" in l for l in block), f"{wf}:{job}: no timeout-minutes")
+                self.assertTrue(
+                    any("timeout-minutes:" in l for l in block),
+                    f"{wf}:{job}: no timeout-minutes",
+                )
                 if wf != "ci.yml" or job in NEW_JOBS:
-                    self.assertTrue(any(re.match(r"^    permissions:", l) for l in block), f"{wf}:{job}: no job-level permissions")
+                    self.assertTrue(
+                        any(re.match(r"^    permissions:", l) for l in block),
+                        f"{wf}:{job}: no job-level permissions",
+                    )
 
     def test_ci_top_level_permissions_are_read_only(self):
         text = "\n".join(read("ci.yml"))
@@ -143,7 +189,11 @@ class WorkflowGuards(unittest.TestCase):
             self.assertTrue(uses)
             for u in uses:
                 self.assertRegex(u, r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$", f"{wf}: {u}")
-            self.assertEqual(text.count("actions/checkout@"), text.count("persist-credentials: false"), wf)
+            self.assertEqual(
+                text.count("actions/checkout@"),
+                text.count("persist-credentials: false"),
+                wf,
+            )
 
     def test_new_jobs_do_not_swallow_failures(self):
         lines = read("ci.yml")
@@ -162,9 +212,13 @@ class WorkflowGuards(unittest.TestCase):
 
     def test_concurrency_cancels_only_pull_requests(self):
         text = "\n".join(read("ci.yml"))
-        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", text)
+        self.assertIn(
+            "cancel-in-progress: ${{ github.event_name == 'pull_request' }}", text
+        )
         self.assertNotIn("cancel-in-progress: true", text)
-        self.assertIn("cancel-in-progress: false", "\n".join(read("ci-jira-status.yml")))
+        self.assertIn(
+            "cancel-in-progress: false", "\n".join(read("ci-jira-status.yml"))
+        )
 
     def test_ci_gate_needs_every_other_job_and_always_runs(self):
         lines = read("ci.yml")
@@ -224,7 +278,17 @@ class WorkflowGuards(unittest.TestCase):
                 if in_on and m:
                     events.add(m.group(1))
             self.assertTrue(events, wf)
-            self.assertFalse(events & {"pull_request_target", "issue_comment", "issues", "repository_dispatch", "workflow_dispatch"}, wf)
+            self.assertFalse(
+                events
+                & {
+                    "pull_request_target",
+                    "issue_comment",
+                    "issues",
+                    "repository_dispatch",
+                    "workflow_dispatch",
+                },
+                wf,
+            )
 
 
 if __name__ == "__main__":

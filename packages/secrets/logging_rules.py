@@ -10,13 +10,16 @@ Rules implemented:
 
 Redaction of arbitrary text (the safety net on top of this allow-list) is the second PR.
 """
+
 from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import threading
-from typing import IO, Mapping
+from collections.abc import Mapping
+from typing import IO
 
 from .audit import AUDIT_FIELDS, AuditEvent, AuditEventType
 
@@ -32,7 +35,12 @@ _TIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?\+00:00$")
 
 
 def _num(v) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and v == v and abs(v) < 1e9
+    return (
+        isinstance(v, (int, float))
+        and not isinstance(v, bool)
+        and not math.isnan(v)
+        and abs(v) < 1e9
+    )
 
 
 def _matches(rx):
@@ -60,13 +68,26 @@ FIELD_SHAPES = {
     "alert": lambda v: isinstance(v, bool),
 }
 
-_CORE = {"event_id", "event_type", "timestamp", "correlation_id", "task_id", "run_id", "agent_id", "ref", "outcome", "reason_code", "alert"}
+_CORE = {
+    "event_id",
+    "event_type",
+    "timestamp",
+    "correlation_id",
+    "task_id",
+    "run_id",
+    "agent_id",
+    "ref",
+    "outcome",
+    "reason_code",
+    "alert",
+}
 
 #: allow-list per event type (spec 7.1). Anything not listed is dropped.
 EVENT_ALLOW_LIST = {
     AuditEventType.LEASE_REQUESTED.value: _CORE | {"purpose", "environment", "ttl_s"},
     AuditEventType.LEASE_DENIED.value: _CORE | {"purpose", "environment"},
-    AuditEventType.LEASE_ISSUED.value: _CORE | {"lease_id", "purpose", "environment", "ttl_s"},
+    AuditEventType.LEASE_ISSUED.value: _CORE
+    | {"lease_id", "purpose", "environment", "ttl_s"},
     AuditEventType.LEASE_USED.value: _CORE | {"lease_id", "latency_ms"},
     AuditEventType.LEASE_EXPIRED.value: _CORE | {"lease_id"},
     AuditEventType.LEASE_REVOKED.value: _CORE | {"lease_id"},
@@ -74,7 +95,8 @@ EVENT_ALLOW_LIST = {
     AuditEventType.MISUSE_SUSPECTED.value: _CORE | {"lease_id"},
     AuditEventType.BACKEND_UNHEALTHY.value: _CORE | {"lease_id"},
     # generic bucket for span attributes / exception fields in telemetry (spec 7.6)
-    "span": _CORE | {"lease_id", "purpose", "environment", "ttl_s", "latency_ms", "error_class"},
+    "span": _CORE
+    | {"lease_id", "purpose", "environment", "ttl_s", "latency_ms", "error_class"},
 }
 
 
@@ -115,10 +137,14 @@ def event_to_log_fields(event: AuditEvent) -> dict:
     return data
 
 
-def log_credential_event(logger: logging.Logger, event_type: str, fields: Mapping) -> None:
+def log_credential_event(
+    logger: logging.Logger, event_type: str, fields: Mapping
+) -> None:
     """The only sanctioned way to log on a credential path. Level-independent field selection."""
     clean = sanitize_fields(event_type, fields)
-    clean.setdefault("event_type", event_type if event_type in EVENT_ALLOW_LIST else "unknown")
+    clean.setdefault(
+        "event_type", event_type if event_type in EVENT_ALLOW_LIST else "unknown"
+    )
     logger.info("credential_event", extra={_MARK: clean})
 
 
@@ -140,7 +166,9 @@ class CredentialLogFilter(logging.Filter):
             with self._lock:
                 self.dropped += 1
             return False
-        record.msg = "credential_event " + " ".join(f"{k}={fields[k]}" for k in sorted(fields))
+        record.msg = "credential_event " + " ".join(
+            f"{k}={fields[k]}" for k in sorted(fields)
+        )
         record.args = None
         record.exc_info = None
         record.exc_text = None
@@ -152,7 +180,9 @@ class CredentialLogFilter(logging.Filter):
         return True
 
 
-_STANDARD_RECORD_KEYS = set(logging.LogRecord("n", logging.INFO, "p", 1, "m", None, None).__dict__) | {"message", "asctime", "taskName"}
+_STANDARD_RECORD_KEYS = set(
+    logging.LogRecord("n", logging.INFO, "p", 1, "m", None, None).__dict__
+) | {"message", "asctime", "taskName"}
 
 
 def install_credential_log_filter(logger: logging.Logger) -> CredentialLogFilter:

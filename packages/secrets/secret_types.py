@@ -9,13 +9,15 @@ Key properties:
     exit is ``with value.reveal() as raw:``.
   * ``LeaseHandle`` carries no value and is safe to put in prompts, logs and databases.
 """
+
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional
+from typing import Any, Literal
 
 from .codes import RequestReason
 from .errors import InvalidRequest, InvalidSecretRef, SecretWiped
@@ -67,12 +69,12 @@ class SecretRef:
         return f"secretref://{self.environment.value}/{self.purpose.value}/{self.name}"
 
     @classmethod
-    def parse(cls, text: object) -> "SecretRef":
+    def parse(cls, text: object) -> SecretRef:
         """Parse ``secretref://env/purpose/name``. Unknown parts raise InvalidSecretRef (fail closed)."""
         prefix = "secretref://"
         if not isinstance(text, str) or not text.startswith(prefix) or len(text) > 200:
             raise InvalidSecretRef("ref")
-        parts = text[len(prefix):].split("/")
+        parts = text[len(prefix) :].split("/")
         if len(parts) != 3:
             raise InvalidSecretRef("ref")
         env_s, purpose_s, name = parts
@@ -81,7 +83,7 @@ class SecretRef:
         return cls(env, purpose, name)
 
 
-def _lookup(enum_cls: type, value: str, field_name: str):
+def _lookup(enum_cls: type[Enum], value: str, field_name: str) -> Any:
     for member in enum_cls:
         if member.value == value:
             return member
@@ -93,13 +95,13 @@ class _Reveal:
 
     __slots__ = ("_owner",)
 
-    def __init__(self, owner: "SecretValue") -> None:
+    def __init__(self, owner: SecretValue) -> None:
         self._owner = owner
 
     def __enter__(self) -> str:
         return self._owner._decode()
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> Literal[False]:
         return False  # never swallow exceptions; never attach the value to them
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
@@ -114,7 +116,7 @@ class SecretValue:
     ``reveal()`` are immutable and cannot be wiped; keep them short-lived).
     """
 
-    __slots__ = ("_buf", "_wiped", "__weakref__")
+    __slots__ = ("__weakref__", "_buf", "_wiped")
 
     def __init__(self, raw: str) -> None:
         if not isinstance(raw, str) or not raw:
@@ -130,7 +132,7 @@ class SecretValue:
             raise SecretWiped("secret value has been wiped")
         return bytes(self._buf).decode("utf-8")
 
-    def _duplicate(self) -> "SecretValue":
+    def _duplicate(self) -> SecretValue:
         """Internal: independent copy for one scoped use (so wiping it does not wipe the lease copy)."""
         return SecretValue(self._decode())
 
@@ -169,10 +171,10 @@ class SecretValue:
         raise TypeError("SecretValue cannot be copied")
 
     def __del__(self) -> None:  # best-effort wipe when dropped
-        try:
+        with contextlib.suppress(
+            Exception
+        ):  # pragma: no cover - best effort in __del__
             self.wipe()
-        except Exception:  # pragma: no cover
-            pass
 
 
 @dataclass(frozen=True)
@@ -184,8 +186,10 @@ class CredentialRequest:
     agent_id: str  # e.g. "LR-06"
     ref: SecretRef
     reason_code: RequestReason
-    requested_ttl: Optional[timedelta] = None  # None -> BrokerConfig.default_ttl
-    correlation_id: Optional[str] = None  # PROPOSED addition: spec audit fields include a correlation id
+    requested_ttl: timedelta | None = None  # None -> BrokerConfig.default_ttl
+    correlation_id: str | None = (
+        None  # PROPOSED addition: spec audit fields include a correlation id
+    )
 
     def __post_init__(self) -> None:
         check_id("task_id", self.task_id)
@@ -195,7 +199,9 @@ class CredentialRequest:
             raise InvalidRequest("ref")
         if not isinstance(self.reason_code, RequestReason):
             raise InvalidRequest("reason_code")
-        if self.requested_ttl is not None and not isinstance(self.requested_ttl, timedelta):
+        if self.requested_ttl is not None and not isinstance(
+            self.requested_ttl, timedelta
+        ):
             raise InvalidRequest("requested_ttl")
         if self.correlation_id is not None:
             check_id("correlation_id", self.correlation_id)
@@ -217,7 +223,9 @@ class LeaseHandle:
     task_id: str
     run_id: str
     agent_id: str
-    expires_at: datetime  # wall clock, informational; enforcement uses a monotonic clock
+    expires_at: (
+        datetime  # wall clock, informational; enforcement uses a monotonic clock
+    )
 
 
 @dataclass(frozen=True)
@@ -232,7 +240,7 @@ class CallContext:
     task_id: str
     run_id: str
     agent_id: str
-    correlation_id: Optional[str] = None
+    correlation_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -257,7 +265,7 @@ class ScopedSecret:
     raw value in a return object.
     """
 
-    __slots__ = ("_value", "_entered")
+    __slots__ = ("_entered", "_value")
 
     def __init__(self, value: SecretValue) -> None:
         self._value = value
@@ -269,7 +277,7 @@ class ScopedSecret:
         self._entered = True
         return self._value
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> Literal[False]:
         self._value.wipe()
         return False
 

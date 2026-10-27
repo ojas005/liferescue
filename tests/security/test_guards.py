@@ -1,19 +1,24 @@
 """KAN-45 step 5 tests: sink guards (T-19 prompt, T-20 persistence, T-21 return path), log filter,
 audit writer, telemetry with known values (T-18 final)."""
+
 import io
 import logging
 import sqlite3
 import unittest
 
-from fixtures_broker import MODEL_REF, SEARCH_REF, Rig
 from packages.secrets.audit import AuditEventType as E
 from packages.secrets.codes import RequestReason
 from packages.secrets.errors import SecretLeak
 from packages.secrets.guards import RedactingAuditSink, RedactingLogFilter, SinkGuards
-from packages.secrets.logging_rules import LoggingAuditSink, install_credential_log_filter, CREDENTIAL_LOGGER_NAME
+from packages.secrets.logging_rules import (
+    CREDENTIAL_LOGGER_NAME,
+    LoggingAuditSink,
+    install_credential_log_filter,
+)
 from packages.secrets.secret_types import CredentialRequest
 from packages.secrets.telemetry import SafeSpanExporter
-from packages.secrets.testing import make_canary, random_chars
+from packages.secrets.testing import random_chars
+from tests.security.fixtures_broker import MODEL_REF, SEARCH_REF, Rig
 
 
 class Base(unittest.TestCase):
@@ -49,7 +54,9 @@ class PromptGuard(Base):
         self.assertEqual(again.exception.kinds, ("retry_of_blocked",))
         self.assertEqual(len(self.blocked_events()), 1)
         # a different, clean prompt goes through
-        self.assertEqual(self.guards.prompt("summarise the incident"), "summarise the incident")
+        self.assertEqual(
+            self.guards.prompt("summarise the incident"), "summarise the incident"
+        )
 
     def test_T19_key_shaped_string_is_refused_even_if_never_leased(self):
         for prefix, n in (("xai-", 44), ("nvapi-", 56), ("tvly-", 30)):
@@ -59,18 +66,28 @@ class PromptGuard(Base):
                 self.assertEqual(len(ctx.exception.kinds), 1)
 
     def test_T19_structured_tool_result_with_nested_secret_is_refused(self):
-        messages = [{"role": "tool", "content": [{"type": "text", "text": f"body: {self.canary}"}]}]
+        messages = [
+            {
+                "role": "tool",
+                "content": [{"type": "text", "text": f"body: {self.canary}"}],
+            }
+        ]
         with self.assertRaises(SecretLeak):
             self.guards.prompt(messages)
         with self.assertRaises(SecretLeak):
-            self.guards.prompt({"headers": {"Authorization": "x"}})  # denied key name with a value
+            self.guards.prompt(
+                {"headers": {"Authorization": "x"}}
+            )  # denied key name with a value
         clean = [{"role": "tool", "content": "ok"}]
         self.assertEqual(self.guards.prompt(clean), clean)
 
     def test_T19_encoded_forms_are_refused_too(self):
         import base64
+
         with self.assertRaises(SecretLeak):
-            self.guards.prompt("data:" + base64.b64encode(self.canary.encode()).decode())
+            self.guards.prompt(
+                "data:" + base64.b64encode(self.canary.encode()).decode()
+            )
         with self.assertRaises(SecretLeak):
             self.guards.prompt(self.canary[:10] + "\n" + self.canary[10:])
 
@@ -80,10 +97,14 @@ class PromptGuard(Base):
         self.assertEqual(ctx.exception.sink, "log")
         self.broker.assert_safe_to_emit("clean text", sink="log")
         with self.assertRaises(SecretLeak) as ctx:
-            self.broker.assert_safe_to_emit(self.canary, sink=self.canary)  # hostile sink name is not echoed
+            self.broker.assert_safe_to_emit(
+                self.canary, sink=self.canary
+            )  # hostile sink name is not echoed
         self.assertEqual(ctx.exception.sink, "unknown")
         self.assertNotIn(self.canary, str(ctx.exception))
-        self.assertEqual(self.broker.redact(f"a {self.canary} b"), "a [REDACTED:secret] b")
+        self.assertEqual(
+            self.broker.redact(f"a {self.canary} b"), "a [REDACTED:secret] b"
+        )
 
     def test_blocked_digest_memory_is_bounded(self):
         guards = SinkGuards(self.broker, max_blocked_digests=3)
@@ -100,7 +121,17 @@ class PersistenceGuard(Base):
             {"run_id": "R-1", "state": {"note": f"tool said {self.canary}"}},
             {"run_id": "R-1", "api_key": "anything"},
             {self.canary: "value-as-key"},
-            {"steps": [{"args": {"conn": "postgres://u:" + random_chars(20) + "@h.example.invalid/db"}}]},
+            {
+                "steps": [
+                    {
+                        "args": {
+                            "conn": "postgres://u:"
+                            + random_chars(20)
+                            + "@h.example.invalid/db"
+                        }
+                    }
+                ]
+            },
         ):
             with self.subTest(record=list(record)[:2]):
                 with self.assertRaises(SecretLeak) as ctx:
@@ -112,7 +143,11 @@ class PersistenceGuard(Base):
 
     def test_T20_clean_record_is_written_and_unknown_objects_are_refused(self):
         written = []
-        rec = {"run_id": "R-1", "step": 3, "state": {"phase": "planning", "lease": "A" * 22}}
+        rec = {
+            "run_id": "R-1",
+            "step": 3,
+            "state": {"phase": "planning", "lease": "A" * 22},
+        }
         self.guards.persist(rec, written.append)
         self.assertEqual(written, [rec])
         with self.assertRaises(SecretLeak):
@@ -124,7 +159,9 @@ class PersistenceGuard(Base):
         db.execute("create table checkpoints (run_id text, state text)")
 
         def write(rec):
-            db.execute("insert into checkpoints values (?, ?)", (rec["run_id"], rec["state"]))
+            db.execute(
+                "insert into checkpoints values (?, ?)", (rec["run_id"], rec["state"])
+            )
 
         self.guards.persist({"run_id": "R-1", "state": "planning"}, write)
         with self.assertRaises(SecretLeak):
@@ -144,7 +181,9 @@ class ReturnPathAndOutgoing(Base):
             try:
                 raise ConnectionError(f"TLS failed for {self.canary}")
             except ConnectionError as inner:
-                raise ProviderError(f'HTTP 401 {{"error": "invalid key {self.canary}"}}') from inner
+                raise ProviderError(
+                    f'HTTP 401 {{"error": "invalid key {self.canary}"}}'
+                ) from inner
 
         result = self.guards.run_provider_call(call)
         self.assertFalse(result["ok"])
@@ -153,7 +192,13 @@ class ReturnPathAndOutgoing(Base):
         self.assertIn("[REDACTED:secret]", result["error"])
 
     def test_T21_success_result_is_redacted_including_denied_keys(self):
-        result = self.guards.run_provider_call(lambda: {"echo": f"you sent {self.canary}", "headers": {"set-cookie": "sid=abc"}, "n": 1})
+        result = self.guards.run_provider_call(
+            lambda: {
+                "echo": f"you sent {self.canary}",
+                "headers": {"set-cookie": "sid=abc"},
+                "n": 1,
+            }
+        )
         self.assertTrue(result["ok"])
         self.assertNotIn(self.canary, repr(result))
         self.assertEqual(result["result"]["headers"]["set-cookie"], "[REDACTED:field]")
@@ -189,24 +234,60 @@ class LogFilterAndAudit(Base):
         self.assertNotIn("hunter2hunter2", out)
         self.assertGreaterEqual(out.count("[REDACTED:secret]"), 2)
 
+    def test_n04_tuple_args_are_kept_for_access_style_formatters(self):
+        # LR 08 N-04: uvicorn.access unpacks record.args (5-tuple); the filter must keep the tuple.
+        flt = RedactingLogFilter(self.broker.redactor)
+        record = logging.LogRecord(
+            "uvicorn.access",
+            logging.INFO,
+            "p",
+            1,
+            '%s - "%s %s HTTP/%s" %d',
+            ("127.0.0.1:5", "GET", f"/x?k={self.canary}", "1.1", 200),
+            None,
+        )
+        self.assertTrue(flt.filter(record))
+        self.assertIsInstance(record.args, tuple)
+        self.assertEqual(len(record.args), 5)
+        self.assertEqual((record.args[1], record.args[4]), ("GET", 200))
+        self.assertNotIn(self.canary, record.getMessage())
+        self.assertIn("[REDACTED", record.getMessage())
+
     def test_unformattable_log_message_is_dropped_not_raised(self):
         flt = RedactingLogFilter(self.broker.redactor)
-        record = logging.LogRecord("n", logging.INFO, "p", 1, "bad %d format", ("x",), None)
+        record = logging.LogRecord(
+            "n", logging.INFO, "p", 1, "bad %d format", ("x",), None
+        )
         self.assertTrue(flt.filter(record))
         self.assertNotIn("bad", record.msg)
 
     def test_audit_writer_scrubs_a_leased_value_that_ended_up_in_an_id_field(self):
         # simulate a bug that puts a leased value where an id belongs: the shape check alone would allow it
         self.rig.registry.register(self.canary, "R-9", "LR-06")
-        self.broker.request(CredentialRequest(task_id=self.canary, run_id="R-9", agent_id="LR-06", ref=SEARCH_REF, reason_code=RequestReason.WEB_SEARCH_CALL))
+        self.broker.request(
+            CredentialRequest(
+                task_id=self.canary,
+                run_id="R-9",
+                agent_id="LR-06",
+                ref=SEARCH_REF,
+                reason_code=RequestReason.WEB_SEARCH_CALL,
+            )
+        )
         text = self.rig.all_audit_text()
         self.assertNotIn(self.canary, text)
         self.assertIn("'task_id': 'redacted'", text)
 
-    def test_T18_final_known_value_in_allowed_telemetry_and_log_fields_is_scrubbed(self):
+    def test_T18_final_known_value_in_allowed_telemetry_and_log_fields_is_scrubbed(
+        self,
+    ):
         exported = []
-        exporter = SafeSpanExporter(lambda n, a: exported.append((n, a)), leak_check=self.broker.redactor.contains_secret)
-        exporter.record_span("gateway.call", {"agent_id": self.canary, "task_id": "T-1"})
+        exporter = SafeSpanExporter(
+            lambda n, a: exported.append((n, a)),
+            leak_check=self.broker.redactor.contains_secret,
+        )
+        exporter.record_span(
+            "gateway.call", {"agent_id": self.canary, "task_id": "T-1"}
+        )
         exporter.record_span(self.canary)
         self.assertNotIn(self.canary, repr(exported))
         self.assertEqual(exported[0][1]["agent_id"], "redacted")
@@ -219,14 +300,26 @@ class LogFilterAndAudit(Base):
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG)
         install_credential_log_filter(logger)
-        self.broker.audit_sink = RedactingAuditSink(LoggingAuditSink(logger), self.broker.redactor)
+        self.broker.audit_sink = RedactingAuditSink(
+            LoggingAuditSink(logger), self.broker.redactor
+        )
         self.rig.registry.register(self.canary, "R-9", "LR-06")
-        self.broker.request(CredentialRequest(task_id=self.canary, run_id="R-9", agent_id="LR-06", ref=SEARCH_REF, reason_code=RequestReason.WEB_SEARCH_CALL))
+        self.broker.request(
+            CredentialRequest(
+                task_id=self.canary,
+                run_id="R-9",
+                agent_id="LR-06",
+                ref=SEARCH_REF,
+                reason_code=RequestReason.WEB_SEARCH_CALL,
+            )
+        )
         self.assertNotIn(self.canary, stream.getvalue())
         self.assertIn("task_id=redacted", stream.getvalue())
 
     def test_audit_sink_attribute_passthrough_for_local_sinks(self):
-        self.assertTrue(self.broker.audit_sink.events)  # RedactingAuditSink exposes the inner InMemoryAuditSink API
+        self.assertTrue(
+            self.broker.audit_sink.events
+        )  # RedactingAuditSink exposes the inner InMemoryAuditSink API
 
 
 if __name__ == "__main__":
