@@ -12,8 +12,17 @@ from apps.api.main import create_app
 class TestSec08(unittest.TestCase):
     def setUp(self):
         reset_for_tests(":memory:")
-        self.client = TestClient(create_app(Settings(db_path=":memory:", ai_provider="mock")))
-        inc = self.client.post("/incidents", json={"title": "x", "description": "My father has chest pain", "input_type": "text"}).json()
+        self.client = TestClient(
+            create_app(Settings(db_path=":memory:", ai_provider="mock"))
+        )
+        inc = self.client.post(
+            "/incidents",
+            json={
+                "title": "x",
+                "description": "My father has chest pain",
+                "input_type": "text",
+            },
+        ).json()
         self.iid = inc["incident_id"]
         self.client.post(f"/incidents/{self.iid}/analyze")
         orch = get_orchestrator()
@@ -30,16 +39,34 @@ class TestSec08(unittest.TestCase):
         self.assertEqual(self._status(plan, self.gated.action_id), "pending")
         others = [a for a in plan["actions"] if a["action_id"] != self.gated.action_id]
         self.assertTrue(all(a["status"] == "simulated" for a in others))
-        audit = self.client.get("/audit/events", params={"incident_id": self.iid, "limit": 500}).json()
-        self.assertTrue(any(e["event_type"] == "ACTION_AWAITING_CONFIRMATION" for e in audit))
+        audit = self.client.get(
+            "/audit/events", params={"incident_id": self.iid, "limit": 500}
+        ).json()
+        self.assertTrue(
+            any(e["event_type"] == "ACTION_AWAITING_CONFIRMATION" for e in audit)
+        )
 
-        plan = self.client.post(f"/incidents/{self.iid}/respond", json={"action_ids": [self.gated.action_id]}).json()
+        plan = self.client.post(
+            f"/incidents/{self.iid}/respond",
+            json={"action_ids": [self.gated.action_id]},
+        ).json()
         self.assertEqual(self._status(plan, self.gated.action_id), "simulated")
-        audit = self.client.get("/audit/events", params={"incident_id": self.iid, "limit": 500}).json()
-        self.assertTrue(any(e["event_type"] == "APPROVAL" and e["details"]["action_id"] == self.gated.action_id for e in audit))
+        audit = self.client.get(
+            "/audit/events", params={"incident_id": self.iid, "limit": 500}
+        ).json()
+        self.assertTrue(
+            any(
+                e["event_type"] == "APPROVAL"
+                and e["details"]["action_id"] == self.gated.action_id
+                for e in audit
+            )
+        )
 
     def test_unknown_action_id_rejected(self):
-        r = self.client.post(f"/incidents/{self.iid}/respond", json={"action_ids": ["act_does_not_exist"]})
+        r = self.client.post(
+            f"/incidents/{self.iid}/respond",
+            json={"action_ids": ["act_does_not_exist"]},
+        )
         self.assertEqual(r.status_code, 400)
 
     def test_respond_404_does_not_echo_id(self):

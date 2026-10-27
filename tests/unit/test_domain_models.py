@@ -2,6 +2,7 @@
 
 import unittest
 from datetime import datetime
+
 from packages.domain.models import (
     AIAnalysis,
     EmergencyContact,
@@ -95,7 +96,7 @@ class TestDomainModels(unittest.TestCase):
         self.assertEqual(plan.actions[0].status, ResponseActionStatus.PENDING)
 
     def test_strict_model_extra_fields_rejected(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017 - test asserts any rejection
             User(
                 user_id="u1",
                 name="John",

@@ -15,10 +15,10 @@ import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from apps.api.config import get_settings  # noqa: E402
-from packages.domain.ai import NVIDIAAIProvider, create_ai_provider  # noqa: E402
-from packages.domain.models import Incident  # noqa: E402
-from packages.domain.safety_policy import SafetyPolicyEngine  # noqa: E402
+from apps.api.config import get_settings
+from packages.domain.ai import NVIDIAAIProvider, create_ai_provider
+from packages.domain.models import Incident
+from packages.domain.safety_policy import SafetyPolicyEngine
 
 SMOKE_INCIDENT = Incident(
     title="Smoke test (synthetic, not a real emergency)",
@@ -45,9 +45,13 @@ def main() -> int:
     risk = SafetyPolicyEngine().evaluate_risk(SMOKE_INCIDENT, analysis)
     print(f"latency_ms   : {latency_ms}")
     print(f"provider_name: {analysis.provider_name}")
-    print(f"validation   : {'ok (AIAnalysis schema)' if live else 'FAILED -> ' + provider.last_status}")
+    print(
+        f"validation   : {'ok (AIAnalysis schema)' if live else 'FAILED -> ' + provider.last_status}"
+    )
     print(f"model urgency: {analysis.urgency.value} severity={analysis.severity_score}")
-    print(f"policy       : urgency={risk.urgency.value} escalate={risk.requires_escalation} rule={risk.policy_rule_triggered}")
+    print(
+        f"policy       : urgency={risk.urgency.value} escalate={risk.requires_escalation} rule={risk.policy_rule_triggered}"
+    )
     print(f"result       : {'LIVE OK' if live else 'FALLBACK (live call failed)'}")
     return 0 if live else 3
 

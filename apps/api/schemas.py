@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from packages.domain.models import (
@@ -125,7 +126,9 @@ class HealthResponse(BaseSchema):
     status: str
     app_name: str
     ai_provider: str
-    ai_mode: str = "mock"  # "mock" | "live" | "fallback" (live provider selected but unavailable)
+    ai_mode: str = (
+        "mock"  # "mock" | "live" | "fallback" (live provider selected but unavailable)
+    )
     ai_model: str | None = None
     ai_last_status: str | None = None
     demo_mode: bool

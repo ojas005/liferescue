@@ -1,6 +1,7 @@
 """Unit tests for SQLite storage repositories and persistence redaction."""
 
 import unittest
+
 from packages.domain.models import AuditEvent, EmergencyContact, Incident, User
 from packages.secrets.testing import random_chars
 from packages.storage.sqlite_repo import SQLiteDatabase, create_repositories

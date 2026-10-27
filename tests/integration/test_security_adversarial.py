@@ -3,16 +3,17 @@ Satisfies Master Specification Sections 7, 20, 21.
 """
 
 import unittest
+from datetime import timedelta
+
 from fastapi.testclient import TestClient
 
 from apps.api.config import Settings
 from apps.api.dependencies import get_redactor, reset_for_tests
 from apps.api.main import create_app
-from datetime import timedelta
-from tests.security.fixtures_broker import Rig, MODEL_REF
 from packages.secrets.codes import DenialReason
 from packages.secrets.errors import Denied
 from packages.secrets.testing import random_chars
+from tests.security.fixtures_broker import MODEL_REF, Rig
 
 
 class TestAdversarialSecurity(unittest.TestCase):

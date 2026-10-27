@@ -15,48 +15,67 @@ _W = r"(?<![a-z])"  # left word boundary that tolerates prefixes like "self-"
 # condition id -> pattern (applied to normalise_text() output)
 LIFE_THREAT_CONDITIONS: dict[str, re.Pattern[str]] = {
     "self_harm": re.compile(
-        _W + r"(suicid\w*|kill (myself|himself|herself|themselves)|end (my|his|her) life|"
+        _W
+        + r"(suicid\w*|kill (myself|himself|herself|themselves)|end (my|his|her) life|"
         r"self[- ]?harm\w*|cut(ting)? (myself|my wrists?)|want to die|take my (own )?life|overdos\w* on purpose)"
     ),
     "overdose_poisoning": re.compile(
-        _W + r"(overdos\w*|took (too many|a bottle of|all (my|the|her|his)) (pills|tablets|medication)|"
+        _W
+        + r"(overdos\w*|took (too many|a bottle of|all (my|the|her|his)) (pills|tablets|medication)|"
         r"poison\w*|swallowed (bleach|chemicals?|pills|battery|detergent)|opioid|fentanyl|heroin)"
     ),
     "seizure": re.compile(_W + r"(seizure\w*|convuls\w*|fitting|epileptic fit)"),
-    "drowning": re.compile(_W + r"(drown\w*|pulled from (the )?(water|pool)|face ?down in (the )?(water|pool))"),
+    "drowning": re.compile(
+        _W
+        + r"(drown\w*|pulled from (the )?(water|pool)|face ?down in (the )?(water|pool))"
+    ),
     "not_breathing": re.compile(
         _W + r"(not breathing|isn'?t breathing|stopped breathing|no pulse|no heartbeat|"
         r"cannot breathe|can'?t breathe|difficulty breathing|struggling to breathe|shortness of breath|"
         r"turning blue|cyanosis|suffocat\w*)"
     ),
-    "choking": re.compile(_W + r"(chok\w*|something stuck in (his|her|my|their) throat)"),
+    "choking": re.compile(
+        _W + r"(chok\w*|something stuck in (his|her|my|their) throat)"
+    ),
     "unconscious": re.compile(
-        _W + r"(unconscious|unresponsive|not responding|won'?t wake( up)?|passed out|fainted|collapsed|"
+        _W
+        + r"(unconscious|unresponsive|not responding|won'?t wake( up)?|passed out|fainted|collapsed|"
         r"not waking)"
     ),
-    "cardiac": re.compile(_W + r"(chest pain|chest pressure|chest tightness|heart attack|cardiac|angina)"),
+    "cardiac": re.compile(
+        _W + r"(chest pain|chest pressure|chest tightness|heart attack|cardiac|angina)"
+    ),
     "severe_bleeding": re.compile(
-        _W + r"(severe bleeding|bleeding heavily|heavy bleeding|bleeding (a lot|badly|won'?t stop)|"
+        _W
+        + r"(severe bleeding|bleeding heavily|heavy bleeding|bleeding (a lot|badly|won'?t stop)|"
         r"hemorrhag\w*|haemorrhag\w*|arterial|gushing blood|spurting blood)"
     ),
     "stroke": re.compile(
-        _W + r"(stroke|face (is )?droop\w*|facial droop\w*|slurred speech|sudden numbness|"
+        _W
+        + r"(stroke|face (is )?droop\w*|facial droop\w*|slurred speech|sudden numbness|"
         r"one side (of (his|her|my) body )?(is )?(weak|numb|paralys\w*)|paralys\w*|paralyz\w*)"
     ),
     "anaphylaxis": re.compile(
-        _W + r"(anaphyla\w*|epipen|throat (is )?swelling|severe allergic reaction|tongue swelling)"
+        _W
+        + r"(anaphyla\w*|epipen|throat (is )?swelling|severe allergic reaction|tongue swelling)"
     ),
     "major_trauma": re.compile(
-        _W + r"(stabbed|stab wound|been shot|gunshot|shot (in|at)|head trauma|skull fracture|"
+        _W
+        + r"(stabbed|stab wound|been shot|gunshot|shot (in|at)|head trauma|skull fracture|"
         r"spinal injury|impaled|electrocut\w*|amputat\w*|crushed)"
     ),
-    "obstetric": re.compile(_W + r"(in labou?r|water broke|pregnan\w* and bleeding|bleeding (while|and) pregnant)"),
+    "obstetric": re.compile(
+        _W
+        + r"(in labou?r|water broke|pregnan\w* and bleeding|bleeding (while|and) pregnant)"
+    ),
     "wildfire": re.compile(
-        _W + r"(wildfire|wild fire|brush ?fire|bush ?fire|forest fire|grass fire|flame line|"
+        _W
+        + r"(wildfire|wild fire|brush ?fire|bush ?fire|forest fire|grass fire|flame line|"
         r"evacuation order|fire (is )?(approaching|spreading toward))"
     ),
     "structure_fire": re.compile(
-        _W + r"(house (is )?on fire|building (is )?on fire|fire trapped|trapped (by|in) (the )?(fire|smoke)|"
+        _W
+        + r"(house (is )?on fire|building (is )?on fire|fire trapped|trapped (by|in) (the )?(fire|smoke)|"
         r"smoke inhalation|severe burns?|building collapse|gas leak|explosion)"
     ),
 }
@@ -147,7 +166,11 @@ STEP_LIBRARY: dict[str, list[str]] = {
     ],
 }
 
-CATEGORY_TO_LIBRARY = {"accident": "accident", "fire_hazard": "structure_fire", "medical": "general"}
+CATEGORY_TO_LIBRARY = {
+    "accident": "accident",
+    "fire_hazard": "structure_fire",
+    "medical": "general",
+}
 
 # Unsafe advice that must never reach the user from any source (SEC-03).
 UNSAFE_ADVICE = re.compile(
@@ -157,7 +180,9 @@ UNSAFE_ADVICE = re.compile(
     re.IGNORECASE,
 )
 
-_APOS = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u201c": '"', "\u201d": '"'})
+_APOS = str.maketrans(
+    {"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u201c": '"', "\u201d": '"'}
+)
 _ZW = re.compile("[\u200b-\u200f\u2060\ufeff]")
 
 

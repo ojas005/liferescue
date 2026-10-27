@@ -7,14 +7,15 @@ import sqlite3
 import unittest
 
 from fixtures_broker import MODEL_REF, SEARCH_REF, Rig
+
 from packages.secrets.audit import AuditEventType as E
 from packages.secrets.codes import RequestReason
 from packages.secrets.errors import SecretLeak
 from packages.secrets.guards import RedactingAuditSink, RedactingLogFilter, SinkGuards
 from packages.secrets.logging_rules import (
+    CREDENTIAL_LOGGER_NAME,
     LoggingAuditSink,
     install_credential_log_filter,
-    CREDENTIAL_LOGGER_NAME,
 )
 from packages.secrets.secret_types import CredentialRequest
 from packages.secrets.telemetry import SafeSpanExporter

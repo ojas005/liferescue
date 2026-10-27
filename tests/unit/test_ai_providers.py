@@ -1,6 +1,7 @@
 """Unit tests for LifeRescue AI providers (Mock and NVIDIA adapter boundary)."""
 
 import unittest
+
 from packages.domain.ai import MockAIProvider, NVIDIAAIProvider, create_ai_provider
 from packages.domain.models import (
     EmergencyContact,

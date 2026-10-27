@@ -26,7 +26,6 @@ _redactor: Redactor | None = None
 
 
 def get_leased_values() -> LeasedValues:
-    global _leased_values
     return _leased_values
 
 
@@ -47,7 +46,7 @@ def init_dependencies(
     s = settings or get_settings()
     _db = SQLiteDatabase(db_path=s.db_path, redactor=get_redactor())
     _seed_demo_data(_db)
-    inc_repo, user_repo, profile_repo, contact_repo, audit_repo = create_repositories(
+    inc_repo, _user_repo, profile_repo, contact_repo, audit_repo = create_repositories(
         _db
     )
     ai = create_ai_provider(s.ai_provider, s)
@@ -67,7 +66,6 @@ def init_dependencies(
 
 
 def get_db() -> SQLiteDatabase:
-    global _db
     if _db is None:
         init_dependencies()
     return _db
@@ -75,7 +73,7 @@ def get_db() -> SQLiteDatabase:
 
 def _seed_demo_data(db: SQLiteDatabase, force: bool = False) -> None:
     """Seed initial demo user and profile if not already populated or on forced reset."""
-    inc_repo, user_repo, profile_repo, contact_repo, audit_repo = create_repositories(
+    _inc_repo, user_repo, profile_repo, contact_repo, _audit_repo = create_repositories(
         db
     )
     demo_user = user_repo.get("usr_demo")
@@ -136,7 +134,7 @@ def get_orchestrator() -> ResponseOrchestrator:
     if _orchestrator is None:
         s = get_settings()
         db = get_db()
-        inc_repo, user_repo, profile_repo, contact_repo, audit_repo = (
+        inc_repo, _user_repo, profile_repo, contact_repo, audit_repo = (
             create_repositories(db)
         )
         ai = create_ai_provider(s.ai_provider, s)
@@ -167,7 +165,7 @@ def reset_for_tests(
     )
     _db = SQLiteDatabase(db_path=db_path, redactor=_redactor)
     _seed_demo_data(_db)
-    inc_repo, user_repo, profile_repo, contact_repo, audit_repo = create_repositories(
+    inc_repo, _user_repo, profile_repo, contact_repo, audit_repo = create_repositories(
         _db
     )
     ai = create_ai_provider("mock")

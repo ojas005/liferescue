@@ -1,6 +1,7 @@
 """End-to-End Emergency Workflow Tests for LifeRescue (Section 19 & 20)."""
 
 import unittest
+
 from fastapi.testclient import TestClient
 
 from apps.api.config import Settings

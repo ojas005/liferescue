@@ -1,7 +1,9 @@
 """Integration tests for all LifeRescue REST API endpoints."""
 
 import unittest
+
 from fastapi.testclient import TestClient
+
 from apps.api.config import Settings
 from apps.api.dependencies import reset_for_tests
 from apps.api.main import create_app

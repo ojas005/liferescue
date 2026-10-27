@@ -4,10 +4,12 @@ import io
 import json
 import logging
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fixtures_broker import MODEL_REF, SEARCH_REF, Rig
-from packages.secrets.audit import AUDIT_FIELDS, AuditEventType as E, make_event
+
+from packages.secrets.audit import AUDIT_FIELDS, make_event
+from packages.secrets.audit import AuditEventType as E
 from packages.secrets.codes import RevokeReason
 from packages.secrets.errors import Denied
 from packages.secrets.logging_rules import (
@@ -20,13 +22,13 @@ from packages.secrets.logging_rules import (
     install_credential_log_filter,
     log_credential_event,
 )
+from packages.secrets.tasks import TaskState
 from packages.secrets.telemetry import (
     SafeSpanExporter,
     exception_fields,
     sanitize_span_attributes,
 )
 from packages.secrets.testing import make_canary
-from packages.secrets.tasks import TaskState
 
 
 def types(rig):
@@ -67,7 +69,7 @@ class AuditShape(unittest.TestCase):
         hostile = make_canary("bad value ", 20)
         ev = make_event(
             E.LEASE_DENIED,
-            wall=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            wall=datetime(2026, 1, 1, tzinfo=UTC),
             outcome="denied",
             task_id=hostile,
             agent_id=hostile,
@@ -82,7 +84,7 @@ class AuditShape(unittest.TestCase):
         with self.assertRaises(ValueError):
             make_event(
                 E.LEASE_DENIED,
-                wall=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                wall=datetime(2026, 1, 1, tzinfo=UTC),
                 outcome=hostile,
             )
         with self.assertRaises(ValueError):
@@ -338,7 +340,7 @@ class TelemetryAllowList(unittest.TestCase):
         exporter.record_span(canary + "!bad name")
         text = repr(exported)
         self.assertNotIn(canary, text)
-        name, attrs = exported[0]
+        _name, attrs = exported[0]
         self.assertEqual(attrs["agent_id"], "LR-06")
         self.assertEqual(attrs["error_class"], "RuntimeError")
         self.assertEqual(attrs["task_id"], "invalid")

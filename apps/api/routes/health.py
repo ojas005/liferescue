@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from typing import Annotated
+
 from fastapi import APIRouter, Depends
 
 from apps.api.config import Settings, get_settings
 from apps.api.dependencies import get_orchestrator
-from packages.domain.ai import NVIDIAAIProvider
 from apps.api.schemas import HealthResponse
+from packages.domain.ai import NVIDIAAIProvider
 
 router = APIRouter(tags=["Health"])
 

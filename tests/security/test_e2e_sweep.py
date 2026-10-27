@@ -19,13 +19,14 @@ from unittest import mock
 from urllib.parse import quote
 
 from fixtures_broker import DB_REF, MODEL_REF, SEARCH_REF, Rig
+from scenarios import emit_through_sinks, leaks_in
+
 from packages.secrets.codes import RevokeReason
 from packages.secrets.errors import SecretLeak
 from packages.secrets.guards import RedactingAuditSink, RedactingLogFilter, SinkGuards
 from packages.secrets.logging_rules import StreamAuditSink
 from packages.secrets.redaction import Redactor
 from packages.secrets.testing import random_chars
-from scenarios import emit_through_sinks, leaks_in
 
 ROOT = Path(__file__).resolve().parents[2]
 SCAN_SCRIPT = ROOT / "scripts" / "security" / "scan-paths.sh"
@@ -47,7 +48,7 @@ def simulate_task(workdir: Path) -> dict:
         )
     }
 
-    audit_file = open(sinks["audit.jsonl"], "w", encoding="utf-8")
+    audit_file = open(sinks["audit.jsonl"], "w", encoding="utf-8")  # noqa: SIM115 - handle lifetime spans the test
 
     rig.broker.audit_sink = RedactingAuditSink(
         StreamAuditSink(audit_file), rig.broker.redactor
@@ -70,9 +71,9 @@ def simulate_task(workdir: Path) -> dict:
 
     db = sqlite3.connect(sinks["db.sqlite"])
     db.execute("create table checkpoints (run_id text, state text)")
-    prompts = open(sinks["prompts.txt"], "w", encoding="utf-8")
-    outgoing = open(sinks["outgoing.txt"], "w", encoding="utf-8")
-    errors = open(sinks["errors.txt"], "w", encoding="utf-8")
+    prompts = open(sinks["prompts.txt"], "w", encoding="utf-8")  # noqa: SIM115 - handle lifetime spans the test
+    outgoing = open(sinks["outgoing.txt"], "w", encoding="utf-8")  # noqa: SIM115 - handle lifetime spans the test
+    errors = open(sinks["errors.txt"], "w", encoding="utf-8")  # noqa: SIM115 - handle lifetime spans the test
 
     for handle, gateway in (
         (h_model, "model-gateway"),
@@ -80,7 +81,7 @@ def simulate_task(workdir: Path) -> dict:
         (h_db, "tool-gateway"),
     ):
         # --- gateway call: the value exists only inside this block; the provider echoes it in errors ---
-        with rig.use(handle, gateway=gateway) as secret:
+        with rig.use(handle, gateway=gateway) as secret:  # noqa: SIM117 - nested contexts kept for readability of the security test
             with secret.reveal() as raw:
                 provider_body = f"HTTP 401 invalid credential {raw}; sent as {base64.b64encode(raw.encode()).decode()} / {quote(raw, safe='')}"
                 logger.info("provider call using %s", raw)
@@ -198,7 +199,11 @@ class EndToEndSweep(unittest.TestCase):
         ):  # pragma: no cover - depends on tooling
             simulate_task(Path(d))
             proc = subprocess.run(
-                ["bash", str(SCAN_SCRIPT), d], cwd=ROOT, capture_output=True, text=True
+                ["bash", str(SCAN_SCRIPT), d],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertEqual(
                 proc.returncode,

@@ -58,7 +58,7 @@ def _parse_dt(val: str | None) -> datetime | None:
         return None
     try:
         return datetime.fromisoformat(val)
-    except Exception:
+    except Exception:  # noqa: BLE001 - fail-safe boundary: must never propagate
         return utcnow()
 
 

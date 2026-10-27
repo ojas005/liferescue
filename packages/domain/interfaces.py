@@ -7,7 +7,7 @@ database engines, and notification mechanisms.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Sequence
+from collections.abc import Sequence
 
 from packages.domain.models import (
     AIAnalysis,
@@ -29,7 +29,6 @@ class AIProvider(ABC):
     @abstractmethod
     def name(self) -> str:
         """Name of the provider implementation."""
-        pass
 
     @abstractmethod
     def analyze_emergency(
@@ -39,7 +38,6 @@ class AIProvider(ABC):
         contacts: Sequence[EmergencyContact] = (),
     ) -> AIAnalysis:
         """Perform semantic understanding, urgency classification, and triage analysis."""
-        pass
 
     @abstractmethod
     def generate_response_plan(
@@ -50,7 +48,6 @@ class AIProvider(ABC):
         contacts: Sequence[EmergencyContact] = (),
     ) -> ResponsePlan:
         """Generate structured response actions for the incident."""
-        pass
 
     @abstractmethod
     def assess_readiness(
@@ -59,7 +56,6 @@ class AIProvider(ABC):
         contacts: Sequence[EmergencyContact],
     ) -> ReadinessAssessment:
         """Evaluate user emergency preparedness and suggest actions."""
-        pass
 
 
 class NotificationProvider(ABC):
@@ -68,7 +64,6 @@ class NotificationProvider(ABC):
     @abstractmethod
     def is_mock(self) -> bool:
         """True if the provider is a simulation."""
-        pass
 
     @abstractmethod
     def dispatch_action(
@@ -78,7 +73,6 @@ class NotificationProvider(ABC):
         profile: EmergencyProfile | None = None,
     ) -> tuple[bool, str]:
         """Dispatch or simulate an action. Returns (success, result_message)."""
-        pass
 
 
 class IncidentRepository(ABC):

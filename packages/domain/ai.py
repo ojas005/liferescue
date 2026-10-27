@@ -12,7 +12,8 @@ import json
 import logging
 import os
 import re
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 from packages.domain.interfaces import AIProvider
 from packages.domain.models import (
@@ -59,7 +60,9 @@ class MockAIProvider(AIProvider):
         # for classification and recorded, but it never changes the triage outcome or lowers urgency.
         security_flag = None
         if any(pat.search(text) for pat in PROMPT_INJECTION_PATTERNS):
-            logger.warning("Suspected injection marker in incident text (flagged, triage continues)")
+            logger.warning(
+                "Suspected injection marker in incident text (flagged, triage continues)"
+            )
             security_flag = "prompt_injection_attempt_detected"
             for pat in PROMPT_INJECTION_PATTERNS:
                 text = pat.sub(" ", text)
@@ -503,7 +506,7 @@ def extract_json_object(content: str) -> dict:
         text = text[first : last + 1]
     parsed = json.loads(text)
     if not isinstance(parsed, dict):
-        raise ValueError("model reply JSON is not an object")
+        raise TypeError("model reply JSON is not an object")
     return parsed
 
 
@@ -525,11 +528,17 @@ class NVIDIAAIProvider(AIProvider):
         transport: object | None = None,
     ):
         self.api_key = (
-            api_key or os.environ.get("NEBIUS_API_KEY") or os.environ.get("NVIDIA_API_KEY")
+            api_key
+            or os.environ.get("NEBIUS_API_KEY")
+            or os.environ.get("NVIDIA_API_KEY")
         )
         self.model = model or os.environ.get("NVIDIA_MODEL") or DEFAULT_NEMOTRON_MODEL
-        self.base_url = base_url or os.environ.get("NVIDIA_BASE_URL") or DEFAULT_NEBIUS_BASE_URL
-        self.timeout_s = min(max(float(timeout_s or DEFAULT_PROVIDER_TIMEOUT_S), 1.0), 60.0)
+        self.base_url = (
+            base_url or os.environ.get("NVIDIA_BASE_URL") or DEFAULT_NEBIUS_BASE_URL
+        )
+        self.timeout_s = min(
+            max(float(timeout_s or DEFAULT_PROVIDER_TIMEOUT_S), 1.0), 60.0
+        )
         self._transport = transport
         self._fallback_mock = MockAIProvider()
         self.last_status: str = "not_called"
@@ -556,7 +565,9 @@ class NVIDIAAIProvider(AIProvider):
     def _fallback(self, incident, profile, contacts, reason: str) -> AIAnalysis:
         self.last_status = f"fallback:{reason}"
         res = self._fallback_mock.analyze_emergency(incident, profile, contacts)
-        return res.model_copy(update={"provider_name": f"nvidia_ai (mock_fallback: {reason})"})
+        return res.model_copy(
+            update={"provider_name": f"nvidia_ai (mock_fallback: {reason})"}
+        )
 
     def _prompt(self, incident: Incident) -> list[dict]:
         system = (
@@ -567,10 +578,11 @@ class NVIDIAAIProvider(AIProvider):
             "immediate_threat (bool), extracted_facts (object), missing_critical_info (list of str), "
             "recommended_immediate_steps (list of str)."
         )
-        user = (
-            f"Title: {incident.title}\nDescription: {incident.description}\nLocation: {incident.location}"
-        )
-        return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+        user = f"Title: {incident.title}\nDescription: {incident.description}\nLocation: {incident.location}"
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
 
     def analyze_emergency(
         self,
@@ -579,10 +591,14 @@ class NVIDIAAIProvider(AIProvider):
         contacts: Sequence[EmergencyContact] = (),
     ) -> AIAnalysis:
         if not self._is_configured():
-            logger.info("Nebius/NVIDIA API key not set; using labelled deterministic fallback")
+            logger.info(
+                "Nebius/NVIDIA API key not set; using labelled deterministic fallback"
+            )
             return self._fallback(incident, profile, contacts, "not_configured")
         if not self.base_url_is_safe():
-            logger.warning("Refusing non-https NVIDIA_BASE_URL; key not sent; labelled mock fallback")
+            logger.warning(
+                "Refusing non-https NVIDIA_BASE_URL; key not sent; labelled mock fallback"
+            )
             return self._fallback(incident, profile, contacts, "insecure_base_url")
         import httpx
 
@@ -606,7 +622,9 @@ class NVIDIAAIProvider(AIProvider):
                     },
                 )
             if resp.status_code >= 400:
-                return self._fallback(incident, profile, contacts, f"http_{resp.status_code}")
+                return self._fallback(
+                    incident, profile, contacts, f"http_{resp.status_code}"
+                )
             if len(resp.content) > MAX_PROVIDER_RESPONSE_BYTES:
                 return self._fallback(incident, profile, contacts, "response_too_large")
             content = resp.json()["choices"][0]["message"]["content"]
@@ -620,7 +638,9 @@ class NVIDIAAIProvider(AIProvider):
                 confidence=float(parsed["confidence"]),
                 immediate_threat=bool(parsed.get("immediate_threat", False)),
                 extracted_facts=dict(parsed.get("extracted_facts") or {}),
-                missing_critical_info=[str(x) for x in parsed.get("missing_critical_info") or []],
+                missing_critical_info=[
+                    str(x) for x in parsed.get("missing_critical_info") or []
+                ],
                 recommended_immediate_steps=[
                     str(x) for x in parsed.get("recommended_immediate_steps") or []
                 ],
@@ -636,7 +656,9 @@ class NVIDIAAIProvider(AIProvider):
             reason = f"invalid_response:{type(err).__name__}"
         except Exception as err:  # noqa: BLE001 - fail safe to deterministic triage
             reason = type(err).__name__
-        logger.warning("Nebius/NVIDIA provider call failed (%s); labelled mock fallback", reason)
+        logger.warning(
+            "Nebius/NVIDIA provider call failed (%s); labelled mock fallback", reason
+        )
         return self._fallback(incident, profile, contacts, reason)
 
     def generate_response_plan(
@@ -646,7 +668,9 @@ class NVIDIAAIProvider(AIProvider):
         profile: EmergencyProfile | None = None,
         contacts: Sequence[EmergencyContact] = (),
     ) -> ResponsePlan:
-        return self._fallback_mock.generate_response_plan(incident, analysis, profile, contacts)
+        return self._fallback_mock.generate_response_plan(
+            incident, analysis, profile, contacts
+        )
 
     def assess_readiness(
         self,
@@ -656,14 +680,17 @@ class NVIDIAAIProvider(AIProvider):
         return self._fallback_mock.assess_readiness(profile, contacts)
 
 
-def create_ai_provider(provider_type: str = "mock", settings: object | None = None) -> AIProvider:
+def create_ai_provider(
+    provider_type: str = "mock", settings: object | None = None
+) -> AIProvider:
     """Factory creating configured AI provider (settings: apps.api.config.Settings or None)."""
     provider_type = provider_type.lower()
     if provider_type in ("nvidia", "nebius"):
         if settings is None:
             return NVIDIAAIProvider()
         return NVIDIAAIProvider(
-            api_key=getattr(settings, "nebius_api_key", None) or getattr(settings, "nvidia_api_key", None),
+            api_key=getattr(settings, "nebius_api_key", None)
+            or getattr(settings, "nvidia_api_key", None),
             model=getattr(settings, "nvidia_model", None),
             base_url=getattr(settings, "nvidia_base_url", None),
             timeout_s=getattr(settings, "ai_timeout_s", None),

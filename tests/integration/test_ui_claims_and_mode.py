@@ -18,14 +18,27 @@ class TestUiClaims(unittest.TestCase):
     def test_no_misleading_claims(self):
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         js = (STATIC / "app.js").read_text(encoding="utf-8")
-        for bad in ("LIVE EMERGENCY DISPATCH", "&lt; 150ms", "FIRST_AID_GUIDANCE", "SCENE_SAFETY", "Immutable", "immutable"):
+        for bad in (
+            "LIVE EMERGENCY DISPATCH",
+            "&lt; 150ms",
+            "FIRST_AID_GUIDANCE",
+            "SCENE_SAFETY",
+            "Immutable",
+            "immutable",
+        ):
             with self.subTest(bad=bad):
                 self.assertNotIn(bad, html + js)
         self.assertIn("NO REAL DISPATCH", html)
 
     def test_mode_labels_present(self):
         js = (STATIC / "app.js").read_text(encoding="utf-8")
-        for label in ("AI Engine: LIVE", "AI Engine: MOCK fallback", "AI Engine: MOCK (", "mock_fallback", "'LIVE'"):
+        for label in (
+            "AI Engine: LIVE",
+            "AI Engine: MOCK fallback",
+            "AI Engine: MOCK (",
+            "mock_fallback",
+            "'LIVE'",
+        ):
             with self.subTest(label=label):
                 self.assertIn(label, js)
 
@@ -47,10 +60,18 @@ class TestAuditAppendOnly(unittest.TestCase):
             try:
                 n = conn.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0]
                 self.assertGreater(n, 0)
-                for stmt in ("DELETE FROM audit_events", "UPDATE audit_events SET result='x'"):
-                    with self.subTest(stmt=stmt), self.assertRaises(sqlite3.DatabaseError):
+                for stmt in (
+                    "DELETE FROM audit_events",
+                    "UPDATE audit_events SET result='x'",
+                ):
+                    with (
+                        self.subTest(stmt=stmt),
+                        self.assertRaises(sqlite3.DatabaseError),
+                    ):
                         conn.execute(stmt)
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0], n)
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0], n
+                )
             finally:
                 conn.close()
 

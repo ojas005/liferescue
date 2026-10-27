@@ -9,7 +9,7 @@ Capability C — Personal Emergency Readiness / Prevention
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Literal
 
@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 def utcnow() -> datetime:
     """Return current UTC timestamp with timezone."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def generate_id(prefix: str = "") -> str:

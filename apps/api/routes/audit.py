@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query
 
 from apps.api.dependencies import get_db

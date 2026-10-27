@@ -62,7 +62,7 @@ class TokenLogFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             msg = record.getMessage()
-        except Exception:
+        except Exception:  # noqa: BLE001 - fail-safe boundary: must never propagate
             return True
         if self._t in msg:
             record.msg = msg.replace(self._t, "[REDACTED:demo_token]")
@@ -88,21 +88,37 @@ class DemoTokenMiddleware:
         if self._token is None:
             # Defence in depth for `uvicorn --host 0.0.0.0` bypassing run.py: refuse off-loopback serving.
             server = scope.get("server") or (None, None)
-            if server[0] and _is_ip(server[0]) and not is_loopback(server[0]) and not self._public(request.url.path):
-                return await self._deny(scope, receive, send, 503, "Server is not bound to localhost and no DEMO_ACCESS_TOKEN is configured.")
+            if (
+                server[0]
+                and _is_ip(server[0])
+                and not is_loopback(server[0])
+                and not self._public(request.url.path)
+            ):
+                return await self._deny(
+                    scope,
+                    receive,
+                    send,
+                    503,
+                    "Server is not bound to localhost and no DEMO_ACCESS_TOKEN is configured.",
+                )
             return await self.app(scope, receive, send)
         if request.method == "OPTIONS" or self._public(request.url.path):
             return await self.app(scope, receive, send)
         supplied = request.headers.get(TOKEN_HEADER, "").strip().encode()
         if not supplied or not hmac.compare_digest(supplied, self._token):
-            return await self._deny(scope, receive, send, 401, "Missing or invalid demo access token.")
+            return await self._deny(
+                scope, receive, send, 401, "Missing or invalid demo access token."
+            )
         return await self.app(scope, receive, send)
 
     @staticmethod
     async def _deny(scope, receive, send, status: int, detail: str):
         resp = JSONResponse(
             status_code=status,
-            content={"error": "Unauthorized" if status == 401 else "ServiceUnavailable", "detail": detail},
+            content={
+                "error": "Unauthorized" if status == 401 else "ServiceUnavailable",
+                "detail": detail,
+            },
             headers={"WWW-Authenticate": TOKEN_HEADER} if status == 401 else None,
         )
         await resp(scope, receive, send)

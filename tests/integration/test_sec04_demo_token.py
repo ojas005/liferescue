@@ -26,13 +26,25 @@ class TestTokenGate(unittest.TestCase):
         self.handler = logging.StreamHandler(self.log)
         logging.getLogger().addHandler(self.handler)
         logging.getLogger().setLevel(logging.DEBUG)
-        self.client = TestClient(create_app(Settings(db_path=":memory:", ai_provider="mock", demo_access_token=TOKEN)))
+        self.client = TestClient(
+            create_app(
+                Settings(
+                    db_path=":memory:", ai_provider="mock", demo_access_token=TOKEN
+                )
+            )
+        )
 
     def tearDown(self):
         logging.getLogger().removeHandler(self.handler)
 
     def test_missing_token_401(self):
-        for path in ("/incidents", "/audit/events", "/readiness?user_id=usr_demo", "/docs", "/openapi.json"):
+        for path in (
+            "/incidents",
+            "/audit/events",
+            "/readiness?user_id=usr_demo",
+            "/docs",
+            "/openapi.json",
+        ):
             with self.subTest(path=path):
                 self.assertEqual(self.client.get(path).status_code, 401)
         self.assertEqual(self.client.post("/demo/reset").status_code, 401)
@@ -40,11 +52,21 @@ class TestTokenGate(unittest.TestCase):
     def test_wrong_token_401(self):
         for bad in ("nope", TOKEN[:-1], TOKEN + "x", ""):
             with self.subTest(bad=bad):
-                self.assertEqual(self.client.get("/incidents", headers={"X-Demo-Token": bad}).status_code, 401)
+                self.assertEqual(
+                    self.client.get(
+                        "/incidents", headers={"X-Demo-Token": bad}
+                    ).status_code,
+                    401,
+                )
 
     def test_right_token_ok_and_health_public(self):
-        self.assertEqual(self.client.get("/incidents", headers={"X-Demo-Token": TOKEN}).status_code, 200)
-        r = self.client.post("/demo/scenarios/scenario_medical/run", headers={"X-Demo-Token": TOKEN})
+        self.assertEqual(
+            self.client.get("/incidents", headers={"X-Demo-Token": TOKEN}).status_code,
+            200,
+        )
+        r = self.client.post(
+            "/demo/scenarios/scenario_medical/run", headers={"X-Demo-Token": TOKEN}
+        )
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.client.get("/health").status_code, 200)
         self.assertEqual(self.client.get("/").status_code, 200)
@@ -56,7 +78,9 @@ class TestTokenGate(unittest.TestCase):
             for path in ("/incidents", "/incidents/does-not-exist", "/health"):
                 r = self.client.get(path, headers=headers)
                 bodies.append(r.text + str(dict(r.headers)))
-        r = self.client.post("/incidents", headers={"X-Demo-Token": TOKEN}, json={"bad": TOKEN})
+        r = self.client.post(
+            "/incidents", headers={"X-Demo-Token": TOKEN}, json={"bad": TOKEN}
+        )
         bodies.append(r.text)
         logging.getLogger("liferescue.test").warning("echo %s", TOKEN)
         self.assertNotIn(TOKEN, "".join(bodies))
@@ -82,7 +106,15 @@ class TestBindPolicy(unittest.TestCase):
     def test_run_py_refuses_startup(self):
         env = {k: v for k, v in os.environ.items() if k.upper() != "DEMO_ACCESS_TOKEN"}
         env.update(HOST="0.0.0.0", DB_PATH=":memory:")
-        p = subprocess.run([sys.executable, "apps/api/run.py"], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+        p = subprocess.run(
+            [sys.executable, "apps/api/run.py"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
         self.assertNotEqual(p.returncode, 0)
         self.assertIn("DEMO_ACCESS_TOKEN", p.stderr)
 
@@ -93,7 +125,9 @@ class TestBindPolicy(unittest.TestCase):
 
     def test_offloopback_server_without_token_refused_at_runtime(self):
         reset_for_tests(":memory:")
-        c = TestClient(create_app(Settings(db_path=":memory:")), base_url="http://10.0.0.5")
+        c = TestClient(
+            create_app(Settings(db_path=":memory:")), base_url="http://10.0.0.5"
+        )
         # TestClient reports scope["server"] from base_url host
         self.assertEqual(c.get("/incidents").status_code, 503)
         self.assertEqual(c.get("/health").status_code, 200)

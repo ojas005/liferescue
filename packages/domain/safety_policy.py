@@ -14,15 +14,8 @@ Enforces:
 from __future__ import annotations
 
 import re
-from typing import Sequence
+from collections.abc import Sequence
 
-from packages.domain.triage_rules import (
-    UNSAFE_ADVICE,
-    describe_conditions,
-    detect_conditions,
-    normalise_text,
-    vetted_steps,
-)
 from packages.domain.models import (
     AIAnalysis,
     EmergencyContact,
@@ -33,6 +26,13 @@ from packages.domain.models import (
     ResponsePlan,
     RiskAssessment,
     UrgencyLevel,
+)
+from packages.domain.triage_rules import (
+    UNSAFE_ADVICE,
+    describe_conditions,
+    detect_conditions,
+    normalise_text,
+    vetted_steps,
 )
 
 # Mandatory allowed action types (anything else proposed by an LLM is rejected)
@@ -84,7 +84,12 @@ LIFE_THREATENING_PATTERNS = [
     ),
 ]
 
-_URGENCY_ORDER = [UrgencyLevel.LOW, UrgencyLevel.MEDIUM, UrgencyLevel.HIGH, UrgencyLevel.CRITICAL]
+_URGENCY_ORDER = [
+    UrgencyLevel.LOW,
+    UrgencyLevel.MEDIUM,
+    UrgencyLevel.HIGH,
+    UrgencyLevel.CRITICAL,
+]
 
 
 def max_urgency(*levels: UrgencyLevel | None) -> UrgencyLevel:
@@ -94,9 +99,15 @@ def max_urgency(*levels: UrgencyLevel | None) -> UrgencyLevel:
 
 # Suspected prompt-injection markers: ADVISORY flag only (SEC-02), never a triage outcome.
 INJECTION_MARKERS = [
-    re.compile(r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions|rules)", re.IGNORECASE),
+    re.compile(
+        r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions|rules)",
+        re.IGNORECASE,
+    ),
     re.compile(r"you\s+are\s+now\s+a\s+", re.IGNORECASE),
-    re.compile(r"(jailbreak|dan\s+mode|<script|classify\s+(this\s+)?as\s+(low|medium))", re.IGNORECASE),
+    re.compile(
+        r"(jailbreak|dan\s+mode|<script|classify\s+(this\s+)?as\s+(low|medium))",
+        re.IGNORECASE,
+    ),
 ]
 
 CRISIS_LINE_TEXT = (
@@ -139,14 +150,20 @@ class SafetyPolicyEngine:
         conditions = detect_conditions(incident_text)
         is_life_threatening = bool(conditions)
         trigger_reason = (
-            f"Detected acute critical symptom(s): {describe_conditions(incident_text)}" if conditions else ""
+            f"Detected acute critical symptom(s): {describe_conditions(incident_text)}"
+            if conditions
+            else ""
         )
         if not is_life_threatening:
-            for pattern in LIFE_THREATENING_PATTERNS:  # legacy lexicon kept (never weakened)
+            for (
+                pattern
+            ) in LIFE_THREATENING_PATTERNS:  # legacy lexicon kept (never weakened)
                 match = pattern.search(combined_text)
                 if match:
                     is_life_threatening = True
-                    trigger_reason = f"Detected acute critical symptom: '{match.group(0)}'"
+                    trigger_reason = (
+                        f"Detected acute critical symptom: '{match.group(0)}'"
+                    )
                     break
 
         security_flags = [
@@ -155,12 +172,20 @@ class SafetyPolicyEngine:
             if pat.search(incident_text)
         ][:1]
         if analysis and analysis.extracted_facts.get("security_flag"):
-            security_flags = sorted(set(security_flags) | {"suspected_prompt_injection"})
+            security_flags = sorted(
+                set(security_flags) | {"suspected_prompt_injection"}
+            )
 
         # The model may only RAISE urgency above the deterministic floor (SEC-03).
         model_urgency = analysis.urgency if analysis else None
-        floor = UrgencyLevel.CRITICAL if is_life_threatening else (
-            UrgencyLevel.MEDIUM if (security_flags or analysis is None) else UrgencyLevel.LOW
+        floor = (
+            UrgencyLevel.CRITICAL
+            if is_life_threatening
+            else (
+                UrgencyLevel.MEDIUM
+                if (security_flags or analysis is None)
+                else UrgencyLevel.LOW
+            )
         )
         urgency = max_urgency(floor, model_urgency)
 
@@ -254,11 +279,19 @@ class SafetyPolicyEngine:
 
             # Displayed safety steps come only from the vetted step library (SEC-03)
             if action.action_type == ResponseActionType.DISPLAY_INSTRUCTIONS:
-                steps = vetted_steps(risk.conditions, _category_of(proposed_plan), risk.requires_escalation)
+                steps = vetted_steps(
+                    risk.conditions,
+                    _category_of(proposed_plan),
+                    risk.requires_escalation,
+                )
                 action = action.model_copy(
                     update={
                         "description": "\n".join(f"- {st}" for st in steps),
-                        "payload": {"steps": steps, "source": "vetted_step_library", "disclaimer": MEDICAL_DISCLAIMER},
+                        "payload": {
+                            "steps": steps,
+                            "source": "vetted_step_library",
+                            "disclaimer": MEDICAL_DISCLAIMER,
+                        },
                     }
                 )
 
@@ -278,7 +311,10 @@ class SafetyPolicyEngine:
                     is_escalation=False,
                     requires_confirmation=False,
                     status=ResponseActionStatus.PENDING,
-                    payload={"resource": "crisis_line", "source": "vetted_step_library"},
+                    payload={
+                        "resource": "crisis_line",
+                        "source": "vetted_step_library",
+                    },
                     mocked=True,
                 )
             )

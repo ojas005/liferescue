@@ -5,6 +5,7 @@ Validates all requirements for Master Specification Phases 3 through 14.
 from __future__ import annotations
 
 import unittest
+
 from fastapi.testclient import TestClient
 
 from apps.api.config import Settings
@@ -365,8 +366,8 @@ class TestFinalAuditAndReadiness(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_phase9_secret_canary_leakage_audit(self):
         """Seed a unique fake canary through mock secret backend and verify it never leaks."""
-        from packages.secrets.secret_types import SecretValue
         from apps.api.dependencies import get_leased_values
+        from packages.secrets.secret_types import SecretValue
 
         fake_canary = "GHTEST_FAKE_CANARY_" + random_chars(32)
         get_leased_values().add("canary_lease_phase9", SecretValue(fake_canary))

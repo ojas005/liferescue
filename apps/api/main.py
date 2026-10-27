@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,7 +47,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     enforce_bind_policy(cfg.host, cfg.demo_access_token)
     if cfg.demo_access_token:
         token_filter = TokenLogFilter(cfg.demo_access_token.strip())
-        for lg in (logging.getLogger(), logging.getLogger("liferescue"), logging.getLogger("uvicorn.access")):
+        for lg in (
+            logging.getLogger(),
+            logging.getLogger("liferescue"),
+            logging.getLogger("uvicorn.access"),
+        ):
             lg.addFilter(token_filter)
             for h in lg.handlers:
                 h.addFilter(token_filter)
@@ -58,7 +63,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=cfg.cors_allowlist(),  # SEC-06: explicit allowlist, never "*"
         allow_credentials=False,  # auth is an explicit X-Demo-Token header, not cookies
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-Demo-Token", "X-Request-ID", "X-Correlation-ID"],
+        allow_headers=[
+            "Content-Type",
+            "X-Demo-Token",
+            "X-Request-ID",
+            "X-Correlation-ID",
+        ],
     )
 
     # 2. Security and correlation middleware
@@ -84,7 +94,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # 3b. Validation errors: never echo request input back (could carry tokens/secrets) — SEC-04/SEC-09
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ):
         req_id = getattr(request.state, "request_id", "")
         errors = [
             {"type": e.get("type"), "loc": list(e.get("loc", ())), "msg": e.get("msg")}
@@ -92,8 +104,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ]
         return JSONResponse(
             status_code=422,
-            content={"error": "ValidationError", "detail": errors, "request_id": req_id},
-            headers={"X-Request-ID": req_id, "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY"},
+            content={
+                "error": "ValidationError",
+                "detail": errors,
+                "request_id": req_id,
+            },
+            headers={
+                "X-Request-ID": req_id,
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "DENY",
+            },
         )
 
     # 4. Include REST API routers

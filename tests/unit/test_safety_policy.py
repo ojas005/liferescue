@@ -1,6 +1,7 @@
 """Unit tests for LifeRescue Deterministic Safety Policy Engine."""
 
 import unittest
+
 from packages.domain.models import (
     AIAnalysis,
     EmergencyContact,

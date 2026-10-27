@@ -243,7 +243,7 @@ class ResponseOrchestrator:
                 incident, analysis, profile, contacts
             )
             plan = self.safety.vet_response_plan(incident, raw_plan, risk, contacts)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail-safe boundary: must never propagate
             logger.error(
                 "AI response planning failed (%s); generating safety fallback plan", exc
             )

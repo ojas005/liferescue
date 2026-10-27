@@ -74,7 +74,7 @@ class ConfigDefaults(unittest.TestCase):
             {"served_environments": ["staging"]},
             {"served_environments": "mock"},
         ]:
-            with self.subTest(bad=bad):
+            with self.subTest(bad=bad):  # noqa: SIM117 - nested contexts kept for readability of the security test
                 with self.assertRaises(ConfigurationError):
                     BrokerConfig.from_mapping(bad)
 

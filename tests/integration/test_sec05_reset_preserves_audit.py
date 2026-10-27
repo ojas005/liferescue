@@ -12,7 +12,9 @@ from apps.api.main import create_app
 class TestSec05(unittest.TestCase):
     def setUp(self):
         reset_for_tests(":memory:")
-        self.client = TestClient(create_app(Settings(db_path=":memory:", ai_provider="mock")))
+        self.client = TestClient(
+            create_app(Settings(db_path=":memory:", ai_provider="mock"))
+        )
 
     def test_reset_keeps_audit_and_appends_event(self):
         r = self.client.post("/demo/scenarios/scenario_medical/run").json()

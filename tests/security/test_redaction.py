@@ -5,6 +5,8 @@ import json
 import unittest
 
 from fixtures_broker import MODEL_REF, Rig
+from scenarios import emit_through_sinks, leaks_in
+
 from packages.secrets.redaction import (
     DENIED_KEY_TERMS,
     KnownValueMatcher,
@@ -15,7 +17,6 @@ from packages.secrets.redaction import (
 )
 from packages.secrets.secret_types import SecretValue
 from packages.secrets.testing import make_canary, random_chars
-from scenarios import emit_through_sinks, leaks_in
 
 
 class KnownValueRedaction(unittest.TestCase):
@@ -64,8 +65,8 @@ class KnownValueRedaction(unittest.TestCase):
         self.assertEqual(leaks_in(out, other), [])
 
     def test_base64_in_all_three_alignments_embedded_in_larger_data(self):
-        for prefix_len in range(0, 6):
-            for suffix_len in range(0, 4):
+        for prefix_len in range(6):
+            for suffix_len in range(4):
                 blob = (
                     random_chars(prefix_len).encode()
                     + self.canary.encode()
@@ -270,7 +271,7 @@ class PatternRedaction(unittest.TestCase):
                 ],
             },
         ]:
-            with self.subTest(bad=str(bad)[:40]):
+            with self.subTest(bad=str(bad)[:40]):  # noqa: SIM117 - nested contexts kept for readability of the security test
                 with self.assertRaises(ConfigurationError):
                     PatternSet.from_mapping(bad)
 
@@ -366,9 +367,9 @@ class KeyNameRule(unittest.TestCase):
 
     def test_safe_scalars_pass_and_secretvalue_is_marked(self):
         import datetime
-        import uuid
         import decimal
         import enum
+        import uuid
 
         class Color(enum.Enum):
             RED = "red"

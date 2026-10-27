@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -33,7 +33,11 @@ class Settings(BaseSettings):
 
     def cors_allowlist(self) -> list[str]:
         if self.cors_origins.strip():
-            return [o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip() and o.strip() != "*"]
+            return [
+                o.strip().rstrip("/")
+                for o in self.cors_origins.split(",")
+                if o.strip() and o.strip() != "*"
+            ]
         return [f"http://localhost:{self.port}", f"http://127.0.0.1:{self.port}"]
 
 

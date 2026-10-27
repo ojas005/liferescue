@@ -110,15 +110,13 @@ class PolicyValidation(unittest.TestCase):
             doc("not-a-mapping"),
         ]
         for i, bad in enumerate(bad_docs):
-            with self.subTest(case=i):
-                with self.assertRaises(PolicyError):
-                    policy_from_mapping(bad)
+            with self.subTest(case=i), self.assertRaises(PolicyError):
+                policy_from_mapping(bad)
 
     def test_invalid_json_and_duplicates_and_size(self):
         for text in ["", "{", "[]", '{"version":1,"version":1,"grants":[]}', "\xff"]:
-            with self.subTest(text=text):
-                with self.assertRaises(PolicyError):
-                    parse_policy(text)
+            with self.subTest(text=text), self.assertRaises(PolicyError):
+                parse_policy(text)
         with self.assertRaises(PolicyError):
             parse_policy(b"\xff\xfe\x00")
         with self.assertRaises(PolicyError):
@@ -154,9 +152,8 @@ class PolicyValidation(unittest.TestCase):
             "mock-" + "a1b2c3d4e5f6g7h8i9j0",  # one long segment
             "k1-2345-6789-0123",  # too many digits
         ]:
-            with self.subTest(name=name):
-                with self.assertRaises(PolicyError):
-                    policy_from_mapping(doc(grant(names=[name])))
+            with self.subTest(name=name), self.assertRaises(PolicyError):
+                policy_from_mapping(doc(grant(names=[name])))
 
     def test_packaged_policy_file_has_no_unexpected_content(self):
         text = DEFAULT_POLICY_PATH.read_text(encoding="utf-8")

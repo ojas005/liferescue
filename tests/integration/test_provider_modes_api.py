@@ -27,7 +27,12 @@ UNDER_RATED = {
 class TestProviderModesAPI(unittest.TestCase):
     def setUp(self):
         reset_for_tests(":memory:")
-        settings = Settings(db_path=":memory:", ai_provider="nebius", nebius_api_key=None, nvidia_api_key=None)
+        settings = Settings(
+            db_path=":memory:",
+            ai_provider="nebius",
+            nebius_api_key=None,
+            nvidia_api_key=None,
+        )
         self.client = TestClient(create_app(settings))
 
     def _analyzed_audit(self):
@@ -47,18 +52,30 @@ class TestProviderModesAPI(unittest.TestCase):
 
     def test_live_provider_output_passes_safety_policy_before_actions(self):
         def handler(request):
-            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(UNDER_RATED)}}]})
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": json.dumps(UNDER_RATED)}}]},
+            )
 
         orch = get_orchestrator()
-        orch.ai = NVIDIAAIProvider(api_key="fake-test-key-0002", transport=httpx.MockTransport(handler))
+        orch.ai = NVIDIAAIProvider(
+            api_key="fake-test-key-0002", transport=httpx.MockTransport(handler)
+        )
         res = self.client.post("/demo/scenarios/scenario_medical/run").json()
         self.assertNotIn("mock_fallback", res["analysis"]["provider_name"])
         self.assertEqual(res["analysis"]["urgency"], "low")
         # deterministic policy overrides the under-rated model output
         self.assertTrue(res["risk"]["requires_escalation"])
-        self.assertEqual(res["risk"]["policy_rule_triggered"], "RULE_ACUTE_LIFE_THREAT_ESCALATION")
+        self.assertEqual(
+            res["risk"]["policy_rule_triggered"], "RULE_ACUTE_LIFE_THREAT_ESCALATION"
+        )
         self.assertTrue(res["plan"]["approved_by_policy"])
-        self.assertTrue(all(a["status"] == "simulated" and a["mocked"] for a in res["plan"]["actions"]))
+        self.assertTrue(
+            all(
+                a["status"] == "simulated" and a["mocked"]
+                for a in res["plan"]["actions"]
+            )
+        )
         self.assertEqual(self.client.get("/health").json()["ai_mode"], "live")
         self.assertFalse(self._analyzed_audit()[-1]["details"]["fallback"])
 

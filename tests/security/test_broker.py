@@ -7,9 +7,12 @@ from datetime import timedelta
 from pathlib import Path
 
 from fixtures_broker import DB_REF, DEFAULT_POLICY, MODEL_REF, SEARCH_REF, Rig
+
+from packages.secrets.audit import AuditEventType as E
 from packages.secrets.audit import InMemoryAuditSink
 from packages.secrets.broker import CredentialBroker
-from packages.secrets.codes import DenialReason as D, RequestReason, RevokeReason
+from packages.secrets.codes import DenialReason as D
+from packages.secrets.codes import RequestReason, RevokeReason
 from packages.secrets.config import BrokerConfig
 from packages.secrets.errors import ConfigurationError, Denied, PolicyError
 from packages.secrets.memory_backend import InMemoryBackend
@@ -27,7 +30,6 @@ from packages.secrets.secret_types import (
 )
 from packages.secrets.tasks import InMemoryTaskRegistry, TaskState
 from packages.secrets.testing import make_canary
-from packages.secrets.audit import AuditEventType as E
 
 
 class IssueAndNoLeak(unittest.TestCase):
@@ -79,7 +81,7 @@ class IssueAndNoLeak(unittest.TestCase):
             with value.reveal() as raw:
                 self.assertEqual(raw, rig.canaries[MODEL_REF])
         self.assertTrue(value.wiped)
-        with rig.use(h) as again:  # lease's own copy was not wiped
+        with rig.use(h) as again:  # lease's own copy was not wiped  # noqa: SIM117 - nested contexts kept for readability of the security test
             with again.reveal() as raw:
                 self.assertEqual(raw, rig.canaries[MODEL_REF])
 
@@ -125,9 +127,12 @@ class AccessDenial(unittest.TestCase):
 
     def test_T04_unknown_purpose_ref_environment_fail_closed(self):
         rig = Rig()
-        base = dict(
-            task_id="T-1", run_id="R-1", agent_id="LR-06", reason_code="model_call"
-        )
+        base = {
+            "task_id": "T-1",
+            "run_id": "R-1",
+            "agent_id": "LR-06",
+            "reason_code": "model_call",
+        }
         for label, ref in [
             ("unknown purpose", "secretref://mock/not_a_purpose/mock-model-key"),
             (
@@ -316,7 +321,7 @@ class AccessDenial(unittest.TestCase):
 
         registry = InMemoryTaskRegistry()
         for backend in (ProdBackend(), TestEnvBackend(), NoEnvBackend()):
-            with self.subTest(backend=type(backend).__name__):
+            with self.subTest(backend=type(backend).__name__):  # noqa: SIM117 - nested contexts kept for readability of the security test
                 with self.assertRaises(ConfigurationError):
                     CredentialBroker(
                         backend=backend,
@@ -429,7 +434,7 @@ class LeaseLifecycle(unittest.TestCase):
                 original = rig.broker.revoke_task
 
                 def spy(task_id, *, reason_code, _orig=original, _rig=rig):
-                    seen["state_during_revoke"] = _rig.registry.state(task_id)
+                    seen["state_during_revoke"] = _rig.registry.state(task_id)  # noqa: B023 - closure invoked within the same iteration
                     return _orig(task_id, reason_code=reason_code)
 
                 rig.broker.revoke_task = spy
@@ -493,7 +498,7 @@ class LeaseLifecycle(unittest.TestCase):
             rig.broker.revoke("no-such-lease", reason_code=RevokeReason.OWNER_ACTION)
         )
         self.assertEqual(len(rig.events(E.LEASE_REVOKED)), 1)
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017 - test asserts any rejection
             rig.broker.revoke(h.lease_id, reason_code="owner_action")  # type: ignore[arg-type]
 
     def test_T10_T11_no_renewal_duplicate_denied_reissue_after_expiry_reevaluates_policy(
@@ -931,7 +936,7 @@ class Concurrency(unittest.TestCase):
                 fn(i)
             except Denied:
                 pass
-            except BaseException as exc:  # pragma: no cover - would fail the test
+            except BaseException as exc:  # pragma: no cover - would fail the test  # noqa: BLE001 - fail-safe boundary: must never propagate
                 errors.append(exc)
 
         threads = [threading.Thread(target=runner, args=(i,)) for i in range(n)]
@@ -973,9 +978,9 @@ class Concurrency(unittest.TestCase):
 
             def work(i):
                 if i == 0:
-                    rig.registry.end_task("T-1", TaskState.COMPLETED, broker=rig.broker)
+                    rig.registry.end_task("T-1", TaskState.COMPLETED, broker=rig.broker)  # noqa: B023 - closure invoked within the same iteration
                 else:
-                    rig.request(refs[i % 4])
+                    rig.request(refs[i % 4])  # noqa: B023 - closure invoked within the same iteration
 
             self.run_threads(16, work)
             self.assertEqual(rig.broker.live_lease_count("T-1"), 0)

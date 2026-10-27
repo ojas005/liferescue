@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from apps.api.dependencies import get_db, get_orchestrator

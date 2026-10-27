@@ -32,16 +32,22 @@ GOOD = {
 
 
 def _incident():
-    return Incident(title="Chest pain", description="Crushing chest pain, struggling to breathe")
+    return Incident(
+        title="Chest pain", description="Crushing chest pain, struggling to breathe"
+    )
 
 
 def _provider(handler):
-    return NVIDIAAIProvider(api_key=FAKE_KEY, transport=httpx.MockTransport(handler), timeout_s=2)
+    return NVIDIAAIProvider(
+        api_key=FAKE_KEY, transport=httpx.MockTransport(handler), timeout_s=2
+    )
 
 
 def _reply(content, status=200):
     def handler(request):
-        return httpx.Response(status, json={"choices": [{"message": {"content": content}}]})
+        return httpx.Response(
+            status, json={"choices": [{"message": {"content": content}}]}
+        )
 
     return handler
 
@@ -54,7 +60,12 @@ class TestNvidiaProvider(unittest.TestCase):
         self.assertEqual(DEFAULT_NEMOTRON_MODEL, "nvidia/nemotron-3-super-120b-a12b")
 
     def test_settings_drive_factory(self):
-        s = Settings(ai_provider="nebius", nebius_api_key=FAKE_KEY, nvidia_model="nvidia/x", ai_timeout_s=5)
+        s = Settings(
+            ai_provider="nebius",
+            nebius_api_key=FAKE_KEY,
+            nvidia_model="nvidia/x",
+            ai_timeout_s=5,
+        )
         p = create_ai_provider("nebius", s)
         self.assertIsInstance(p, NVIDIAAIProvider)
         self.assertEqual((p.api_key, p.model, p.timeout_s), (FAKE_KEY, "nvidia/x", 5.0))
@@ -66,10 +77,14 @@ class TestNvidiaProvider(unittest.TestCase):
             seen["url"] = str(request.url)
             seen["auth"] = request.headers["authorization"]
             seen["body"] = json.loads(request.content)
-            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(GOOD)}}]})
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": json.dumps(GOOD)}}]}
+            )
 
         a = _provider(handler).analyze_emergency(_incident())
-        self.assertEqual(seen["url"], "https://api.tokenfactory.nebius.com/v1/chat/completions")
+        self.assertEqual(
+            seen["url"], "https://api.tokenfactory.nebius.com/v1/chat/completions"
+        )
         self.assertEqual(seen["auth"], f"Bearer {FAKE_KEY}")
         self.assertEqual(seen["body"]["response_format"], {"type": "json_object"})
         self.assertEqual(a.urgency, UrgencyLevel.CRITICAL)
@@ -80,7 +95,7 @@ class TestNvidiaProvider(unittest.TestCase):
         content = "<think>reasoning</think>\n```json\n" + json.dumps(GOOD) + "\n```"
         a = _provider(_reply(content)).analyze_emergency(_incident())
         self.assertNotIn("mock_fallback", a.provider_name)
-        self.assertEqual(extract_json_object("```\n{\"a\": 1}\n```"), {"a": 1})
+        self.assertEqual(extract_json_object('```\n{"a": 1}\n```'), {"a": 1})
 
     def _assert_fallback(self, provider, reason):
         a = provider.analyze_emergency(_incident())

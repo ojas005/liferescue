@@ -343,7 +343,7 @@ EXTRA_MUTATIONS: list = [
 ]
 
 
-def run_tests(workdir: Path, modules: tuple, extra_env: dict = None) -> tuple:
+def run_tests(workdir: Path, modules: tuple, extra_env: dict | None = None) -> tuple:
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", **(extra_env or {}))
     failed_any, output = False, []
     for module in modules:
@@ -363,6 +363,7 @@ def run_tests(workdir: Path, modules: tuple, extra_env: dict = None) -> tuple:
             capture_output=True,
             text=True,
             timeout=300,
+            check=False,
         )
         output.append(proc.stderr)
         if proc.returncode != 0:

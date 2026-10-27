@@ -29,12 +29,19 @@ CRITICAL_CASES = [
 class TestSec01Recall(unittest.TestCase):
     def setUp(self):
         reset_for_tests(":memory:")
-        self.client = TestClient(create_app(Settings(db_path=":memory:", ai_provider="mock")))
+        self.client = TestClient(
+            create_app(Settings(db_path=":memory:", ai_provider="mock"))
+        )
 
     def _run(self, text):
-        inc = self.client.post("/incidents", json={"title": "Help", "description": text, "input_type": "text"}).json()
+        inc = self.client.post(
+            "/incidents",
+            json={"title": "Help", "description": text, "input_type": "text"},
+        ).json()
         tri = self.client.post(f"/incidents/{inc['incident_id']}/analyze").json()
-        plan = self.client.post(f"/incidents/{inc['incident_id']}/respond", json={}).json()
+        plan = self.client.post(
+            f"/incidents/{inc['incident_id']}/respond", json={}
+        ).json()
         return tri, plan
 
     def test_life_threats_are_critical_with_simulated_emergency_call(self):
@@ -44,13 +51,21 @@ class TestSec01Recall(unittest.TestCase):
                 self.assertEqual(tri["risk"]["urgency"], "critical")
                 self.assertTrue(tri["risk"]["requires_escalation"])
                 self.assertTrue(tri["risk"]["conditions"])
-                calls = [a for a in plan["actions"] if a["action_type"] == "call_emergency_services"]
+                calls = [
+                    a
+                    for a in plan["actions"]
+                    if a["action_type"] == "call_emergency_services"
+                ]
                 self.assertTrue(calls, plan["actions"])
                 self.assertTrue(all(a["mocked"] for a in plan["actions"]))
 
     def test_suicidal_intent_adds_crisis_line(self):
         _, plan = self._run("I want to kill myself tonight")
-        crisis = [a for a in plan["actions"] if a.get("payload", {}).get("resource") == "crisis_line"]
+        crisis = [
+            a
+            for a in plan["actions"]
+            if a.get("payload", {}).get("resource") == "crisis_line"
+        ]
         self.assertEqual(len(crisis), 1)
         self.assertIn("988", crisis[0]["description"])
 

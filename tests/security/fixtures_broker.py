@@ -114,9 +114,11 @@ class Rig:
         return self.broker.request(req)
 
     def ctx(self, handle, **over):
-        base = dict(
-            task_id=handle.task_id, run_id=handle.run_id, agent_id=handle.agent_id
-        )
+        base = {
+            "task_id": handle.task_id,
+            "run_id": handle.run_id,
+            "agent_id": handle.agent_id,
+        }
         base.update(over)
         return CallContext(**base)
 

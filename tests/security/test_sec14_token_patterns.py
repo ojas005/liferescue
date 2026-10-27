@@ -22,12 +22,21 @@ class TestSec14(unittest.TestCase):
                 out = r.redact_text(f"leaked {tok} here", sink="log")
                 self.assertNotIn(tok, out)
                 self.assertIn(f"[REDACTED:{kind}]", out)
-        self.assertEqual(r.redact_text("task-sketch skill", sink="log"), "task-sketch skill")
+        self.assertEqual(
+            r.redact_text("task-sketch skill", sink="log"), "task-sketch skill"
+        )
 
     def test_stored_incident_redacted(self):
         reset_for_tests(":memory:")
         c = TestClient(create_app(Settings(db_path=":memory:", ai_provider="mock")))
-        inc = c.post("/incidents", json={"title": "x", "description": f"keys {GHP} {SK} {PAT}", "input_type": "text"}).json()
+        inc = c.post(
+            "/incidents",
+            json={
+                "title": "x",
+                "description": f"keys {GHP} {SK} {PAT}",
+                "input_type": "text",
+            },
+        ).json()
         got = c.get(f"/incidents/{inc['incident_id']}").text
         for tok in (GHP, SK, PAT):
             self.assertNotIn(tok, got)

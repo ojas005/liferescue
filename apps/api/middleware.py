@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -63,7 +64,7 @@ class SecurityAndCorrelationMiddleware(BaseHTTPMiddleware):
                 req_id,
             )
             return response
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - fail-safe boundary: must never propagate
             elapsed_ms = int((time.time() - start_time) * 1000)
             logger.error(
                 "Unhandled API error on %s [req_id=%s]: %s",

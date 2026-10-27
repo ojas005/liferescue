@@ -6,8 +6,9 @@ import unittest
 from datetime import timedelta
 
 from fixtures_broker import Rig
-from packages.secrets.conformance import BackendConformanceMixin
+
 from packages.secrets.codes import RevokeReason
+from packages.secrets.conformance import BackendConformanceMixin
 from packages.secrets.errors import BackendError
 from packages.secrets.memory_backend import InMemoryBackend
 from packages.secrets.secret_types import Environment, SecretValue
@@ -100,7 +101,7 @@ class SuiteDetectsBrokenBackends(unittest.TestCase):
 
     def test_backend_sharing_one_secretvalue_fails(self):
         class Shared(InMemoryBackend):
-            _cache = {}
+            _cache = {}  # noqa: RUF012 - test deliberately shares mutable state
 
             def resolve(self, ref, *, ttl):
                 v = super().resolve(ref, ttl=ttl)
