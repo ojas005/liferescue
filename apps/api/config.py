@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     ai_timeout_s: float = Field(default=20.0, ge=1.0, le=60.0)
     # SEC-04: shared demo token. REQUIRED when host is not 127.0.0.1/localhost. Env var only; never commit.
     demo_access_token: str | None = Field(default=None, repr=False)
+    # LR 08 N-05: DEMO_REQUIRE_TOKEN=1 forces the token even on localhost (use with any tunnel/proxy).
+    demo_require_token: bool = Field(default=False)
     # SEC-06: explicit CORS allowlist (comma-separated). Empty -> localhost/127.0.0.1 on `port`.
     cors_origins: str = Field(default="")
 

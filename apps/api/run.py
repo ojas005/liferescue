@@ -16,10 +16,12 @@ from apps.api.config import get_settings
 
 if __name__ == "__main__":
     settings = get_settings()
-    from apps.api.access import InsecureBindError, enforce_bind_policy
+    from apps.api.access import TUNNEL_WARNING, InsecureBindError, enforce_bind_policy
 
     try:
-        enforce_bind_policy(settings.host, settings.demo_access_token)
+        enforce_bind_policy(
+            settings.host, settings.demo_access_token, settings.demo_require_token
+        )
     except InsecureBindError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(2)
@@ -34,6 +36,8 @@ if __name__ == "__main__":
         f"  Access gate : {'X-Demo-Token required' if settings.demo_access_token else 'open (localhost only)'}"
     )
     print("=" * 65)
+    if not settings.demo_access_token:
+        print(TUNNEL_WARNING, file=sys.stderr)
     uvicorn.run(
         "apps.api.main:app", host=settings.host, port=settings.port, reload=False
     )

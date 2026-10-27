@@ -44,7 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # 0. SEC-04 access gate (innermost of the three so 401s still get CORS + request-id headers)
-    enforce_bind_policy(cfg.host, cfg.demo_access_token)
+    enforce_bind_policy(cfg.host, cfg.demo_access_token, cfg.demo_require_token)
     if cfg.demo_access_token:
         token_filter = TokenLogFilter(cfg.demo_access_token.strip())
         for lg in (

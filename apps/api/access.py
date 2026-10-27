@@ -46,8 +46,23 @@ def _is_ip(host: str) -> bool:
         return False
 
 
-def enforce_bind_policy(host: str | None, token: str | None) -> None:
-    if not is_loopback(host) and not (token and token.strip()):
+TUNNEL_WARNING = (
+    "WARNING: access gate is OPEN. Any tunnel/proxy/public exposure (ngrok, cloudflared, ssh -R, "
+    "port-forward) makes localhost reachable from the internet: set DEMO_ACCESS_TOKEN and "
+    "DEMO_REQUIRE_TOKEN=1 first."
+)
+
+
+def enforce_bind_policy(
+    host: str | None, token: str | None, require_token: bool = False
+) -> None:
+    has_token = bool(token and token.strip())
+    if require_token and not has_token:
+        raise InsecureBindError(
+            "Refusing to start: DEMO_REQUIRE_TOKEN=1 but DEMO_ACCESS_TOKEN is not set. "
+            "Set DEMO_ACCESS_TOKEN in the environment (never commit it)."
+        )
+    if not is_loopback(host) and not has_token:
         raise InsecureBindError(
             f"Refusing to start: host {host!r} is not localhost and DEMO_ACCESS_TOKEN is not set. "
             "Set DEMO_ACCESS_TOKEN in the environment (never commit it) or bind to 127.0.0.1."

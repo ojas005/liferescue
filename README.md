@@ -183,6 +183,16 @@ HOST=0.0.0.0 python apps/api/run.py
 - With the token set, every API route except `/health` (and the static UI shell) requires the header
   `X-Demo-Token: <token>`; comparison is constant-time and the value is never logged or echoed.
 - The web UI shows a token prompt after a 401 and keeps the value in `sessionStorage` only.
+- **Tunnels count as public exposure.** ngrok, cloudflared, `ssh -R`, VS Code/Codespaces port
+  forwarding, or any reverse proxy make a `127.0.0.1` server reachable from the internet while the
+  bind check still sees localhost. Before using one, set `DEMO_ACCESS_TOKEN` **and**
+  `DEMO_REQUIRE_TOKEN=1`, which forces the token even on localhost (startup fails if the token is missing):
+
+  ```bash
+  export DEMO_ACCESS_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
+  DEMO_REQUIRE_TOKEN=1 python apps/api/run.py   # then start the tunnel
+  ```
+- When no token is set, `run.py` prints a startup warning that the gate is open.
 - CORS is an explicit allowlist (`http://localhost:<port>`, `http://127.0.0.1:<port>`; override with `CORS_ORIGINS`).
 
 ## 8. License
