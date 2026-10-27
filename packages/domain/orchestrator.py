@@ -41,6 +41,20 @@ from packages.domain.triage_rules import vetted_steps
 logger = logging.getLogger("liferescue.orchestrator")
 
 
+_ACTOR_MAX = 50
+
+
+def _event_actor(provider_name: str) -> str:
+    """Bounded actor label (IncidentEvent.actor max 50). A long fallback label such as
+    'nvidia_ai (mock_fallback: invalid_response:JSONDecodeError)' keeps its fallback marker;
+    the full provider name stays in the event payload."""
+    if len(provider_name) <= _ACTOR_MAX:
+        return provider_name
+    if "mock_fallback" in provider_name:
+        return provider_name.split("(", 1)[0].strip()[:30] + " (mock_fallback)"
+    return provider_name[:_ACTOR_MAX]
+
+
 class MockNotificationProvider(NotificationProvider):
     """Safe, non-network notification dispatcher for hackathon demos and local runs."""
 
@@ -190,7 +204,7 @@ class ResponseOrchestrator:
                 incident_id=incident_id,
                 seq=seq,
                 event_type="ai_analysis_completed",
-                actor=analysis.provider_name,
+                actor=_event_actor(analysis.provider_name),
                 summary=f"Triage: {analysis.category} classified as {risk.urgency.value} urgency (Severity: {analysis.severity_score}/10)",
                 payload={
                     "urgency": risk.urgency.value,
@@ -198,6 +212,7 @@ class ResponseOrchestrator:
                     "confidence": analysis.confidence,
                     "escalation_required": risk.requires_escalation,
                     "missing_info": analysis.missing_critical_info,
+                    "provider": analysis.provider_name,
                 },
             )
         )
@@ -206,7 +221,7 @@ class ResponseOrchestrator:
         self.audit_repo.record(
             AuditEvent(
                 event_type="INCIDENT_ANALYZED",
-                actor=analysis.provider_name,
+                actor=_event_actor(analysis.provider_name),
                 incident_id=incident_id,
                 action="triage_analysis",
                 result="success",

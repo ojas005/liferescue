@@ -79,6 +79,35 @@ class TestProviderModesAPI(unittest.TestCase):
         self.assertEqual(self.client.get("/health").json()["ai_mode"], "live")
         self.assertFalse(self._analyzed_audit()[-1]["details"]["fallback"])
 
+    def test_long_fallback_label_does_not_break_scenario_run(self):
+        """Regression: 'nvidia_ai (mock_fallback: invalid_response:JSONDecodeError)' exceeded the
+        50-char IncidentEvent.actor limit and turned a labelled fallback into HTTP 500."""
+
+        def handler(request):
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "not json {"}}]}
+            )
+
+        orch = get_orchestrator()
+        orch.ai = NVIDIAAIProvider(
+            api_key="fake-test-key-0003", transport=httpx.MockTransport(handler)
+        )
+        for sid in ("scenario_medical", "scenario_accident", "scenario_preparedness"):
+            r = self.client.post(f"/demo/scenarios/{sid}/run")
+            self.assertEqual(r.status_code, 200, sid)
+            res = r.json()
+            self.assertIn(
+                "mock_fallback: invalid_response", res["analysis"]["provider_name"]
+            )
+            self.assertTrue(
+                all(a["status"] == "simulated" for a in res["plan"]["actions"])
+            )
+            actors = {e["actor"] for e in res["timeline"]}
+            self.assertTrue(any("mock_fallback" in a for a in actors))
+            self.assertTrue(all(len(a) <= 50 for a in actors))
+        self.assertEqual(self.client.get("/health").json()["ai_mode"], "fallback")
+        self.assertTrue(self._analyzed_audit()[-1]["details"]["fallback"])
+
 
 if __name__ == "__main__":
     unittest.main()
