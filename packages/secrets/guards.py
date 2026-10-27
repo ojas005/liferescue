@@ -4,6 +4,7 @@ log filter and audit writer. Each guard uses the broker's redactor, so it knows 
 Fail-closed rule: a guard that finds a secret REFUSES (``SecretLeak``) rather than sending a redacted
 variant, except on the return path to an agent (spec 6.10: "redacted before return") and in logs.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -19,7 +20,19 @@ from .logging_rules import _STANDARD_RECORD_KEYS
 from .redaction import Redactor, marker
 
 #: Closed list of sink names; anything else is counted as "unknown".
-SINKS = frozenset({"prompt", "log", "persistence", "return", "audit", "outgoing", "telemetry", "error", "unknown"})
+SINKS = frozenset(
+    {
+        "prompt",
+        "log",
+        "persistence",
+        "return",
+        "audit",
+        "outgoing",
+        "telemetry",
+        "error",
+        "unknown",
+    }
+)
 
 
 def _digest(obj: Any) -> str:
@@ -28,6 +41,33 @@ def _digest(obj: Any) -> str:
     except (TypeError, ValueError):
         raw = repr(type(obj))
     return hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()
+
+
+def redact_record_message(record: logging.LogRecord, message: str, redact) -> None:
+    """LR 08 N-04: redact a record WITHOUT discarding ``record.args``.
+
+    uvicorn's AccessFormatter unpacks ``record.args`` (5-tuple); setting it to None crashed the access
+    line. Tuple args are redacted element-wise and kept; if that cannot reproduce the fully redacted
+    message (secret spanning args, non-str arg), fall back to a pre-formatted message with string args
+    of the same arity (``%s``-only formats such as uvicorn's still render; others lose the line safely).
+    """
+    redacted = redact(message)
+    args = record.args
+    if isinstance(args, tuple) and args:
+        record.msg = redact(str(record.msg))
+        record.args = tuple(redact(a) if isinstance(a, str) else a for a in args)
+        try:
+            ok = record.getMessage() == redacted
+        except Exception:  # noqa: BLE001 - fail-safe: use the collapsed form below
+            ok = False
+        if ok:
+            return
+        record.msg = redacted
+        record.args = ()
+        return
+    if redacted != message or args:
+        record.msg = redacted
+        record.args = ()
 
 
 class SinkGuards:
@@ -83,7 +123,11 @@ class SinkGuards:
         try:
             result = call()
         except Exception as exc:  # noqa: BLE001 - this is the boundary that must not leak
-            summary = {"ok": False, "error_class": type(exc).__name__, "error": self._redactor.redact_exception(exc, sink="return")}
+            summary = {
+                "ok": False,
+                "error_class": type(exc).__name__,
+                "error": self._redactor.redact_exception(exc, sink="return"),
+            }
             return summary
         return {"ok": True, "result": self.return_path(result)}
 
@@ -103,11 +147,14 @@ class RedactingLogFilter(logging.Filter):
             message = record.getMessage()
         except Exception:
             message = "[unformattable log message dropped]"
-        record.msg = self._r.redact_text(message, sink="log")
-        record.args = None
+        redact_record_message(
+            record, message, lambda t: self._r.redact_text(t, sink="log")
+        )
         if record.exc_info:
             exc = record.exc_info[1]
-            record.exc_text = self._r.format_traceback(exc, sink="log") if exc is not None else None
+            record.exc_text = (
+                self._r.format_traceback(exc, sink="log") if exc is not None else None
+            )
             record.exc_info = None
         elif record.exc_text:
             record.exc_text = self._r.redact_text(record.exc_text, sink="log")
@@ -134,5 +181,7 @@ class RedactingAuditSink:
                 self._r._count("secret", "audit")
         self._inner.emit(replace(event, **fixed) if fixed else event)
 
-    def __getattr__(self, name: str):  # expose the inner sink's helpers (events, of_type, clear) for local sinks
+    def __getattr__(
+        self, name: str
+    ):  # expose the inner sink's helpers (events, of_type, clear) for local sinks
         return getattr(self._inner, name)

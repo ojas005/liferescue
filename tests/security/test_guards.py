@@ -235,6 +235,25 @@ class LogFilterAndAudit(Base):
         self.assertNotIn("hunter2hunter2", out)
         self.assertGreaterEqual(out.count("[REDACTED:secret]"), 2)
 
+    def test_n04_tuple_args_are_kept_for_access_style_formatters(self):
+        # LR 08 N-04: uvicorn.access unpacks record.args (5-tuple); the filter must keep the tuple.
+        flt = RedactingLogFilter(self.broker.redactor)
+        record = logging.LogRecord(
+            "uvicorn.access",
+            logging.INFO,
+            "p",
+            1,
+            '%s - "%s %s HTTP/%s" %d',
+            ("127.0.0.1:5", "GET", f"/x?k={self.canary}", "1.1", 200),
+            None,
+        )
+        self.assertTrue(flt.filter(record))
+        self.assertIsInstance(record.args, tuple)
+        self.assertEqual(len(record.args), 5)
+        self.assertEqual((record.args[1], record.args[4]), ("GET", 200))
+        self.assertNotIn(self.canary, record.getMessage())
+        self.assertIn("[REDACTED", record.getMessage())
+
     def test_unformattable_log_message_is_dropped_not_raised(self):
         flt = RedactingLogFilter(self.broker.redactor)
         record = logging.LogRecord(

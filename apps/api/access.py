@@ -14,6 +14,8 @@ import logging
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from packages.secrets.guards import redact_record_message
+
 TOKEN_HEADER = "X-Demo-Token"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 PUBLIC_PATHS = {"/health", "/", "/favicon.ico"}
@@ -65,8 +67,10 @@ class TokenLogFilter(logging.Filter):
         except Exception:  # noqa: BLE001 - fail-safe boundary: must never propagate
             return True
         if self._t in msg:
-            record.msg = msg.replace(self._t, "[REDACTED:demo_token]")
-            record.args = None
+            # N-04: keep record.args (uvicorn.access unpacks them); redact element-wise.
+            redact_record_message(
+                record, msg, lambda t: t.replace(self._t, "[REDACTED:demo_token]")
+            )
         return True
 
 
