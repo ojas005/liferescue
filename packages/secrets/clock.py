@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Protocol
 
 
@@ -18,4 +18,4 @@ class SystemClock:
         return time.monotonic()
 
     def wall(self) -> datetime:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)

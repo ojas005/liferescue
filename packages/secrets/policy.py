@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any
 
 from .errors import PolicyError
-from .secret_types import Environment, Purpose, SecretRef, _ID_RE, _NAME_RE
+from .secret_types import _ID_RE, _NAME_RE, Environment, Purpose, SecretRef
 
 MAX_POLICY_BYTES = 64 * 1024
 MAX_GRANTS = 200
@@ -41,7 +42,7 @@ class Grant:
     purpose: Purpose
     names: frozenset
     environments: frozenset
-    max_ttl: Optional[timedelta] = None
+    max_ttl: timedelta | None = None
 
 
 @dataclass(frozen=True)
@@ -49,7 +50,7 @@ class Policy:
     grants: tuple = ()
     version: int = 1
 
-    def find_grant(self, agent_id: str, ref: SecretRef) -> Optional[Grant]:
+    def find_grant(self, agent_id: str, ref: SecretRef) -> Grant | None:
         """The grant covering (agent, purpose, name, environment), or None (deny by default)."""
         for grant in self.grants:
             if (
@@ -71,10 +72,10 @@ def _no_duplicates(pairs):
     return seen
 
 
-def load_policy(path: Optional[Path] = None) -> Policy:
+def load_policy(path: Path | None = None) -> Policy:
     """Load and validate a policy file (default: the packaged ``policy.json``). Fail closed."""
     target = Path(path) if path is not None else DEFAULT_POLICY_PATH
-    data: Optional[bytes] = None
+    data: bytes | None = None
     failed = False
     try:
         with open(target, "rb") as fh:

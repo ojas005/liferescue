@@ -11,13 +11,14 @@ import hashlib
 import json
 import logging
 import threading
+from collections.abc import Callable, Mapping
 from dataclasses import replace
-from typing import Any, Callable, Mapping, Optional
+from typing import Any
 
 from .audit import AuditEvent, AuditSink
 from .errors import SecretLeak
 from .logging_rules import _STANDARD_RECORD_KEYS
-from .redaction import Redactor, marker
+from .redaction import Redactor
 
 #: Closed list of sink names; anything else is counted as "unknown".
 SINKS = frozenset(

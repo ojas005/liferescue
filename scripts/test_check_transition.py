@@ -1774,19 +1774,19 @@ class AllowlistFileSchema(unittest.TestCase):
                 ct.load_allowlist(big)
 
     def test_public_function_fails_closed_when_the_default_file_is_unreadable(self):
-        with mock.patch.object(
-            ct, "DEFAULT_ALLOWLIST_PATH", "/nonexistent/allowlist.json"
-        ):
-            with mock.patch.object(
+        with (
+            mock.patch.object(
+                ct, "DEFAULT_ALLOWLIST_PATH", "/nonexistent/allowlist.json"
+            ),
+            mock.patch.object(
                 ct,
                 "load_allowlist",
                 side_effect=ValueError("cannot read allowlist: OSError"),
-            ):
-                d = ct.check_transition(
-                    **case(
-                        "To Do", "In Progress", "human", evidence={"claim_record": "x"}
-                    )
-                )
+            ),
+        ):
+            d = ct.check_transition(
+                **case("To Do", "In Progress", "human", evidence={"claim_record": "x"})
+            )
         self.assertFalse(d.allowed)
 
 

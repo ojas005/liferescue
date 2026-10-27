@@ -23,7 +23,7 @@ def md_files(root):
 
 
 def strip_code(text):
-    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     return re.sub(r"`[^`\n]*`", "", text)
 
 

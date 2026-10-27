@@ -17,7 +17,8 @@ import json
 import logging
 import re
 import threading
-from typing import IO, Mapping
+from collections.abc import Mapping
+from typing import IO
 
 from .audit import AUDIT_FIELDS, AuditEvent, AuditEventType
 

@@ -6,7 +6,7 @@ are never exported: only the exception class name is.
 
 from __future__ import annotations
 
-from typing import Callable, Mapping, Optional
+from collections.abc import Callable, Mapping
 
 from .logging_rules import sanitize_fields
 
@@ -18,7 +18,7 @@ def sanitize_span_attributes(attributes: Mapping, *, leak_check=None) -> dict:
     return sanitize_fields(SPAN_EVENT_TYPE, attributes, leak_check=leak_check)
 
 
-def exception_fields(exc: Optional[BaseException]) -> dict:
+def exception_fields(exc: BaseException | None) -> dict:
     """What may be exported about an exception: its class name only (no message, args, cause or traceback)."""
     if exc is None:
         return {}
@@ -35,8 +35,8 @@ class SafeSpanExporter:
     def record_span(
         self,
         name: str,
-        attributes: Optional[Mapping] = None,
-        exc: Optional[BaseException] = None,
+        attributes: Mapping | None = None,
+        exc: BaseException | None = None,
     ) -> None:
         if (
             self._leak_check is not None

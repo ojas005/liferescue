@@ -152,7 +152,7 @@ class GateTests(unittest.TestCase):
             env=full,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True,
+            text=True,
         )
 
     def test_cli_exit_codes(self):

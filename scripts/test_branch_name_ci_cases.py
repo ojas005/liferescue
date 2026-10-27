@@ -194,7 +194,7 @@ def run_cli(name, author, cwd):
         cwd=cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
         timeout=30,
     )
 
@@ -284,7 +284,7 @@ class MatrixTests(unittest.TestCase):
                 cwd=self.tmp.name,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                universal_newlines=True,
+                text=True,
             )
 
         for name, author, verdict, label in ALL:
@@ -306,7 +306,7 @@ class MatrixTests(unittest.TestCase):
             env={"PATH": os.environ.get("PATH", "")},
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True,
+            text=True,
             cwd=self.tmp.name,
         )
         self.assertEqual(proc.returncode, 2)
@@ -321,7 +321,7 @@ class MatrixTests(unittest.TestCase):
                 },
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                universal_newlines=True,
+                text=True,
                 cwd=self.tmp.name,
             )
             self.assertEqual(proc.returncode, 2, args)

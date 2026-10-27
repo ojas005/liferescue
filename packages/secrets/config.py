@@ -9,10 +9,11 @@ the refusal of ``Environment.PRODUCTION``, which no configuration can override.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from .errors import ConfigurationError
 from .secret_types import Environment
@@ -96,7 +97,7 @@ class BrokerConfig:
     )
 
     @classmethod
-    def from_mapping(cls, mapping: Mapping[str, Any]) -> "BrokerConfig":
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> BrokerConfig:
         """Build from a plain mapping (e.g. parsed JSON). Unknown keys are rejected (fail closed)."""
         if not isinstance(mapping, Mapping):
             raise ConfigurationError("configuration must be a mapping")
@@ -134,7 +135,7 @@ class BrokerConfig:
         return cls(**kwargs)
 
     @classmethod
-    def from_json_file(cls, path: Path) -> "BrokerConfig":
+    def from_json_file(cls, path: Path) -> BrokerConfig:
         """Load from an explicitly given JSON file. Never searches paths or reads the environment."""
         data = None
         failed = False

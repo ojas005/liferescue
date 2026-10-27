@@ -18,9 +18,9 @@ import math
 import secrets as _stdlib_secrets
 import threading
 from collections import deque
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Callable, Iterable, Mapping, Optional
+from datetime import UTC, datetime, timedelta
 
 from .agent_api import AgentCredentialClient
 from .audit import AuditEvent, AuditEventType, AuditSink, InMemoryAuditSink, make_event
@@ -36,7 +36,7 @@ from .errors import (
     SecretLeak,
     UnknownRef,
 )
-from .guards import RedactingAuditSink, SINKS
+from .guards import SINKS, RedactingAuditSink
 from .leased_values import LeasedValues
 from .metrics import Metrics
 from .policy import Policy, load_policy
@@ -107,7 +107,7 @@ class _Lease:
     expires_at: datetime
     state: LeaseState = LeaseState.ISSUED
     uses: int = 0
-    value: Optional[SecretValue] = field(default=None, repr=False)
+    value: SecretValue | None = field(default=None, repr=False)
 
 
 def _ids_of(obj, names: Iterable[str]) -> dict:
@@ -119,15 +119,15 @@ class CredentialBroker:
         self,
         *,
         backend: SecretBackend,
-        policy: Optional[Policy],
+        policy: Policy | None,
         task_registry: TaskRegistry,
-        config: Optional[BrokerConfig] = None,
-        clock: Optional[Clock] = None,
-        audit_sink: Optional[AuditSink] = None,
-        alert_handler: Optional[Callable[[AuditEvent], None]] = None,
+        config: BrokerConfig | None = None,
+        clock: Clock | None = None,
+        audit_sink: AuditSink | None = None,
+        alert_handler: Callable[[AuditEvent], None] | None = None,
         gateway_ids: Iterable[str] = (),
-        leased_values: Optional[LeasedValues] = None,
-        metrics: Optional[Metrics] = None,
+        leased_values: LeasedValues | None = None,
+        metrics: Metrics | None = None,
     ) -> None:
         # ---- startup guards (spec 5.4): fail closed, do not start in an unsafe configuration ----
         config = config if config is not None else BrokerConfig()
@@ -177,8 +177,8 @@ class CredentialBroker:
         self._terminal_order: deque = deque()
         self._agent_hits: dict = {}
         self._global_hits: deque = deque()
-        self._last_mono: Optional[float] = None
-        self._last_sweep_mono: Optional[float] = None
+        self._last_mono: float | None = None
+        self._last_sweep_mono: float | None = None
 
         self._gateway_tokens: dict = {}
         for gid in gateway_ids:
@@ -553,7 +553,7 @@ class CredentialBroker:
             return self._expire_due(self._tick_or_last())
 
     # ------------------------------------------------------------------ introspection ----------
-    def live_lease_count(self, task_id: Optional[str] = None) -> int:
+    def live_lease_count(self, task_id: str | None = None) -> int:
         with self._lock:
             self._expire_due(self._tick_or_last())
             return sum(
@@ -563,7 +563,7 @@ class CredentialBroker:
                 and (task_id is None or l.task_id == task_id)
             )
 
-    def lease_state(self, lease_id: str) -> Optional[LeaseState]:
+    def lease_state(self, lease_id: str) -> LeaseState | None:
         with self._lock:
             lease = self._leases.get(lease_id)
             if lease is None:
@@ -579,12 +579,14 @@ class CredentialBroker:
         try:
             mono = self._clock.monotonic()
             if (
-                isinstance(mono, bool)
-                or not isinstance(mono, (int, float))
-                or not math.isfinite(mono)
+                (
+                    isinstance(mono, bool)
+                    or not isinstance(mono, (int, float))
+                    or not math.isfinite(mono)
+                )
+                or self._last_mono is not None
+                and mono < self._last_mono
             ):
-                fault = True
-            elif self._last_mono is not None and mono < self._last_mono:
                 fault = True
         except Exception:
             fault = True
@@ -754,12 +756,12 @@ class CredentialBroker:
         event_type: AuditEventType,
         outcome: str,
         *,
-        req: Optional[CredentialRequest] = None,
-        lease: Optional[_Lease] = None,
-        reason: Optional[DenialReason] = None,
-        code: Optional[str] = None,
-        alert: Optional[bool] = None,
-        correlation: Optional[str] = None,
+        req: CredentialRequest | None = None,
+        lease: _Lease | None = None,
+        reason: DenialReason | None = None,
+        code: str | None = None,
+        alert: bool | None = None,
+        correlation: str | None = None,
     ) -> AuditEvent:
         """Build an audit event from a request or a lease (ids and names only)."""
         src = lease if lease is not None else req
@@ -888,7 +890,7 @@ class CredentialBroker:
         try:
             return self._clock.wall()
         except Exception:
-            return datetime.fromtimestamp(0, tz=timezone.utc)
+            return datetime.fromtimestamp(0, tz=UTC)
 
 
 # ---------------------------------------------------------------------------- helpers ---------

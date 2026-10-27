@@ -15,9 +15,9 @@ Caveats (stated, not hidden):
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
 
 from .redaction import PatternSet
 from .testing import random_chars
@@ -31,15 +31,15 @@ except ModuleNotFoundError:  # pragma: no cover
 @dataclass
 class GitleaksRule:
     rule_id: str
-    regex: "re.Pattern[str]"
+    regex: re.Pattern[str]
     secret_group: int
     allow_match: tuple
 
 
 @dataclass
 class ParityReport:
-    mismatches: List[str] = field(default_factory=list)
-    problems: List[str] = field(default_factory=list)
+    mismatches: list[str] = field(default_factory=list)
+    problems: list[str] = field(default_factory=list)
     samples: int = 0
 
     @property
@@ -47,12 +47,12 @@ class ParityReport:
         return not self.mismatches and not self.problems
 
 
-def load_gitleaks_rules(path: Path) -> Dict[str, GitleaksRule]:
+def load_gitleaks_rules(path: Path) -> dict[str, GitleaksRule]:
     if tomllib is None:  # pragma: no cover
         raise RuntimeError("tomllib (Python 3.11+) is required for the parity harness")
     with open(path, "rb") as fh:
         doc = tomllib.load(fh)
-    rules: Dict[str, GitleaksRule] = {}
+    rules: dict[str, GitleaksRule] = {}
     for item in doc.get("rules", []):
         allow = []
         for al in item.get("allowlists", []):
@@ -67,7 +67,7 @@ def load_gitleaks_rules(path: Path) -> Dict[str, GitleaksRule]:
     return rules
 
 
-def _gitleaks_secret(rule: GitleaksRule, sample: str) -> Optional[str]:
+def _gitleaks_secret(rule: GitleaksRule, sample: str) -> str | None:
     for m in rule.regex.finditer(sample):
         if any(a.search(m.group(0)) for a in rule.allow_match):
             continue
@@ -75,7 +75,7 @@ def _gitleaks_secret(rule: GitleaksRule, sample: str) -> Optional[str]:
     return None
 
 
-def _python_secret(patterns: PatternSet, rule_id: str, sample: str) -> Optional[str]:
+def _python_secret(patterns: PatternSet, rule_id: str, sample: str) -> str | None:
     for rule in patterns.rules:
         if rule.gitleaks_rule != rule_id:
             continue
@@ -87,7 +87,7 @@ def _python_secret(patterns: PatternSet, rule_id: str, sample: str) -> Optional[
 
 
 # -------------------------------------------------------------------------------- corpus -------
-def _ctx(secret: str) -> List[str]:
+def _ctx(secret: str) -> list[str]:
     return [
         secret,
         f"key = {secret}",
@@ -234,7 +234,7 @@ def _gen_private_key() -> tuple:
     return pos, neg
 
 
-CORPUS_GENERATORS: Dict[str, Callable[[], tuple]] = dict(
+CORPUS_GENERATORS: dict[str, Callable[[], tuple]] = dict(
     [
         ("liferescue-xai-api-key", _gen_xai),
         ("liferescue-nvidia-api-key", _gen_nvidia),
@@ -247,7 +247,7 @@ CORPUS_GENERATORS: Dict[str, Callable[[], tuple]] = dict(
 )
 
 
-def run_parity(toml_path: Path, patterns: Optional[PatternSet] = None) -> ParityReport:
+def run_parity(toml_path: Path, patterns: PatternSet | None = None) -> ParityReport:
     patterns = patterns if patterns is not None else PatternSet.load()
     gl = load_gitleaks_rules(toml_path)
     report = ParityReport()

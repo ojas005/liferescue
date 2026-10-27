@@ -27,9 +27,10 @@ import json
 import re
 import traceback
 import uuid
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any
 from urllib.parse import quote, quote_plus
 
 from .errors import ConfigurationError
@@ -86,9 +87,9 @@ def marker(kind: str) -> str:
 class PatternRule:
     rule_id: str
     kind: str
-    regex: "re.Pattern[str]"
+    regex: re.Pattern[str]
     group: int
-    gitleaks_rule: Optional[str]
+    gitleaks_rule: str | None
     allow_match: tuple  # compiled regexes; a match whose text matches any of these is NOT redacted
 
 
@@ -97,7 +98,7 @@ class PatternSet:
         self.rules = tuple(rules)
 
     @classmethod
-    def from_mapping(cls, doc: Any) -> "PatternSet":
+    def from_mapping(cls, doc: Any) -> PatternSet:
         if (
             not isinstance(doc, Mapping)
             or doc.get("version") != 1
@@ -142,7 +143,7 @@ class PatternSet:
         return cls(rules)
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "PatternSet":
+    def load(cls, path: Path | None = None) -> PatternSet:
         target = Path(path) if path is not None else PATTERNS_PATH
         doc = None
         failed = False
@@ -154,7 +155,7 @@ class PatternSet:
             raise ConfigurationError("patterns file unreadable or invalid")
         return cls.from_mapping(doc)
 
-    def scanner_mirrored(self) -> "PatternSet":
+    def scanner_mirrored(self) -> PatternSet:
         """Only the rules that mirror a ``.gitleaks.toml`` rule (what the CI scanner would flag)."""
         return PatternSet(r for r in self.rules if r.gitleaks_rule)
 
@@ -213,7 +214,7 @@ def value_variants(value: str) -> set:
     return {f for f in forms if f}
 
 
-def split_regex(value: str) -> Optional["re.Pattern[str]"]:
+def split_regex(value: str) -> re.Pattern[str] | None:
     """Regex matching ``value`` with whitespace, line breaks, backslashes, quotes or '+' between characters."""
     if len(value) < MIN_VARIANT_LEN or len(value) > MAX_SPLIT_LEN:
         return None
@@ -267,9 +268,9 @@ class Redactor:
 
     def __init__(
         self,
-        leased_values: Optional[LeasedValues] = None,
+        leased_values: LeasedValues | None = None,
         *,
-        patterns: Optional[PatternSet] = None,
+        patterns: PatternSet | None = None,
         metrics=None,
         key_exempt: Iterable[str] = (),
         extra_values: Iterable[str] = (),
@@ -347,7 +348,7 @@ class Redactor:
         *,
         sink: str = "unknown",
         _depth: int = 0,
-        _seen: Optional[set] = None,
+        _seen: set | None = None,
     ) -> Any:
         """Deep-copy ``obj`` with secrets removed. Mapping keys matching the key-name rule have their
         whole value replaced by ``[REDACTED:field]``. Unknown object types become ``[REDACTED:object]``."""
@@ -404,7 +405,7 @@ class Redactor:
         return marker(OBJECT_KIND)
 
     def find_leaks_in(
-        self, obj: Any, *, _depth: int = 0, _seen: Optional[set] = None
+        self, obj: Any, *, _depth: int = 0, _seen: set | None = None
     ) -> tuple:
         """Kinds of secrets found anywhere in a structure (keys, values, denied key names)."""
         kinds: set = set()

@@ -37,7 +37,7 @@ import os
 import re
 import sys
 from collections import namedtuple
-from typing import List, Mapping, Optional, Sequence, Tuple
+from collections.abc import Mapping, Sequence
 from urllib.parse import urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -73,7 +73,7 @@ CODES = {
     "JIRA_URL_BAD_FORM": "a Jira URL uses a port or form that is not accepted",
 }
 
-Problem = Tuple[str, str]
+Problem = tuple[str, str]
 PrLinkResult = namedtuple("PrLinkResult", ["ok", "key", "problems", "branch_note"])
 
 _KEY_IN_BRANCH = re.compile(r"^[a-z]+/KAN-([1-9][0-9]*)-")
@@ -101,7 +101,7 @@ def escaped(text: str) -> str:
     return ascii(text)
 
 
-def _branch_problem(branch: str) -> Optional[str]:
+def _branch_problem(branch: str) -> str | None:
     """Run scripts/check-branch-name.py validate(); 'UNAVAILABLE' if it cannot be loaded."""
     global _BRANCH_MODULE
     try:
@@ -118,9 +118,7 @@ def _branch_problem(branch: str) -> Optional[str]:
         return "UNAVAILABLE"
 
 
-def _text_input_problem(
-    value: object, limit: int, allow_newlines: bool
-) -> Optional[str]:
+def _text_input_problem(value: object, limit: int, allow_newlines: bool) -> str | None:
     if not isinstance(value, str):
         return "not text"
     if len(value) > limit:
@@ -132,7 +130,7 @@ def _text_input_problem(
     return None
 
 
-def _url_tokens(text: str) -> List[str]:
+def _url_tokens(text: str) -> list[str]:
     tokens = []
     for match in _URL_TOKEN.finditer(text):
         token = match.group(0)
@@ -142,9 +140,9 @@ def _url_tokens(text: str) -> List[str]:
     return tokens
 
 
-def _scan_urls(text: str, branch_key_number: int, problems: List[Problem]) -> List[str]:
+def _scan_urls(text: str, branch_key_number: int, problems: list[Problem]) -> list[str]:
     """Check every URL in `text`. Return the list of ACCEPTED Jira URL keys (as 'KAN-<n>' strings)."""
-    accepted: List[str] = []
+    accepted: list[str] = []
     for token in _url_tokens(text):
         rest = token.split("://", 1)[1]
         rawnet = re.split(r"[/?#]", rest, maxsplit=1)[0]
@@ -199,7 +197,7 @@ def _scan_urls(text: str, branch_key_number: int, problems: List[Problem]) -> Li
     return accepted
 
 
-def _scan_hostlike(text: str, problems: List[Problem]) -> None:
+def _scan_hostlike(text: str, problems: list[Problem]) -> None:
     """Scheme-less look-alikes such as 'liferescue.atlassian.net.evil.com/browse/KAN-20'."""
     for match in _HOSTLIKE.finditer(text):
         token = match.group(0).lower()
@@ -225,7 +223,7 @@ def check_pr_link(title: object, body: object, branch: object) -> PrLinkResult:
 
 
 def _check(title: object, body: object, branch: object) -> PrLinkResult:
-    problems: List[Problem] = []
+    problems: list[Problem] = []
     bad_input = (
         _text_input_problem(title, MAX_TITLE, False),
         _text_input_problem(body, MAX_BODY, True),
@@ -284,7 +282,7 @@ def _check(title: object, body: object, branch: object) -> PrLinkResult:
     return PrLinkResult(not final, key, final, None)
 
 
-def _dedupe(problems: List[Problem]) -> Tuple[Problem, ...]:
+def _dedupe(problems: list[Problem]) -> tuple[Problem, ...]:
     seen = []
     for item in problems:
         if item not in seen:
@@ -299,7 +297,7 @@ def _dedupe(problems: List[Problem]) -> Tuple[Problem, ...]:
 
 def _read_inputs(
     environ: Mapping[str, str],
-) -> Tuple[Optional[Tuple[object, object, object]], Optional[str]]:
+) -> tuple[tuple[object, object, object] | None, str | None]:
     """Return ((title, body, branch), None) or (None, usage_error_text). Texts are fixed strings."""
     path = environ.get(ENV_FILE)
     individual = [name for name in (ENV_TITLE, ENV_BODY, ENV_BRANCH) if name in environ]
@@ -341,7 +339,7 @@ def _read_inputs(
 
 
 def main(
-    argv: Optional[Sequence[str]] = None, environ: Optional[Mapping[str, str]] = None
+    argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None
 ) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     environ = os.environ if environ is None else environ

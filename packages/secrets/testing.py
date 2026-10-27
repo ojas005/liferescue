@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import secrets as _stdlib_secrets  # stdlib module; see the note in __init__.py
 import string
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 _ALPHABET = string.ascii_letters + string.digits
 
@@ -31,7 +31,7 @@ class FakeClock:
         self, monotonic_start: float = 1000.0, wall_start: datetime | None = None
     ) -> None:
         self._mono = float(monotonic_start)
-        self._wall = wall_start or datetime(2026, 10, 4, 12, 0, 0, tzinfo=timezone.utc)
+        self._wall = wall_start or datetime(2026, 10, 4, 12, 0, 0, tzinfo=UTC)
         self.fail_with: Exception | None = None
 
     def monotonic(self) -> float:

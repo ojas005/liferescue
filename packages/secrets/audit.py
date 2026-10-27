@@ -14,10 +14,10 @@ from __future__ import annotations
 import re
 import secrets as _stdlib_secrets
 import threading
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional, Protocol
+from typing import Protocol
 
 _ID_SHAPE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _LEASE_SHAPE = re.compile(
@@ -73,21 +73,21 @@ class AuditEvent:
     event_id: str
     event_type: str
     timestamp: str  # UTC, ISO 8601
-    correlation_id: Optional[str]
-    task_id: Optional[str]
-    run_id: Optional[str]
-    agent_id: Optional[str]
-    lease_id: Optional[str]
-    ref: Optional[str]  # the secretref NAME, never a value
+    correlation_id: str | None
+    task_id: str | None
+    run_id: str | None
+    agent_id: str | None
+    lease_id: str | None
+    ref: str | None  # the secretref NAME, never a value
     outcome: str
-    reason_code: Optional[str]
+    reason_code: str | None
     alert: bool
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-def _clean(value, shape) -> Optional[str]:
+def _clean(value, shape) -> str | None:
     if value is None:
         return None
     if isinstance(value, str) and shape.match(value):
@@ -122,7 +122,7 @@ def make_event(
     return AuditEvent(
         event_id=new_event_id(),
         event_type=event_type.value,
-        timestamp=wall.astimezone(timezone.utc).isoformat(),
+        timestamp=wall.astimezone(UTC).isoformat(),
         correlation_id=_clean(correlation_id, _ID_SHAPE),
         task_id=_clean(task_id, _ID_SHAPE),
         run_id=_clean(run_id, _ID_SHAPE),

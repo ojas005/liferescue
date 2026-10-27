@@ -16,7 +16,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional
 
 from .codes import RequestReason
 from .errors import InvalidRequest, InvalidSecretRef, SecretWiped
@@ -68,7 +67,7 @@ class SecretRef:
         return f"secretref://{self.environment.value}/{self.purpose.value}/{self.name}"
 
     @classmethod
-    def parse(cls, text: object) -> "SecretRef":
+    def parse(cls, text: object) -> SecretRef:
         """Parse ``secretref://env/purpose/name``. Unknown parts raise InvalidSecretRef (fail closed)."""
         prefix = "secretref://"
         if not isinstance(text, str) or not text.startswith(prefix) or len(text) > 200:
@@ -94,7 +93,7 @@ class _Reveal:
 
     __slots__ = ("_owner",)
 
-    def __init__(self, owner: "SecretValue") -> None:
+    def __init__(self, owner: SecretValue) -> None:
         self._owner = owner
 
     def __enter__(self) -> str:
@@ -115,7 +114,7 @@ class SecretValue:
     ``reveal()`` are immutable and cannot be wiped; keep them short-lived).
     """
 
-    __slots__ = ("_buf", "_wiped", "__weakref__")
+    __slots__ = ("__weakref__", "_buf", "_wiped")
 
     def __init__(self, raw: str) -> None:
         if not isinstance(raw, str) or not raw:
@@ -131,7 +130,7 @@ class SecretValue:
             raise SecretWiped("secret value has been wiped")
         return bytes(self._buf).decode("utf-8")
 
-    def _duplicate(self) -> "SecretValue":
+    def _duplicate(self) -> SecretValue:
         """Internal: independent copy for one scoped use (so wiping it does not wipe the lease copy)."""
         return SecretValue(self._decode())
 
@@ -185,8 +184,8 @@ class CredentialRequest:
     agent_id: str  # e.g. "LR-06"
     ref: SecretRef
     reason_code: RequestReason
-    requested_ttl: Optional[timedelta] = None  # None -> BrokerConfig.default_ttl
-    correlation_id: Optional[str] = (
+    requested_ttl: timedelta | None = None  # None -> BrokerConfig.default_ttl
+    correlation_id: str | None = (
         None  # PROPOSED addition: spec audit fields include a correlation id
     )
 
@@ -239,7 +238,7 @@ class CallContext:
     task_id: str
     run_id: str
     agent_id: str
-    correlation_id: Optional[str] = None
+    correlation_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -264,7 +263,7 @@ class ScopedSecret:
     raw value in a return object.
     """
 
-    __slots__ = ("_value", "_entered")
+    __slots__ = ("_entered", "_value")
 
     def __init__(self, value: SecretValue) -> None:
         self._value = value
