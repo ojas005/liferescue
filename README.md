@@ -1,7 +1,11 @@
 # LifeRescue — AI Emergency Coordination & Readiness Platform
 
 > **Hackathon Edition (NVIDIA / Nebius AI Cloud)**  
-> Production-quality, governed AI emergency response platform combining acute triage, coordinated safety response, and proactive personal preparedness.
+> Governed AI emergency-response prototype combining acute triage, coordinated (simulated) response, and personal preparedness.
+>
+> **AI proposes. Deterministic safety policy decides.**
+>
+> ⚠️ Hackathon prototype. All dispatches, SMS and notifications are **simulated** — LifeRescue never contacts real emergency services or people. It is not a medical device; in an emergency call 112 / 911 / your local number.
 
 ---
 
@@ -58,16 +62,53 @@ Instead of generic chatbot conversations, LifeRescue operates through **governed
 
 ---
 
+### The problem
+
+In the first minutes of an emergency (cardiac event, road collision, wildfire), people panic, forget critical facts and lose time. Generic chatbots can help explain, but an LLM alone can under-rate a life threat, be prompt-injected, or invent actions. LifeRescue uses an NVIDIA Nemotron model for understanding, while every escalation decision and every action passes a deterministic, code-enforced safety policy.
+
+### Architecture overview
+
+```mermaid
+flowchart LR
+  UI["Web UI<br/>Command Center · Live Triage · Timeline · Readiness · Audit"] -->|HTTP + optional X-Demo-Token| API["FastAPI app<br/>apps/api"]
+  API --> ORCH["ResponseOrchestrator"]
+  ORCH -->|"incident text"| AI{"AI provider"}
+  AI -->|AI_PROVIDER=nvidia| NEB["NVIDIAAIProvider<br/>Nebius Token Factory<br/>nvidia/nemotron-3-super-120b-a12b"]
+  AI -->|AI_PROVIDER=mock or fallback| MOCK["MockAIProvider<br/>(deterministic)"]
+  NEB -->|JSON| VAL["Pydantic schema validation<br/>(invalid → labelled mock fallback)"]
+  MOCK --> VAL
+  VAL --> SPE["SafetyPolicyEngine<br/>urgency floor · action allowlist ·<br/>prohibited patterns · injection flag"]
+  SPE --> PLAN["Vetted response plan<br/>(step library)"]
+  PLAN --> SIM["Simulated actions only<br/>[SIMULATED DISPATCH] / [SIMULATED SMS]"]
+  ORCH --> DB[("SQLite<br/>incidents · timeline ·<br/>append-only audit")]
+  API --> READY["Readiness: profile, contacts, score"]
+  READY --> DB
+  RED["Redactor (KAN-45)"] -.guards.-> DB
+  RED -.guards.-> API
+```
+
+Workflow: **PREPARE → EMERGENCY → UNDERSTAND → DECIDE SAFELY → RESPOND → LEARN/PREPARE**.
+
+### Safety differentiator — "AI proposes. Deterministic safety policy decides."
+
+- **Urgency floor:** a deterministic life-threat lexicon (incl. Hindi/Hinglish phrases) sets a minimum urgency; the model can only *raise* urgency, never lower it. Verified live: Nemotron rated a test case `high`, the policy raised it to `critical` (`RULE_ACUTE_LIFE_THREAT_ESCALATION`).
+- **Action allowlist:** only known action types/ids execute; an unknown action id is rejected with HTTP 400. Prohibited patterns (dosing, shell commands, etc.) are blocked.
+- **Vetted steps:** user-facing steps come from a step library; a "call 112/911" step is always shown, plus crisis lines (988, Tele-MANAS 14416) for self-harm.
+- **Prompt injection:** suspected injection is flagged (`prompt_injection_attempt_detected`) and cannot downgrade urgency.
+- **Simulation boundary:** every action is status `simulated` and labelled `[SIMULATED …]` in API and UI.
+- **Audit:** every analysis, policy decision and action is recorded; SQLite triggers block UPDATE/DELETE on audit events.
+- **Secrets:** redaction on logs/DB/API responses; gitleaks in CI; demo access token required for any non-localhost bind.
+
 ## 2. Key Architecture Principles
 
 1. **Deterministic Safety Policy Boundary:**  
    The LLM is never the final policy authority. Proposed actions pass through `SafetyPolicyEngine` which enforces action allowlists, blocks unsafe/prohibited instructions (such as prescriptive drug dosing, shell execution, or financial transfers), and forces emergency escalation for life-threatening conditions (e.g., chest pain, breathing compromise, heavy bleeding).
 2. **Provider-Agnostic AI Gateway:**  
-   Runs locally without any external credentials using `MockAIProvider`. Connects to NVIDIA NIM or Nebius AI Cloud via `NVIDIAAIProvider` adapter boundary when configured via environment variables.
+   Runs locally without any external credentials using `MockAIProvider`. Connects to NVIDIA Nemotron on Nebius Token Factory (OpenAI-compatible API) via `NVIDIAAIProvider` when `AI_PROVIDER=nvidia` and `NEBIUS_API_KEY` are set.
 3. **Defense-in-Depth Secret Redaction (KAN-45):**  
    Every log line, exception, database write, API response, and audit trail record is guarded by the KAN-45 `Redactor`. Canaries and API keys are scrubbed before reaching any persistence layer or client.
 4. **Governed Auditability:**  
-   Every state change, triage evaluation, policy ruling, and action execution generates a tamper-evident structured `AuditEvent`.
+   Every state change, triage evaluation, policy ruling, and action execution generates a structured `AuditEvent`, stored append-only (SQLite triggers reject UPDATE/DELETE).
 
 ---
 
@@ -76,14 +117,33 @@ Instead of generic chatbot conversations, LifeRescue operates through **governed
 LifeRescue is designed to run locally right out of the box with zero external API keys.
 
 ### 1. Requirements
-- Python 3.11+
-- Standard libraries + FastAPI / Uvicorn (already in dependencies)
+- Python 3.11+ (CI tests 3.11–3.14)
 
-### 2. Launch the Application
+### 2. Install and launch
 
 ```bash
+git clone https://github.com/ojas005/liferescue && cd liferescue
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r apps/api/requirements.txt
+cp .env.example .env          # optional; defaults are mock mode on 127.0.0.1:8000
 python apps/api/run.py
 ```
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `AI_PROVIDER` | `mock` | `mock` (deterministic, no credentials) or `nvidia` (Nemotron on Nebius Token Factory; `nebius` is accepted as an alias) |
+| `NEBIUS_API_KEY` | — | Nebius Token Factory key. Env/.env only, never commit. `NVIDIA_API_KEY` is an alias |
+| `NVIDIA_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | Model id |
+| `NVIDIA_BASE_URL` | `https://api.tokenfactory.nebius.com/v1/` | OpenAI-compatible endpoint |
+| `AI_TIMEOUT_S` | `20` | Model call timeout (1–60 s) |
+| `DB_PATH` | `./liferescue.db` | SQLite file (`:memory:` allowed) |
+| `HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
+| `DEMO_ACCESS_TOKEN` | — | Required for any non-localhost bind; sent as `X-Demo-Token`. Env only |
+| `DEMO_REQUIRE_TOKEN` | `0` | `1` forces the token even on localhost (use with tunnels) |
+| `CORS_ORIGINS` | localhost allowlist | Comma-separated origins; `*` ignored |
+| `DEMO_MODE` | `true` | Demo mode (actions simulated) |
 
 ### 3. Open the Experience
 - **Interactive Web App:** [http://127.0.0.1:8000](http://127.0.0.1:8000)
@@ -149,7 +209,14 @@ python -m unittest discover -s tests/e2e
 python -m unittest discover -s tests/security
 ```
 
-**Total Passing Tests:** 248 passed, 0 failures, 1 skipped (249 total).
+Full suite with pytest (as in CI): `pytest`
+
+**Fresh-clone results on `main` @ `65ec75c` (2026-10-27, Python 3.13, `NEBIUS_API_KEY` unset):**
+
+- pytest: 323 collected — 322 passed, 0 failed, 1 skipped (the gitleaks end-to-end sweep skips when the pinned gitleaks 8.30.1 binary is not on `PATH`; with it on `PATH`: 323 passed).
+- `unittest` scripts suite: 321 run, OK (1 skipped); `tests/security`: 202 run, OK (1 skipped).
+- ruff format/check clean; mypy clean (110 files); gitleaks full history: no leaks; pip-audit: no known vulnerabilities.
+- No test needs network or API keys (Nebius calls are stubbed with `httpx.MockTransport`).
 
 ---
 
@@ -158,13 +225,15 @@ python -m unittest discover -s tests/security
 When real inference API keys are available, simply configure `.env` (or set environment variables):
 
 ```env
-AI_PROVIDER=nebius
+AI_PROVIDER=nvidia
 NEBIUS_API_KEY=<your Nebius Token Factory key>   # never commit; NVIDIA_API_KEY is an alias
 NVIDIA_MODEL=nvidia/nemotron-3-super-120b-a12b
 NVIDIA_BASE_URL=https://api.tokenfactory.nebius.com/v1/
 ```
 
 Only incident triage (analysis) is model-backed; response plans and readiness stay deterministic. Model output is schema-validated and always passes the deterministic `SafetyPolicyEngine` before any (simulated) action. If the provider is unreachable, times out, rejects the key, or returns invalid JSON, LifeRescue falls back to the deterministic triage provider and labels it visibly: `provider_name` becomes `nvidia_ai (mock_fallback: <reason>)`, `/health` reports `ai_mode: "fallback"`, the audit event carries `fallback: true`, and the UI badge says MOCK fallback. Run `python scripts/smoke_nvidia.py` to verify a live call.
+
+**Verified live evidence (2026-10-27, IST):** with `AI_PROVIDER=nvidia`, `scripts/smoke_nvidia.py` returned `LIVE OK` from `nvidia/nemotron-3-super-120b-a12b` via `https://api.tokenfactory.nebius.com/v1/` in 5187 ms, the reply passed `AIAnalysis` schema validation, the model said `high`, and the deterministic policy raised it to `critical`. A full HTTP run of all three scenarios plus a manual incident in live mode served all four analyses from Nemotron (`provider_name: nvidia_ai (nvidia/nemotron-3-super-120b-a12b)`), with `/health` reporting `ai_mode: live`, `ai_last_status: live_ok`. Single-run latencies; not a benchmark.
 
 ---
 
@@ -201,6 +270,9 @@ HOST=0.0.0.0 python apps/api/run.py
 - **R-03 (Low/Medium):** if a redaction match spans uvicorn's access-log args (e.g. `GET /x?a=Bearer`, `?password=`, `?api_key=`), the redaction fallback empties the args and that access line is dropped (secret is not leaked, but the log line is lost).
 - **R-04 (Low):** the tunnel/open-gate warning is printed only by `python -m apps.api.run`, not when launched via plain `uvicorn apps.api.main:app`.
 - **R-05 (Low):** the broadened life-threat lexicon over-escalates some benign phrases (e.g. "traffic is not moving", "floppy disk") to CRITICAL. Over-escalation is the safe direction, but noisy.
+
+- **Invalid-JSON fallback (Low):** Nemotron occasionally returns a reply that is not valid JSON. LifeRescue then falls back to deterministic triage and the UI shows a **MOCK fallback** badge — expected, but it can appear during a live demo. (A crash on this path was fixed in PR #27.)
+- **Startup refusal output (Low):** when the bind policy refuses to start (non-localhost without `DEMO_ACCESS_TOKEN`), the message is shown inside a Python stack trace rather than as a clean one-line error.
 
 ## 8. License
 
