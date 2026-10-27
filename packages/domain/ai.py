@@ -35,10 +35,9 @@ logger = logging.getLogger("liferescue.ai")
 # Injection and adversarial detection patterns
 PROMPT_INJECTION_PATTERNS = [
     re.compile(r"ignore\s+(all\s+)?(previous|prior)\s+instructions", re.IGNORECASE),
-    re.compile(r"system\s*:\s*", re.IGNORECASE),
     re.compile(r"you\s+are\s+now\s+a\s+", re.IGNORECASE),
     re.compile(r"(pwned|jailbreak|dan\s+mode|<script>|<!--)", re.IGNORECASE),
-    re.compile(r"(\$\{.*\}|\$\(.*\)|`.*`)"),
+    re.compile(r"(\$\{.*\}|\$\(.*\))"),
 ]
 
 
@@ -56,29 +55,27 @@ class MockAIProvider(AIProvider):
     ) -> AIAnalysis:
         text = f"{incident.title} {incident.description}".lower()
 
-        # Check for adversarial attempt in input
-        is_adversarial = any(pat.search(text) for pat in PROMPT_INJECTION_PATTERNS)
-        if is_adversarial:
-            logger.warning(
-                "Adversarial/injection input pattern detected in incident text"
-            )
-            return AIAnalysis(
-                incident_id=incident.incident_id,
-                summary="Input contained disallowed instructions or system override attempts. Triage reset to defensive safety mode.",
-                category="suspicious_activity",
-                urgency=UrgencyLevel.LOW,
-                severity_score=1,
-                confidence=0.99,
-                immediate_threat=False,
-                extracted_facts={"security_flag": "prompt_injection_attempt_detected"},
-                missing_critical_info=["verified_human_emergency_details"],
-                recommended_immediate_steps=[
-                    "Please state the actual physical emergency concisely.",
-                    "LifeRescue system policies cannot be overridden by prompt instructions.",
-                ],
-                provider_name="mock_ai",
-            )
+        # Suspected injection is an advisory FLAG only (LR 08 SEC-02): it is stripped from the text used
+        # for classification and recorded, but it never changes the triage outcome or lowers urgency.
+        security_flag = None
+        if any(pat.search(text) for pat in PROMPT_INJECTION_PATTERNS):
+            logger.warning("Suspected injection marker in incident text (flagged, triage continues)")
+            security_flag = "prompt_injection_attempt_detected"
+            for pat in PROMPT_INJECTION_PATTERNS:
+                text = pat.sub(" ", text)
+        result = self._classify(incident, text, profile, contacts)
+        if security_flag:
+            facts = dict(result.extracted_facts, security_flag=security_flag)
+            result = result.model_copy(update={"extracted_facts": facts})
+        return result
 
+    def _classify(
+        self,
+        incident: Incident,
+        text: str,
+        profile: EmergencyProfile | None,
+        contacts: Sequence[EmergencyContact],
+    ) -> AIAnalysis:
         # Scenario 1: Severe Medical Emergency
         if any(
             term in text
