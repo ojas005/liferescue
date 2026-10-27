@@ -4,8 +4,8 @@ Fixed-window counters are stored in SQLite, so they are shared by every worker p
 uses the same database file and they survive a worker restart. With db_path=":memory:" (tests)
 the store is a private per-process in-memory database.
 
-Client identity is the socket peer. X-Forwarded-For is used ONLY when trust_proxy is set, and
-then the RIGHTMOST hop is taken: that is the address appended by the trusted proxy (Render
+Client identity is the socket peer. Proxy headers are used ONLY when trust_proxy is set: first
+CF-Connecting-IP (set by Cloudflare in front of Render), else the RIGHTMOST X-Forwarded-For hop: that is the address appended by the trusted proxy (Render
 appends the real client IP). Left-hand hops are client-supplied and are ignored, as is
 X-Real-IP. Over-limit requests get 429 with a generic message.
 """
@@ -62,6 +62,12 @@ def _valid_ip(value: str) -> str | None:
 def client_ip(request: Request, trust_proxy: bool) -> str:
     peer = request.client.host if request.client else "unknown"
     if trust_proxy:
+        # Render serves onrender.com through Cloudflare, which sets CF-Connecting-IP to the real
+        # client and overwrites any client-supplied value. The rightmost XFF hop there is a
+        # proxy address that varies per request, so it cannot be the bucket key.
+        cf = _valid_ip(request.headers.get("cf-connecting-ip", ""))
+        if cf:
+            return cf
         xff = request.headers.get("x-forwarded-for", "")
         hops = [h for h in (p.strip() for p in xff.split(",")) if h]
         if hops:

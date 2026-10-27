@@ -146,7 +146,7 @@ python apps/api/run.py
 | `DEMO_MODE` | `true` | Demo mode (actions simulated) |
 | `RATE_LIMIT_REQUESTS` | `20` | Max POSTs per client IP per window on `/incidents`, `/incidents/{id}/analyze`, `/demo/scenarios/{id}/run`, `/demo/reset` (`0` disables). Over limit → HTTP 429 |
 | `RATE_LIMIT_WINDOW_S` | `60` | Rate-limit window in seconds |
-| `TRUST_PROXY` | `0` | `1` = use the rightmost `X-Forwarded-For` hop (the one appended by a trusted proxy such as Render) as client IP; client-supplied left hops and `X-Real-IP` are ignored. `0` = socket peer only |
+| `TRUST_PROXY` | `0` | `1` = behind Render/Cloudflare: use `CF-Connecting-IP` (set by Cloudflare, client values overwritten) as client IP, else the rightmost `X-Forwarded-For` hop; client-supplied left hops and `X-Real-IP` are ignored. `0` = socket peer only |
 | `AI_GLOBAL_CALLS_PER_MINUTE` | `30` | Global per-minute rate limit on outbound Nebius/NVIDIA model calls, across all visitors and workers (`0` = no per-minute limit). Over it, analysis uses the labelled mock (`mock_fallback: global_rate_limit`) |
 | `AI_DAILY_CALL_BUDGET` | `500` | Model calls per rolling 24 h window, across all visitors and workers (`0` = no live model calls). Once used up: labelled mock (`mock_fallback: daily_budget_exhausted`); Nebius is not called |
 
