@@ -50,7 +50,7 @@ def init_dependencies(
     inc_repo, user_repo, profile_repo, contact_repo, audit_repo = create_repositories(
         _db
     )
-    ai = create_ai_provider(s.ai_provider)
+    ai = create_ai_provider(s.ai_provider, s)
     safety = SafetyPolicyEngine()
     notifications = MockNotificationProvider()
 
@@ -139,7 +139,7 @@ def get_orchestrator() -> ResponseOrchestrator:
         inc_repo, user_repo, profile_repo, contact_repo, audit_repo = (
             create_repositories(db)
         )
-        ai = create_ai_provider(s.ai_provider)
+        ai = create_ai_provider(s.ai_provider, s)
         safety = SafetyPolicyEngine()
         notifications = MockNotificationProvider()
 

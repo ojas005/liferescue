@@ -158,13 +158,13 @@ python -m unittest discover -s tests/security
 When real inference API keys are available, simply configure `.env` (or set environment variables):
 
 ```env
-AI_PROVIDER=nvidia
-NVIDIA_API_KEY=your_nvidia_api_key_here
-NVIDIA_MODEL=meta/llama-3.1-70b-instruct
-NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+AI_PROVIDER=nebius
+NEBIUS_API_KEY=<your Nebius Token Factory key>   # never commit; NVIDIA_API_KEY is an alias
+NVIDIA_MODEL=nvidia/nemotron-3-super-120b-a12b
+NVIDIA_BASE_URL=https://api.tokenfactory.nebius.com/v1/
 ```
 
-The rest of the system remains completely decoupled from the provider. If the external provider is ever unreachable, the safety policy fallback automatically engages without service interruption.
+Only incident triage (analysis) is model-backed; response plans and readiness stay deterministic. Model output is schema-validated and always passes the deterministic `SafetyPolicyEngine` before any (simulated) action. If the provider is unreachable, times out, rejects the key, or returns invalid JSON, LifeRescue falls back to the deterministic triage provider and labels it visibly: `provider_name` becomes `nvidia_ai (mock_fallback: <reason>)`, `/health` reports `ai_mode: "fallback"`, the audit event carries `fallback: true`, and the UI badge says MOCK fallback. Run `python scripts/smoke_nvidia.py` to verify a live call.
 
 ---
 

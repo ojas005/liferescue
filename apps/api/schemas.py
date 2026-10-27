@@ -125,6 +125,9 @@ class HealthResponse(BaseSchema):
     status: str
     app_name: str
     ai_provider: str
+    ai_mode: str = "mock"  # "mock" | "live" | "fallback" (live provider selected but unavailable)
+    ai_model: str | None = None
+    ai_last_status: str | None = None
     demo_mode: bool
     version: str = "1.0.0"
 

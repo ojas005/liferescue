@@ -17,7 +17,7 @@ if __name__ == "__main__":
     settings = get_settings()
     print("=" * 65)
     print("  LifeRescue — AI Emergency Coordination & Readiness Platform")
-    print(f"  AI Provider : {settings.ai_provider} (deterministic demo mode)")
+    print(f"  AI Provider : {settings.ai_provider} (model {settings.nvidia_model if settings.ai_provider != 'mock' else 'deterministic mock'})")
     print(f"  Local Web UI: http://{settings.host}:{settings.port}")
     print(f"  API Docs    : http://{settings.host}:{settings.port}/docs")
     print("=" * 65)

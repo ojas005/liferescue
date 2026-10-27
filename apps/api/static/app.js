@@ -40,13 +40,15 @@ async function checkSystemHealth() {
 
     const pill = document.getElementById('ai-engine-pill');
     if (pill) {
-      if (data.ai_provider === 'nvidia') {
-        pill.innerHTML = '<span class="pill-dot"></span> AI Engine: NVIDIA/Nebius — Live';
-        pill.className = 'status-pill pill-ai';
+      const model = String(data.ai_model || '');
+      if (data.ai_mode === 'live') {
+        pill.textContent = `AI Engine: LIVE NVIDIA Nemotron on Nebius (${model})`;
+      } else if (data.ai_mode === 'fallback') {
+        pill.textContent = `AI Engine: MOCK fallback (live provider unavailable: ${String(data.ai_last_status || 'unknown')})`;
       } else {
-        pill.innerHTML = '<span class="pill-dot"></span> AI Engine: MockAI — Demo Mode';
-        pill.className = 'status-pill pill-ai';
+        pill.textContent = 'AI Engine: MOCK (deterministic demo mode)';
       }
+      pill.className = 'status-pill pill-ai';
     }
   } catch (err) {
     console.warn('Health check query notice:', err);
@@ -362,6 +364,7 @@ function renderEmergencyResultCard(incident, analysis, risk, plan) {
 
   // 2. What AI Understood (Category, Severity, Confidence, Threat)
   document.getElementById('analysis-provider-badge').innerText = `Provider: ${analysis.provider_name}`;
+  checkSystemHealth();
   document.getElementById('analysis-category-val').innerText = analysis.category ? analysis.category.toUpperCase() : 'UNKNOWN';
   document.getElementById('analysis-severity-val').innerText = `${analysis.severity_score || 8}/10`;
   document.getElementById('analysis-confidence-val').innerText = `${((analysis.confidence || 0.9) * 100).toFixed(0)}%`;

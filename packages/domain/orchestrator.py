@@ -176,7 +176,7 @@ class ResponseOrchestrator:
                 incident_id=incident_id,
                 seq=seq,
                 event_type="ai_analysis_completed",
-                actor=self.ai.name(),
+                actor=analysis.provider_name,
                 summary=f"Triage: {analysis.category} classified as {risk.urgency.value} urgency (Severity: {analysis.severity_score}/10)",
                 payload={
                     "urgency": risk.urgency.value,
@@ -192,7 +192,7 @@ class ResponseOrchestrator:
         self.audit_repo.record(
             AuditEvent(
                 event_type="INCIDENT_ANALYZED",
-                actor=self.ai.name(),
+                actor=analysis.provider_name,
                 incident_id=incident_id,
                 action="triage_analysis",
                 result="success",
@@ -200,7 +200,8 @@ class ResponseOrchestrator:
                 details={
                     "urgency": risk.urgency.value,
                     "escalation": risk.requires_escalation,
-                    "provider": self.ai.name(),
+                    "provider": analysis.provider_name,
+                    "fallback": "mock_fallback" in analysis.provider_name,
                 },
             )
         )

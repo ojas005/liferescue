@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
@@ -20,20 +19,15 @@ class Settings(BaseSettings):
     host: str = Field(default="127.0.0.1")
     port: int = Field(default=8000)
     log_level: str = Field(default="INFO")
-    nvidia_api_key: str | None = Field(default=None)
-    nvidia_model: str = Field(default="meta/llama-3.1-70b-instruct")
-    nvidia_base_url: str = Field(default="https://integrate.api.nvidia.com/v1")
+    # Nebius Token Factory (OpenAI-compatible) serving NVIDIA Nemotron. Key goes in NEBIUS_API_KEY
+    # (NVIDIA_API_KEY accepted as an alias). Never commit it; .env is git-ignored.
+    nebius_api_key: str | None = Field(default=None, repr=False)
+    nvidia_api_key: str | None = Field(default=None, repr=False)
+    nvidia_model: str = Field(default="nvidia/nemotron-3-super-120b-a12b")
+    nvidia_base_url: str = Field(default="https://api.tokenfactory.nebius.com/v1/")
+    ai_timeout_s: float = Field(default=20.0, ge=1.0, le=60.0)
 
 
 def get_settings() -> Settings:
-    return Settings(
-        app_env=os.getenv("APP_ENV", "development"),
-        db_path=os.getenv("DB_PATH", "./liferescue.db"),
-        ai_provider=os.getenv("AI_PROVIDER", "mock"),
-        demo_mode=os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes"),
-        nvidia_api_key=os.getenv("NVIDIA_API_KEY"),
-        nvidia_model=os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct"),
-        nvidia_base_url=os.getenv(
-            "NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1"
-        ),
-    )
+    """Settings from environment variables, then .env (pydantic-settings; names are case-insensitive)."""
+    return Settings()
