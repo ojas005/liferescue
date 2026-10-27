@@ -483,6 +483,7 @@ class MockAIProvider(AIProvider):
 
 DEFAULT_NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 DEFAULT_NEMOTRON_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+MAX_PROVIDER_RESPONSE_BYTES = 64 * 1024  # SEC-10 cap before JSON parsing
 DEFAULT_PROVIDER_TIMEOUT_S = 20.0
 
 _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL | re.IGNORECASE)
@@ -539,6 +540,16 @@ class NVIDIAAIProvider(AIProvider):
     def _is_configured(self) -> bool:
         return bool(self.api_key and not self.api_key.startswith("mock-"))
 
+    def base_url_is_safe(self) -> bool:
+        """SEC-10: the key is only ever sent over https (plain http allowed for localhost test servers)."""
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(self.base_url or "")
+        host = (parts.hostname or "").lower()
+        if parts.scheme == "https" and host:
+            return True
+        return parts.scheme == "http" and host in {"localhost", "127.0.0.1", "::1"}
+
     def is_live_configured(self) -> bool:
         return self._is_configured()
 
@@ -570,6 +581,9 @@ class NVIDIAAIProvider(AIProvider):
         if not self._is_configured():
             logger.info("Nebius/NVIDIA API key not set; using labelled deterministic fallback")
             return self._fallback(incident, profile, contacts, "not_configured")
+        if not self.base_url_is_safe():
+            logger.warning("Refusing non-https NVIDIA_BASE_URL; key not sent; labelled mock fallback")
+            return self._fallback(incident, profile, contacts, "insecure_base_url")
         import httpx
 
         try:
@@ -593,6 +607,8 @@ class NVIDIAAIProvider(AIProvider):
                 )
             if resp.status_code >= 400:
                 return self._fallback(incident, profile, contacts, f"http_{resp.status_code}")
+            if len(resp.content) > MAX_PROVIDER_RESPONSE_BYTES:
+                return self._fallback(incident, profile, contacts, "response_too_large")
             content = resp.json()["choices"][0]["message"]["content"]
             parsed = extract_json_object(content)
             analysis = AIAnalysis(
