@@ -13,7 +13,7 @@ from apps.api.schemas import (
     RespondIncidentRequest,
 )
 from packages.domain.models import AIAnalysis, Incident, ResponsePlan
-from packages.domain.orchestrator import ResponseOrchestrator
+from packages.domain.orchestrator import ResponseOrchestrator, UnknownActionError
 from packages.storage.sqlite_repo import SQLiteDatabase
 
 router = APIRouter(prefix="/incidents", tags=["Incidents"])
@@ -97,6 +97,8 @@ def respond_incident(
     try:
         plan = orch.execute_response(incident_id, action_ids=req.action_ids)
         return plan
+    except UnknownActionError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
 

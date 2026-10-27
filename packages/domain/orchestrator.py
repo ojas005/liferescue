@@ -77,6 +77,10 @@ class MockNotificationProvider(NotificationProvider):
         return True, msg
 
 
+class UnknownActionError(ValueError):
+    """An action id that does not belong to the incident's plan (SEC-08)."""
+
+
 class ResponseOrchestrator:
     """Core domain orchestrator uniting Capability A, B, and C."""
 
@@ -149,7 +153,7 @@ class ResponseOrchestrator:
         """Triage incident using AI provider and vet with deterministic safety policy."""
         incident = self.incident_repo.get(incident_id)
         if not incident:
-            raise ValueError(f"Incident '{incident_id}' not found")
+            raise ValueError("Incident not found")
 
         incident.status = IncidentStatus.ANALYZING
         self.incident_repo.update(incident)
@@ -222,7 +226,7 @@ class ResponseOrchestrator:
         """Generate structured response plan vetted by safety policy."""
         incident = self.incident_repo.get(incident_id)
         if not incident:
-            raise ValueError(f"Incident '{incident_id}' not found")
+            raise ValueError("Incident not found")
 
         analysis = self.incident_repo.get_analysis(incident_id)
         if not analysis:
@@ -283,7 +287,7 @@ class ResponseOrchestrator:
         """Execute/simulate vetted response actions with full audit records."""
         incident = self.incident_repo.get(incident_id)
         if not incident:
-            raise ValueError(f"Incident '{incident_id}' not found")
+            raise ValueError("Incident not found")
 
         plan = self.incident_repo.get_plan(incident_id)
         if not plan:
@@ -291,11 +295,41 @@ class ResponseOrchestrator:
 
         profile = self.profile_repo.get(incident.user_id)
 
+        # SEC-08: unknown action ids are rejected; confirmation-required actions run only when explicitly approved.
+        if action_ids is not None:
+            known = {a.action_id for a in plan.actions}
+            if any(aid not in known for aid in action_ids):
+                raise UnknownActionError("Unknown action id for this incident")
+        approved = set(action_ids or ())
+
         for action in plan.actions:
             if action_ids is not None and action.action_id not in action_ids:
                 continue
             if action.status not in (ResponseActionStatus.PENDING,):
                 continue
+            if action.requires_confirmation:
+                if action.action_id not in approved:
+                    self.audit_repo.record(
+                        AuditEvent(
+                            event_type="ACTION_AWAITING_CONFIRMATION",
+                            actor="response_orchestrator",
+                            incident_id=incident_id,
+                            action=action.action_type.value,
+                            result="skipped",
+                            details={"action_id": action.action_id},
+                        )
+                    )
+                    continue
+                self.audit_repo.record(
+                    AuditEvent(
+                        event_type="APPROVAL",
+                        actor="presenter",
+                        incident_id=incident_id,
+                        action=action.action_type.value,
+                        result="approved",
+                        details={"action_id": action.action_id},
+                    )
+                )
 
             success, msg = self.notifications.dispatch_action(action, incident, profile)
             action.status = (
