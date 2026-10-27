@@ -33,4 +33,4 @@ regexes = ['''(?i):(password|changeme|example|placeholder|<[^>]+>|\$\{[^}]+\}|\*
 
 [[rules]]
 id = 'liferescue-github-app-private-key-file-ref'
-regex = '''-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----(?:[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|[\s\S]*\Z)'''
+regex = '''-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----(?:[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|[\s\S]*$)'''
