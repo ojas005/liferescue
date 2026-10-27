@@ -22,6 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "check-branch-name.py")
 
 _spec = importlib.util.spec_from_file_location("check_branch_name", SCRIPT)
+assert _spec is not None and _spec.loader is not None
 cbn = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cbn)
 

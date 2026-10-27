@@ -160,7 +160,7 @@ class PatternSet:
         return PatternSet(r for r in self.rules if r.gitleaks_rule)
 
     def spans(self, text: str) -> list:
-        out = []
+        out: list = []
         for rule in self.rules:
             for m in rule.regex.finditer(text):
                 if any(a.search(m.group(0)) for a in rule.allow_match):
@@ -239,7 +239,7 @@ class KnownValueMatcher:
         self._split = [r for r in (split_regex(v) for v in self.key) if r is not None]
 
     def spans(self, text: str) -> list:
-        out = []
+        out: list = []
         if self._literal is not None:
             out.extend(
                 (m.start(), m.end(), SECRET_KIND) for m in self._literal.finditer(text)
@@ -452,7 +452,9 @@ class Redactor:
     # ---- exceptions ----
     @staticmethod
     def redact_exception_raw_text(exc: BaseException, max_chain: int = 6) -> str:
-        parts, seen, cur = [], set(), exc
+        parts: list[str] = []
+        seen: set[int] = set()
+        cur: BaseException | None = exc
         while cur is not None and id(cur) not in seen and len(parts) < max_chain:
             seen.add(id(cur))
             try:

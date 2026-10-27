@@ -18,15 +18,14 @@ from pathlib import Path
 from unittest import mock
 from urllib.parse import quote
 
-from fixtures_broker import DB_REF, MODEL_REF, SEARCH_REF, Rig
-from scenarios import emit_through_sinks, leaks_in
-
 from packages.secrets.codes import RevokeReason
 from packages.secrets.errors import SecretLeak
 from packages.secrets.guards import RedactingAuditSink, RedactingLogFilter, SinkGuards
 from packages.secrets.logging_rules import StreamAuditSink
 from packages.secrets.redaction import Redactor
 from packages.secrets.testing import random_chars
+from tests.security.fixtures_broker import DB_REF, MODEL_REF, SEARCH_REF, Rig
+from tests.security.scenarios import emit_through_sinks, leaks_in
 
 ROOT = Path(__file__).resolve().parents[2]
 SCAN_SCRIPT = ROOT / "scripts" / "security" / "scan-paths.sh"
@@ -90,9 +89,11 @@ def simulate_task(workdir: Path) -> dict:
                     raise RuntimeError(provider_body)
                 except RuntimeError:
                     logger.exception("gateway failed")
-                result = guards.run_provider_call(
-                    lambda b=provider_body: (_ for _ in ()).throw(RuntimeError(b))
-                )
+
+                def _failing_call(b: str = provider_body) -> None:
+                    raise RuntimeError(b)
+
+                result = guards.run_provider_call(_failing_call)
                 errors.write(repr(result) + "\n")
                 errors.write(
                     rig.broker.redactor.format_traceback(RuntimeError(provider_body))
@@ -150,7 +151,7 @@ def sweep(sim: dict) -> dict:
     for name, path in sim["sinks"].items():
         data = path.read_bytes()
         text = data.decode("utf-8", "replace")
-        found = []
+        found: list[tuple[int | str, str]] = []
         for i, canary in enumerate(sim["canaries"]):
             found += [(i, f) for f in leaks_in(text, canary)]
         if sim["pattern_key"] in text:

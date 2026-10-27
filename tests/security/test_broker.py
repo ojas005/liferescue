@@ -6,8 +6,6 @@ import unittest
 from datetime import timedelta
 from pathlib import Path
 
-from fixtures_broker import DB_REF, DEFAULT_POLICY, MODEL_REF, SEARCH_REF, Rig
-
 from packages.secrets.audit import AuditEventType as E
 from packages.secrets.audit import InMemoryAuditSink
 from packages.secrets.broker import CredentialBroker
@@ -30,6 +28,13 @@ from packages.secrets.secret_types import (
 )
 from packages.secrets.tasks import InMemoryTaskRegistry, TaskState
 from packages.secrets.testing import make_canary
+from tests.security.fixtures_broker import (
+    DB_REF,
+    DEFAULT_POLICY,
+    MODEL_REF,
+    SEARCH_REF,
+    Rig,
+)
 
 
 class IssueAndNoLeak(unittest.TestCase):

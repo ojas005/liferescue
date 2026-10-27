@@ -17,6 +17,7 @@ Features:
 
 from __future__ import annotations
 
+import builtins
 import json
 import sqlite3
 from datetime import datetime
@@ -62,14 +63,12 @@ def _parse_dt(val: str | None) -> datetime | None:
         return utcnow()
 
 
-class SQLiteDatabase(
-    IncidentRepository,
-    UserRepository,
-    ProfileRepository,
-    ContactRepository,
-    AuditRepository,
-):
-    """Unified SQLite repository backing all LifeRescue domain entities."""
+class SQLiteDatabase:
+    """Unified SQLite store backing all LifeRescue domain entities.
+
+    It does not subclass the repository ABCs: their get/save/create/update/list signatures conflict
+    with each other (mypy override errors). The typed *RepoAdapter classes below implement them.
+    """
 
     def __init__(
         self, db_path: str | Path = ":memory:", redactor: Redactor | None = None
@@ -918,7 +917,7 @@ class IncidentRepoAdapter(IncidentRepository):
     def append_event(self, event: IncidentEvent) -> IncidentEvent:
         return self.db.append_event(event)
 
-    def get_timeline(self, incident_id: str) -> list[IncidentEvent]:
+    def get_timeline(self, incident_id: str) -> builtins.list[IncidentEvent]:
         return self.db.get_timeline(incident_id)
 
 

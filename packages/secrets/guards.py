@@ -102,7 +102,7 @@ class SinkGuards:
         return content
 
     # ---- persistence (6.9) ----
-    def persist(self, record: Mapping, write: Callable[[Mapping], None]) -> None:
+    def persist(self, record: Mapping, write: Callable[[Mapping], object]) -> None:
         """Database/checkpoint/event writes: refuse the whole write if any key or value holds a secret."""
         self._broker.assert_safe_to_emit_obj(record, sink="persistence")
         write(record)
@@ -175,7 +175,7 @@ class RedactingAuditSink:
         self._r = redactor
 
     def emit(self, event: AuditEvent) -> None:
-        fixed = {}
+        fixed: dict[str, Any] = {}
         for name, value in event.to_dict().items():
             if isinstance(value, str) and self._r.contains_secret(value):
                 fixed[name] = "redacted"

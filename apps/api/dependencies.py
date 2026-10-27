@@ -68,6 +68,7 @@ def init_dependencies(
 def get_db() -> SQLiteDatabase:
     if _db is None:
         init_dependencies()
+    assert _db is not None  # init_dependencies() always sets it
     return _db
 
 

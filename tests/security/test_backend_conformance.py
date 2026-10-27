@@ -5,13 +5,12 @@ import io
 import unittest
 from datetime import timedelta
 
-from fixtures_broker import Rig
-
 from packages.secrets.codes import RevokeReason
 from packages.secrets.conformance import BackendConformanceMixin
 from packages.secrets.errors import BackendError
 from packages.secrets.memory_backend import InMemoryBackend
 from packages.secrets.secret_types import Environment, SecretValue
+from tests.security.fixtures_broker import Rig
 
 
 class MockBackendConformance(BackendConformanceMixin, unittest.TestCase):

@@ -54,7 +54,7 @@ def load_gitleaks_rules(path: Path) -> dict[str, GitleaksRule]:
         doc = tomllib.load(fh)
     rules: dict[str, GitleaksRule] = {}
     for item in doc.get("rules", []):
-        allow = []
+        allow: list[re.Pattern[str]] = []
         for al in item.get("allowlists", []):
             if al.get("regexTarget", "secret") == "match":
                 allow.extend(re.compile(r) for r in al.get("regexes", []))

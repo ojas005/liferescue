@@ -6,6 +6,7 @@ database engines, and notification mechanisms.
 
 from __future__ import annotations
 
+import builtins
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
@@ -115,7 +116,7 @@ class IncidentRepository(ABC):
         pass
 
     @abstractmethod
-    def get_timeline(self, incident_id: str) -> list[IncidentEvent]:
+    def get_timeline(self, incident_id: str) -> builtins.list[IncidentEvent]:
         pass
 
 

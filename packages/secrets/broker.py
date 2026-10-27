@@ -21,6 +21,7 @@ from collections import deque
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from .agent_api import AgentCredentialClient
 from .audit import AuditEvent, AuditEventType, AuditSink, InMemoryAuditSink, make_event
@@ -270,7 +271,7 @@ class CredentialBroker:
                 self._record_denial(req, refusal)
         if refusal is not None:
             raise Denied(refusal)
-        return handle
+        return cast(LeaseHandle, handle)  # set whenever refusal is None
 
     def request_wire(self, data: Mapping) -> LeaseHandle:
         """Request from untrusted plain data (e.g. a decoded tool call). Malformed input -> Denied, audited."""
@@ -287,9 +288,13 @@ class CredentialBroker:
             ):
                 raise InvalidRequest("requested_ttl_seconds")
             req = CredentialRequest(
-                task_id=data.get("task_id"),
-                run_id=data.get("run_id"),
-                agent_id=data.get("agent_id"),
+                task_id=cast(
+                    str, data.get("task_id")
+                ),  # validated by CredentialRequest
+                run_id=cast(str, data.get("run_id")),  # validated by CredentialRequest
+                agent_id=cast(
+                    str, data.get("agent_id")
+                ),  # validated by CredentialRequest
                 ref=SecretRef.parse(data.get("ref")),
                 reason_code=_parse_reason(data.get("reason_code")),
                 requested_ttl=None if ttl is None else timedelta(seconds=ttl),
@@ -314,7 +319,7 @@ class CredentialBroker:
                 )
                 self.metrics.inc("leases_denied", DenialReason.MALFORMED_REQUEST.value)
             raise Denied(DenialReason.MALFORMED_REQUEST)
-        return self.request(req)
+        return self.request(cast(CredentialRequest, req))  # not None when not failed
 
     def _request_locked(self, req) -> LeaseHandle:
         if not isinstance(req, CredentialRequest):
@@ -405,7 +410,7 @@ class CredentialBroker:
             value=value,
         )
         self._leases[lease.lease_id] = lease
-        self.leased_values.add(lease.lease_id, value)
+        self.leased_values.add(lease.lease_id, cast(SecretValue, value))
         try:
             self._emit_strict(
                 self._event(AuditEventType.LEASE_ISSUED, "issued", lease=lease)
@@ -441,7 +446,7 @@ class CredentialBroker:
                 self._record_use_denial(handle, context, refusal)
         if refusal is not None:
             raise Denied(refusal)
-        return scoped
+        return cast(ScopedSecret, scoped)  # set whenever refusal is None
 
     def _use_locked(self, handle, caller, context) -> ScopedSecret:
         mono = self._tick()

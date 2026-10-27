@@ -4,9 +4,6 @@ import base64
 import json
 import unittest
 
-from fixtures_broker import MODEL_REF, Rig
-from scenarios import emit_through_sinks, leaks_in
-
 from packages.secrets.redaction import (
     DENIED_KEY_TERMS,
     KnownValueMatcher,
@@ -17,6 +14,8 @@ from packages.secrets.redaction import (
 )
 from packages.secrets.secret_types import SecretValue
 from packages.secrets.testing import make_canary, random_chars
+from tests.security.fixtures_broker import MODEL_REF, Rig
+from tests.security.scenarios import emit_through_sinks, leaks_in
 
 
 class KnownValueRedaction(unittest.TestCase):

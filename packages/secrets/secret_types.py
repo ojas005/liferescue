@@ -17,6 +17,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Any, Literal
 
 from .codes import RequestReason
 from .errors import InvalidRequest, InvalidSecretRef, SecretWiped
@@ -82,7 +83,7 @@ class SecretRef:
         return cls(env, purpose, name)
 
 
-def _lookup(enum_cls: type, value: str, field_name: str):
+def _lookup(enum_cls: type[Enum], value: str, field_name: str) -> Any:
     for member in enum_cls:
         if member.value == value:
             return member
@@ -100,7 +101,7 @@ class _Reveal:
     def __enter__(self) -> str:
         return self._owner._decode()
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> Literal[False]:
         return False  # never swallow exceptions; never attach the value to them
 
     def __repr__(self) -> str:  # pragma: no cover - trivial
@@ -276,7 +277,7 @@ class ScopedSecret:
         self._entered = True
         return self._value
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> Literal[False]:
         self._value.wipe()
         return False
 

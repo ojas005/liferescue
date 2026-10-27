@@ -6,8 +6,6 @@ import logging
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from fixtures_broker import MODEL_REF, SEARCH_REF, Rig
-
 from packages.secrets.audit import AUDIT_FIELDS, make_event
 from packages.secrets.audit import AuditEventType as E
 from packages.secrets.codes import RevokeReason
@@ -29,6 +27,7 @@ from packages.secrets.telemetry import (
     sanitize_span_attributes,
 )
 from packages.secrets.testing import make_canary
+from tests.security.fixtures_broker import MODEL_REF, SEARCH_REF, Rig
 
 
 def types(rig):

@@ -29,6 +29,7 @@ SCRIPT = os.path.join(HERE, "check_transition.py")
 DATA_FILE = os.path.join(HERE, "jira-transition-allowlist.json")
 
 _spec = importlib.util.spec_from_file_location("check_transition", SCRIPT)
+assert _spec is not None and _spec.loader is not None
 ct = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ct)
 

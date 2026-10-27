@@ -21,6 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "check_pr_link.py")
 
 _spec = importlib.util.spec_from_file_location("check_pr_link", SCRIPT)
+assert _spec is not None and _spec.loader is not None
 cpl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cpl)
 

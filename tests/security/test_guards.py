@@ -6,8 +6,6 @@ import logging
 import sqlite3
 import unittest
 
-from fixtures_broker import MODEL_REF, SEARCH_REF, Rig
-
 from packages.secrets.audit import AuditEventType as E
 from packages.secrets.codes import RequestReason
 from packages.secrets.errors import SecretLeak
@@ -20,6 +18,7 @@ from packages.secrets.logging_rules import (
 from packages.secrets.secret_types import CredentialRequest
 from packages.secrets.telemetry import SafeSpanExporter
 from packages.secrets.testing import random_chars
+from tests.security.fixtures_broker import MODEL_REF, SEARCH_REF, Rig
 
 
 class Base(unittest.TestCase):

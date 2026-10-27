@@ -13,7 +13,7 @@ import logging
 import os
 import re
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, Literal
 
 from packages.domain.interfaces import AIProvider
 from packages.domain.models import (
@@ -92,7 +92,7 @@ class MockAIProvider(AIProvider):
                 "allergic",
             )
         ):
-            extracted = {
+            extracted: dict[str, Any] = {
                 "symptoms": [
                     "acute distress",
                     "potential cardiovascular or respiratory compromise",

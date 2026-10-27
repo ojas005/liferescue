@@ -26,6 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 GATE = os.path.join(HERE, "ci_branch_gate.py")
 
 _spec = importlib.util.spec_from_file_location("ci_branch_gate", GATE)
+assert _spec is not None and _spec.loader is not None
 gate = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gate)
 
