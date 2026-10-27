@@ -59,7 +59,7 @@ def _valid_ip(value: str) -> str | None:
         return None
 
 
-def client_ip(request: Request, trust_proxy: bool) -> str:
+def client_ip_with_source(request: Request, trust_proxy: bool) -> tuple[str, str]:
     peer = request.client.host if request.client else "unknown"
     if trust_proxy:
         # Render serves onrender.com through Cloudflare, which sets CF-Connecting-IP to the real
@@ -67,14 +67,45 @@ def client_ip(request: Request, trust_proxy: bool) -> str:
         # proxy address that varies per request, so it cannot be the bucket key.
         cf = _valid_ip(request.headers.get("cf-connecting-ip", ""))
         if cf:
-            return cf
+            return cf, "cf-connecting-ip"
         xff = request.headers.get("x-forwarded-for", "")
         hops = [h for h in (p.strip() for p in xff.split(",")) if h]
         if hops:
             ip = _valid_ip(hops[-1])  # rightmost = appended by the trusted proxy
             if ip:
-                return ip
-    return peer
+                return ip, "xff-rightmost"
+    return peer, "peer"
+
+
+def client_ip(request: Request, trust_proxy: bool) -> str:
+    return client_ip_with_source(request, trust_proxy)[0]
+
+
+_DIAG_REMAINING = 5
+
+
+def _log_key_diagnostics(request: Request, trust_proxy: bool, source: str) -> None:
+    """Log the SHAPE of proxy headers for the first few limited requests per process.
+
+    No IP addresses or header values are logged: only which headers exist, the XFF hop count
+    and which source produced the bucket key, so the deployment's proxy chain can be checked.
+    """
+    global _DIAG_REMAINING
+    if _DIAG_REMAINING <= 0:
+        return
+    _DIAG_REMAINING -= 1
+    h = request.headers
+    xff = h.get("x-forwarded-for", "")
+    logger.warning(  # WARNING so it shows under uvicorn defaults; no PII
+        "rate-limit key diag: trust_proxy=%s source=%s cf_connecting_ip=%s "
+        "true_client_ip=%s x_real_ip=%s xff_hops=%d",
+        trust_proxy,
+        source,
+        "cf-connecting-ip" in h,
+        "true-client-ip" in h,
+        "x-real-ip" in h,
+        len([p for p in xff.split(",") if p.strip()]),
+    )
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -86,9 +117,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         if self.limiter.limit > 0 and is_limited(request.method, request.url.path):
             try:
-                ok, retry = self.limiter.allow(
-                    "ip:" + client_ip(request, self.trust_proxy)
-                )
+                ip, source = client_ip_with_source(request, self.trust_proxy)
+                _log_key_diagnostics(request, self.trust_proxy, source)
+                ok, retry = self.limiter.allow("ip:" + ip)
             except RateLimitUnavailable as err:
                 # FAIL CLOSED: an unreadable limiter must not become an unlimited spend path.
                 logger.warning("rate limiter unavailable (%s); returning 503", err)
