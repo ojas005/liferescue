@@ -84,6 +84,8 @@ LIFE_THREAT_CONDITIONS: dict[str, re.Pattern[str]] = {
 
 GENERIC_CALL_STEP = "Call emergency services now (112 / 911 / your local number). This is a simulation and has NOT called anyone."
 
+GENERIC_DANGER_STEP = "If anyone is in danger or this gets worse, call emergency services (112 / 911 / your local number)."
+
 STEP_LIBRARY: dict[str, list[str]] = {
     "self_harm": [
         "Call emergency services now if you or someone is in immediate danger.",
@@ -201,8 +203,8 @@ def detect_conditions(text: str) -> list[str]:
 
 def vetted_steps(conditions: list[str], category: str, escalate: bool) -> list[str]:
     steps: list[str] = []
-    if escalate:
-        steps.append(GENERIC_CALL_STEP)
+    # LR 08 N-02: a call-for-help step is ALWAYS shown, even when nothing matched.
+    steps.append(GENERIC_CALL_STEP if escalate else GENERIC_DANGER_STEP)
     keys = list(conditions) or [CATEGORY_TO_LIBRARY.get(category, "general")]
     for k in keys:
         for s in STEP_LIBRARY.get(k, []):

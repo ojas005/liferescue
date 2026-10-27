@@ -181,11 +181,8 @@ class SafetyPolicyEngine:
         floor = (
             UrgencyLevel.CRITICAL
             if is_life_threatening
-            else (
-                UrgencyLevel.MEDIUM
-                if (security_flags or analysis is None)
-                else UrgencyLevel.LOW
-            )
+            # LR 08 N-02: never LOW from the model alone; MEDIUM is the floor.
+            else UrgencyLevel.MEDIUM
         )
         urgency = max_urgency(floor, model_urgency)
 

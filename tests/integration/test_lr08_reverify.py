@@ -1,4 +1,4 @@
-"""LR 08 re-verify N-01 (recall gaps)."""
+"""LR 08 re-verify N-01 (recall gaps) and N-02 (MEDIUM floor + always a call-for-help step)."""
 
 import unittest
 
@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 from apps.api.config import Settings
 from apps.api.dependencies import reset_for_tests
 from apps.api.main import create_app
+from packages.domain.models import AIAnalysis, Incident, UrgencyLevel
+from packages.domain.safety_policy import SafetyPolicyEngine
+from packages.domain.triage_rules import GENERIC_DANGER_STEP, vetted_steps
 
 N01_CASES = [  # LR 08 re-verify exact inputs
     "He OD'd on pills",
@@ -55,6 +58,28 @@ class TestLR08ReverifyN01(unittest.TestCase):
         ]
         self.assertEqual(len(crisis), 1)
         self.assertIn("988", crisis[0]["description"])
+
+
+class TestLR08ReverifyN02(unittest.TestCase):
+    def test_n02_model_low_is_floored_to_medium(self):
+        inc = Incident(title="Question", description="I have a small paper cut")
+        ana = AIAnalysis(
+            incident_id=inc.incident_id,
+            summary="minor",
+            category="medical",
+            urgency=UrgencyLevel.LOW,
+            severity_score=1,
+            confidence=0.9,
+        )
+        risk = SafetyPolicyEngine().evaluate_risk(inc, ana)
+        self.assertEqual(risk.urgency, UrgencyLevel.MEDIUM)
+
+    def test_n02_call_for_help_step_always_present(self):
+        for cat in ("medical", "accident", "fire_hazard", "other"):
+            with self.subTest(category=cat):
+                steps = vetted_steps([], cat, escalate=False)
+                self.assertEqual(steps[0], GENERIC_DANGER_STEP)
+                self.assertIn("112 / 911", steps[0])
 
 
 if __name__ == "__main__":
