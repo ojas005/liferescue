@@ -109,12 +109,12 @@ def reset_demo(
     _seed_demo_data(db, force=True)
     db.record(
         AuditEvent(
-            event_type="DEMO_RESET",
+            event_type="demo_reset",
             actor="presenter",
             action="reset_demo_state",
             result="success",
             reason="Presenter requested clean demo state",
-            details=counts,
+            details={**counts, "audit_preserved": True},
         )
     )
     return {

@@ -793,7 +793,7 @@ class SQLiteDatabase(
         return self.delete_contact(contact_id)
 
     def reset_demo_data(self, user_id: str = "usr_demo") -> dict[str, int]:
-        """Safely remove demo incidents, plans, events, and audit logs for demo user."""
+        """Remove demo incidents, plans, events, analyses. Audit events are append-only and never deleted (SEC-05)."""
         counts: dict[str, int] = {}
         with self._connect() as conn:
             cursor = conn.execute(
@@ -815,10 +815,6 @@ class SQLiteDatabase(
                     f"DELETE FROM incident_analyses WHERE incident_id IN ({placeholders})",
                     incident_ids,
                 ).rowcount
-                counts["audit"] = conn.execute(
-                    f"DELETE FROM audit_events WHERE incident_id IN ({placeholders})",
-                    incident_ids,
-                ).rowcount
                 counts["incidents"] = conn.execute(
                     "DELETE FROM incidents WHERE user_id = ?", (user_id,)
                 ).rowcount
@@ -826,7 +822,6 @@ class SQLiteDatabase(
                 counts["events"] = 0
                 counts["plans"] = 0
                 counts["analyses"] = 0
-                counts["audit"] = 0
                 counts["incidents"] = 0
 
             conn.commit()
