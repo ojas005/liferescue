@@ -5,7 +5,11 @@
 
 ## Track
 
-**Best Apps and Agents** (proposed — PENDING (human) confirmation). It's an app powered by NVIDIA Nemotron through Nebius Token Factory.
+**Best Apps and Agents** (proposed; final choice is Ojas's). The rules describe this track as "any app or agent someone would actually use … Power it with Nemotron models on Nebius through Token Factory", which matches LifeRescue: a user-facing app calling Nemotron 3 Super through Token Factory.
+
+## Project origin
+
+LifeRescue was **created during the hackathon Submission Period** (which opened Aug 26, 2026). It is not a pre-existing project.
 
 ## Tagline
 
@@ -56,14 +60,14 @@ These were captured headless in **mock mode** (badge reads MOCK). Re-capture in 
 |---|---|
 | Working app using Nebius Token Factory at runtime and an NVIDIA open model | ✅ Verified live 2026-10-27 (see README §7) |
 | Text description of features | ✅ Draft above |
-| Public code repository (GitHub) | **PENDING (human)**: repo is currently private; making it public needs Ojas's approval |
-| Open source license file, visible in the repo's About section | ✅ MIT `LICENSE` present. About-section visibility checks out only once public: PENDING |
+| Public code repository (GitHub) | ✅ Public since 2026-10-27 (IST): https://github.com/ojas005/liferescue (published at commit `2146883`) |
+| Open source license file, visible in the repo's About section | ✅ MIT `LICENSE`; GitHub API reports license `MIT` for the public repo |
 | README with setup instructions and NVIDIA/Nebius usage | ✅ README.md |
 | URL to working demo / hosted app / test build | **PENDING (human)**: no public deployment yet. If hosted, set `DEMO_ACCESS_TOKEN` and give judges the token in the testing instructions |
 | Demo video < 3 min, public on YouTube | **PENDING (human)**: record using the ≤ 3:00 cut in `docs/DEMO_SCRIPT.md` |
 | Track selection | **PENDING (human)**: proposed Best Apps and Agents |
 | Feedback on Token Factory / NVIDIA tools | **PENDING (human)**: draft notes below |
-| Explanation of updates during the Submission Period (if the project pre-existed) | **PENDING (human)**: confirm whether it applies |
+| Explanation of updates during the Submission Period (if the project pre-existed) | ✅ Not applicable: LifeRescue was **created during the hackathon Submission Period**; it is not a pre-existing project |
 | Free access for judges until judging ends (Dec 15 2026) | **PENDING (human)**: depends on deployment choice |
 
 ## Feedback draft (for Ojas to edit; facts from our usage only)
