@@ -4,6 +4,7 @@ Properties (tested, T-15): reads no environment variable, no file, no network; v
 from a cryptographically strong random source and carry the visible non-provider prefix
 ``mock-`` so they cannot be mistaken for real keys.
 """
+
 from __future__ import annotations
 
 import secrets as _stdlib_secrets

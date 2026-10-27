@@ -5,6 +5,7 @@ a backend message, a path, or a secret value. Messages are fixed strings or clos
 codes. Exceptions that wrap a failure are raised *outside* the ``except`` block, so that
 ``__cause__`` and ``__context__`` never chain to an exception that might hold a value.
 """
+
 from __future__ import annotations
 
 from .codes import DenialReason
@@ -54,7 +55,9 @@ class SecretLeak(SecretsError):
     """Text or data about to be emitted contains a secret. Carries sink and kinds only."""
 
     def __init__(self, sink: str, kinds: tuple[str, ...] = ()) -> None:
-        super().__init__(f"secret leak blocked at sink={sink} kinds={','.join(kinds) or 'unknown'}")
+        super().__init__(
+            f"secret leak blocked at sink={sink} kinds={','.join(kinds) or 'unknown'}"
+        )
         self.sink = sink
         self.kinds = kinds
 

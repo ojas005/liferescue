@@ -5,6 +5,7 @@ This module must not import, mention or expose ``use``, ``reveal``, ``ScopedSecr
 boundary, not an in-process sandbox: Python introspection can still reach objects, so real
 isolation also needs the (deferred) agent sandbox/process boundary.
 """
+
 from __future__ import annotations
 
 

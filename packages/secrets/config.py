@@ -5,6 +5,7 @@ NOT hard-coded policy: change them with ``BrokerConfig(...)``, ``from_mapping`` 
 ``from_json_file`` (no environment variables are read). The ONLY hard-coded security rule is
 the refusal of ``Environment.PRODUCTION``, which no configuration can override.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,7 +29,9 @@ class BrokerConfig:
     # --- TTLs (spec 5.2; PROPOSED defaults, tune with real task durations) ---
     default_ttl: timedelta = field(default_factory=lambda: _minutes(15))
     max_ttl: timedelta = field(default_factory=lambda: _minutes(30))  # MOCK and TEST
-    max_ttl_real_credential: timedelta = field(default_factory=lambda: _minutes(60))  # reserved, unused here
+    max_ttl_real_credential: timedelta = field(
+        default_factory=lambda: _minutes(60)
+    )  # reserved, unused here
     # --- limits ---
     max_leases_per_task: int = 4
     max_uses_per_lease: int = 200
@@ -41,7 +44,12 @@ class BrokerConfig:
     served_environments: frozenset = frozenset({Environment.MOCK})
 
     def __post_init__(self) -> None:
-        for name in ("default_ttl", "max_ttl", "max_ttl_real_credential", "sweep_interval"):
+        for name in (
+            "default_ttl",
+            "max_ttl",
+            "max_ttl_real_credential",
+            "sweep_interval",
+        ):
             value = getattr(self, name)
             if not isinstance(value, timedelta) or value <= timedelta(0):
                 raise ConfigurationError(f"{name} must be a positive duration")
@@ -56,10 +64,18 @@ class BrokerConfig:
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ConfigurationError(f"{name} must be a positive integer")
         if not self.default_ttl <= self.max_ttl <= self.max_ttl_real_credential:
-            raise ConfigurationError("require default_ttl <= max_ttl <= max_ttl_real_credential")
+            raise ConfigurationError(
+                "require default_ttl <= max_ttl <= max_ttl_real_credential"
+            )
         envs = self.served_environments
-        if not isinstance(envs, (set, frozenset)) or not envs or not all(isinstance(e, Environment) for e in envs):
-            raise ConfigurationError("served_environments must be a non-empty set of Environment")
+        if (
+            not isinstance(envs, (set, frozenset))
+            or not envs
+            or not all(isinstance(e, Environment) for e in envs)
+        ):
+            raise ConfigurationError(
+                "served_environments must be a non-empty set of Environment"
+            )
         if Environment.PRODUCTION in envs:
             raise ConfigurationError("production can never be served to agents")
         object.__setattr__(self, "served_environments", frozenset(envs))
@@ -87,7 +103,9 @@ class BrokerConfig:
         allowed = set(cls._SECONDS) | set(cls._INTS) | {"served_environments"}
         unknown = [k for k in mapping if k not in allowed]
         if unknown:
-            raise ConfigurationError("unknown configuration key")  # key names are not echoed
+            raise ConfigurationError(
+                "unknown configuration key"
+            )  # key names are not echoed
         kwargs: dict = {}
         for key, attr in cls._SECONDS.items():
             if key in mapping:
@@ -104,9 +122,13 @@ class BrokerConfig:
                 raise ConfigurationError("served_environments must be a list")
             envs = set()
             for item in raw:
-                match = [e for e in Environment if isinstance(item, str) and e.value == item]
+                match = [
+                    e for e in Environment if isinstance(item, str) and e.value == item
+                ]
                 if not match:
-                    raise ConfigurationError("unknown environment in served_environments")
+                    raise ConfigurationError(
+                        "unknown environment in served_environments"
+                    )
                 envs.add(match[0])
             kwargs["served_environments"] = envs
         return cls(**kwargs)

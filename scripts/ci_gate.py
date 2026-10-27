@@ -21,6 +21,7 @@ Rules:
 Exit code: 0 all rules hold; 1 otherwise; 2 bad input.
 Only fixed job ids and the five runner result words are ever printed.
 """
+
 import json
 import os
 import sys
@@ -48,23 +49,40 @@ def evaluate(needs, event_name):
     rows = []
 
     def check(job, expected, actual):
-        rows.append((job, expected, actual if actual else "missing/unknown", actual == expected))
+        rows.append(
+            (job, expected, actual if actual else "missing/unknown", actual == expected)
+        )
 
     for job in ALWAYS:
         check(job, "success", _result(needs, job))
     for job in PR_ONLY:
-        check(job, "success" if event_name == "pull_request" else "skipped", _result(needs, job))
+        check(
+            job,
+            "success" if event_name == "pull_request" else "skipped",
+            _result(needs, job),
+        )
     detect = needs.get("detect") if isinstance(needs.get("detect"), dict) else {}
     outputs = detect.get("outputs") if isinstance(detect.get("outputs"), dict) else {}
     for job, keys in CONDITIONAL.items():
         values = [outputs.get(k) for k in keys]
-        if _result(needs, "detect") != "success" or any(v not in ("true", "false") for v in values):
-            rows.append((job, "detect succeeded with true/false outputs", "detect unusable", False))
+        if _result(needs, "detect") != "success" or any(
+            v not in ("true", "false") for v in values
+        ):
+            rows.append(
+                (
+                    job,
+                    "detect succeeded with true/false outputs",
+                    "detect unusable",
+                    False,
+                )
+            )
             continue
         check(job, "success" if "true" in values else "skipped", _result(needs, job))
     known = set(ALWAYS) | set(PR_ONLY) | set(CONDITIONAL)
     for job in sorted(set(needs) - known):
-        rows.append(("<unknown job id>", "listed in ci_gate.py", "present in needs", False))
+        rows.append(
+            ("<unknown job id>", "listed in ci_gate.py", "present in needs", False)
+        )
     return all(r[3] for r in rows), rows
 
 
@@ -80,11 +98,19 @@ def main(argv=None, environ=None):
         if not isinstance(needs, dict):
             raise ValueError("NEEDS_JSON is not an object")
     except (KeyError, ValueError):
-        print("error: NEEDS_JSON (JSON object) and EVENT_NAME are required", file=sys.stderr)
+        print(
+            "error: NEEDS_JSON (JSON object) and EVENT_NAME are required",
+            file=sys.stderr,
+        )
         return 2
     ok, rows = evaluate(needs, event_name)
     event_shown = event_name if event_name in ("pull_request", "push") else "other"
-    lines = [f"ci-gate (event kind: {event_shown})", "", "| job | expected | actual | ok |", "|---|---|---|---|"]
+    lines = [
+        f"ci-gate (event kind: {event_shown})",
+        "",
+        "| job | expected | actual | ok |",
+        "|---|---|---|---|",
+    ]
     lines += [f"| {j} | {e} | {a} | {'yes' if p else 'NO'} |" for j, e, a, p in rows]
     lines += ["", "ci-gate: PASS" if ok else "ci-gate: FAIL"]
     print("\n".join(lines))

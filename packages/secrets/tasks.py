@@ -2,6 +2,7 @@
 
 ``InMemoryTaskRegistry`` is a MOCK of the orchestrator for tests and local use.
 """
+
 from __future__ import annotations
 
 import threading
@@ -38,7 +39,9 @@ class InMemoryTaskRegistry:
     def __init__(self) -> None:
         self._tasks: dict = {}
         self._lock = threading.Lock()
-        self.unavailable = False  # test hook: simulate the orchestrator being unreachable
+        self.unavailable = (
+            False  # test hook: simulate the orchestrator being unreachable
+        )
 
     def register(self, task_id: str, run_id: str, agent_id: str) -> None:
         with self._lock:
@@ -49,7 +52,12 @@ class InMemoryTaskRegistry:
             raise ConnectionError("orchestrator unavailable")
         with self._lock:
             entry = self._tasks.get(task_id)
-        return bool(entry and entry[0] == run_id and entry[1] == agent_id and entry[2] is TaskState.RUNNING)
+        return bool(
+            entry
+            and entry[0] == run_id
+            and entry[1] == agent_id
+            and entry[2] is TaskState.RUNNING
+        )
 
     def state(self, task_id: str):
         with self._lock:
@@ -64,9 +72,13 @@ class InMemoryTaskRegistry:
         with self._lock:  # 1. stop new leases: the task is no longer live
             if task_id in self._tasks:
                 self._tasks[task_id][2] = TaskState.ENDING
-        revoked = broker.revoke_task(task_id, reason_code=_END_REASON[outcome])  # 2. revoke everything
+        revoked = broker.revoke_task(
+            task_id, reason_code=_END_REASON[outcome]
+        )  # 2. revoke everything
         if broker.live_lease_count(task_id) != 0:  # 3. verify, then 4. mark finished
-            raise RuntimeError("task still holds a live lease; refusing to mark it finished")
+            raise RuntimeError(
+                "task still holds a live lease; refusing to mark it finished"
+            )
         with self._lock:
             if task_id in self._tasks:
                 self._tasks[task_id][2] = outcome

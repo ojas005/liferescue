@@ -5,6 +5,7 @@ External (http/https/mailto) links and pure anchors are NOT checked (no network 
 Fenced code blocks and inline code spans are skipped.
 Exit code 1 if any relative link target is missing.
 """
+
 import os
 import re
 import sys

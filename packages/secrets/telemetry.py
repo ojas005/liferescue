@@ -3,6 +3,7 @@
 Span attributes and exception data pass through the same allow-list as logs. Exception MESSAGES
 are never exported: only the exception class name is.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Mapping, Optional
@@ -31,10 +32,23 @@ class SafeSpanExporter:
         self._export = export
         self._leak_check = leak_check  # e.g. broker.redactor.contains_secret
 
-    def record_span(self, name: str, attributes: Optional[Mapping] = None, exc: Optional[BaseException] = None) -> None:
-        if self._leak_check is not None and isinstance(name, str) and self._leak_check(name):
+    def record_span(
+        self,
+        name: str,
+        attributes: Optional[Mapping] = None,
+        exc: Optional[BaseException] = None,
+    ) -> None:
+        if (
+            self._leak_check is not None
+            and isinstance(name, str)
+            and self._leak_check(name)
+        ):
             safe_name = "redacted"
-        elif isinstance(name, str) and name.replace("_", "").replace(".", "").isalnum() and len(name) <= 64:
+        elif (
+            isinstance(name, str)
+            and name.replace("_", "").replace(".", "").isalnum()
+            and len(name) <= 64
+        ):
             safe_name = name
         else:
             safe_name = "invalid"

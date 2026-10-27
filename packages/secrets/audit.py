@@ -8,6 +8,7 @@ Until KAN-47 / ADR-0009 define the platform audit format, events go to a local s
 exactly these fields. The ``alert`` flag is a PROPOSED addition: it is the "alert signal" that
 spec I-7 / T-12 / T-13 require for fail-closed and burst conditions.
 """
+
 from __future__ import annotations
 
 import re
@@ -19,10 +20,24 @@ from enum import Enum
 from typing import Optional, Protocol
 
 _ID_SHAPE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-_LEASE_SHAPE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")  # urlsafe base64 ids may start with "-" or "_"
+_LEASE_SHAPE = re.compile(
+    r"^[A-Za-z0-9_-]{16,64}$"
+)  # urlsafe base64 ids may start with "-" or "_"
 _REF_SHAPE = re.compile(r"^secretref://[a-z]{1,16}/[a-z_]{1,32}/[a-z][a-z0-9_-]{0,47}$")
 _CODE_SHAPE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
-OUTCOMES = frozenset({"requested", "issued", "denied", "used", "expired", "revoked", "blocked", "suspected", "unhealthy"})
+OUTCOMES = frozenset(
+    {
+        "requested",
+        "issued",
+        "denied",
+        "used",
+        "expired",
+        "revoked",
+        "blocked",
+        "suspected",
+        "unhealthy",
+    }
+)
 
 
 class AuditEventType(Enum):

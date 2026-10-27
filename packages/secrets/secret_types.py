@@ -9,6 +9,7 @@ Key properties:
     exit is ``with value.reveal() as raw:``.
   * ``LeaseHandle`` carries no value and is safe to put in prompts, logs and databases.
 """
+
 from __future__ import annotations
 
 import re
@@ -72,7 +73,7 @@ class SecretRef:
         prefix = "secretref://"
         if not isinstance(text, str) or not text.startswith(prefix) or len(text) > 200:
             raise InvalidSecretRef("ref")
-        parts = text[len(prefix):].split("/")
+        parts = text[len(prefix) :].split("/")
         if len(parts) != 3:
             raise InvalidSecretRef("ref")
         env_s, purpose_s, name = parts
@@ -185,7 +186,9 @@ class CredentialRequest:
     ref: SecretRef
     reason_code: RequestReason
     requested_ttl: Optional[timedelta] = None  # None -> BrokerConfig.default_ttl
-    correlation_id: Optional[str] = None  # PROPOSED addition: spec audit fields include a correlation id
+    correlation_id: Optional[str] = (
+        None  # PROPOSED addition: spec audit fields include a correlation id
+    )
 
     def __post_init__(self) -> None:
         check_id("task_id", self.task_id)
@@ -195,7 +198,9 @@ class CredentialRequest:
             raise InvalidRequest("ref")
         if not isinstance(self.reason_code, RequestReason):
             raise InvalidRequest("reason_code")
-        if self.requested_ttl is not None and not isinstance(self.requested_ttl, timedelta):
+        if self.requested_ttl is not None and not isinstance(
+            self.requested_ttl, timedelta
+        ):
             raise InvalidRequest("requested_ttl")
         if self.correlation_id is not None:
             check_id("correlation_id", self.correlation_id)
@@ -217,7 +222,9 @@ class LeaseHandle:
     task_id: str
     run_id: str
     agent_id: str
-    expires_at: datetime  # wall clock, informational; enforcement uses a monotonic clock
+    expires_at: (
+        datetime  # wall clock, informational; enforcement uses a monotonic clock
+    )
 
 
 @dataclass(frozen=True)

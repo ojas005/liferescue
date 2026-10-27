@@ -23,13 +23,16 @@ Uses the Python standard library only; no network access, no subprocess calls.
 Exit code 0 if the name is valid, 1 if it is invalid (an empty value is invalid), 2 if BRANCH_NAME
 is not set or any argument was given. A CI step must treat ANY non-zero exit code as failure.
 """
+
 import os
 import re
 import sys
 
 PREFIXES = ("feature", "bugfix", "security", "chore", "docs")
 MAX_LENGTH = 100
-PATTERN = r"^(feature|bugfix|security|chore|docs)/KAN-[1-9][0-9]*-[a-z0-9]+(-[a-z0-9]+)*$"
+PATTERN = (
+    r"^(feature|bugfix|security|chore|docs)/KAN-[1-9][0-9]*-[a-z0-9]+(-[a-z0-9]+)*$"
+)
 BRANCH = re.compile(PATTERN)
 ENV_VAR = "BRANCH_NAME"  # fixed on purpose: never configurable from the command line
 ECHO_LIMIT = 120  # at most this many characters of a name are echoed back
@@ -55,7 +58,10 @@ def validate(name):
 def escaped(name):
     """Printable, single-line, ASCII-only, length-bounded form of untrusted text (no control chars)."""
     if len(name) > ECHO_LIMIT:
-        return ascii(name[:ECHO_LIMIT]) + f"... [truncated; {len(name)} characters in total]"
+        return (
+            ascii(name[:ECHO_LIMIT])
+            + f"... [truncated; {len(name)} characters in total]"
+        )
     return ascii(name)
 
 
@@ -67,10 +73,16 @@ def main(argv=None, environ=None):
     # option-like argument (for example -h, --help or "--") can neither redirect the script to
     # another environment variable nor produce a success exit code.
     if argv:
-        print(f"error: this script takes no arguments; set the environment variable {ENV_VAR}", file=sys.stderr)
+        print(
+            f"error: this script takes no arguments; set the environment variable {ENV_VAR}",
+            file=sys.stderr,
+        )
         return 2
     if ENV_VAR not in environ:
-        print(f"error: no branch name given; set the environment variable {ENV_VAR}", file=sys.stderr)
+        print(
+            f"error: no branch name given; set the environment variable {ENV_VAR}",
+            file=sys.stderr,
+        )
         return 2
     name = environ[ENV_VAR]
 

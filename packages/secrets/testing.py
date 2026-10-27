@@ -4,6 +4,7 @@ Nothing here is a credential. Seeded canaries are assembled at call time from a 
 non-provider prefix plus random characters, so the repository never contains a whole
 realistic key (spec section 8.1) and the values are valid for no provider.
 """
+
 from __future__ import annotations
 
 import secrets as _stdlib_secrets  # stdlib module; see the note in __init__.py
@@ -26,7 +27,9 @@ def make_canary(prefix: str = "mock-", length: int = 32) -> str:
 class FakeClock:
     """Controllable clock. ``advance`` moves both clocks; ``jump_wall`` moves only the wall clock."""
 
-    def __init__(self, monotonic_start: float = 1000.0, wall_start: datetime | None = None) -> None:
+    def __init__(
+        self, monotonic_start: float = 1000.0, wall_start: datetime | None = None
+    ) -> None:
         self._mono = float(monotonic_start)
         self._wall = wall_start or datetime(2026, 10, 4, 12, 0, 0, tzinfo=timezone.utc)
         self.fail_with: Exception | None = None

@@ -11,6 +11,7 @@ Any future ``SecretBackend`` (deferred real adapters included) must pass this su
 
 The suite never uses a real credential: values are random canaries generated per test.
 """
+
 from __future__ import annotations
 
 import builtins
@@ -80,7 +81,14 @@ class BackendConformanceMixin:
     def test_conformance_value_never_appears_in_repr_str_format_pickle_copy(self):
         backend, ref, canary = self.ready()
         value = backend.resolve(ref, ttl=self.TTL)
-        for text in (repr(value), str(value), format(value), f"{value}", repr([value]), repr({"v": value})):
+        for text in (
+            repr(value),
+            str(value),
+            format(value),
+            f"{value}",
+            repr([value]),
+            repr({"v": value}),
+        ):
             self.assertNotIn(canary, text)
         for fn in (pickle.dumps, copy.copy, copy.deepcopy):
             with self.assertRaises(TypeError):
@@ -107,7 +115,10 @@ class BackendConformanceMixin:
             if env is self.ENVIRONMENT:
                 continue
             with self.assertRaises(BackendError):
-                backend.resolve(SecretRef(env, Purpose.MODEL_INFERENCE, "mock-conformance-key"), ttl=self.TTL)
+                backend.resolve(
+                    SecretRef(env, Purpose.MODEL_INFERENCE, "mock-conformance-key"),
+                    ttl=self.TTL,
+                )
 
     def test_conformance_revoke_is_idempotent_and_tolerates_unknown_leases(self):
         backend, ref, canary = self.ready()
@@ -149,7 +160,9 @@ class BackendConformanceMixin:
 
     def test_conformance_isolated_backends_touch_no_env_file_or_network(self):
         if not self.ISOLATED:
-            self.skipTest("backend is not declared ISOLATED (a real adapter legitimately uses the network)")
+            self.skipTest(
+                "backend is not declared ISOLATED (a real adapter legitimately uses the network)"
+            )
         import os
 
         class Trap:
@@ -169,9 +182,13 @@ class BackendConformanceMixin:
                 raise AssertionError("backend touched env/file/network")
 
         backend, ref, canary = self.ready()
-        with mock.patch.object(os, "environ", Trap()), mock.patch.object(os, "getenv", Trap()), mock.patch.object(
-            builtins, "open", Trap()
-        ), mock.patch.object(socket, "socket", Trap()), mock.patch.object(socket, "getaddrinfo", Trap()):
+        with (
+            mock.patch.object(os, "environ", Trap()),
+            mock.patch.object(os, "getenv", Trap()),
+            mock.patch.object(builtins, "open", Trap()),
+            mock.patch.object(socket, "socket", Trap()),
+            mock.patch.object(socket, "getaddrinfo", Trap()),
+        ):
             backend.resolve(ref, ttl=self.TTL)
             backend.revoke(ref, "lease-id-0000000000000")
             backend.health()

@@ -28,6 +28,7 @@ prints the workflow command "::error title=..." with a FIXED message and no atta
 Exit code: 0 valid or exempt, 1 invalid, 2 BRANCH_NAME unset or an argument was given.
 Standard library only; no network, no subprocess, the name is never evaluated.
 """
+
 import importlib.util
 import os
 import re
@@ -52,7 +53,9 @@ DEPENDABOT_MAX_LENGTH = 200
 
 
 def _load_validator():
-    spec = importlib.util.spec_from_file_location("check_branch_name", os.path.join(HERE, "check-branch-name.py"))
+    spec = importlib.util.spec_from_file_location(
+        "check_branch_name", os.path.join(HERE, "check-branch-name.py")
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -81,10 +84,16 @@ def main(argv=None, environ=None):
     argv = sys.argv[1:] if argv is None else list(argv)
     environ = os.environ if environ is None else environ
     if argv:
-        print("error: this script takes no arguments; set the environment variable BRANCH_NAME", file=sys.stderr)
+        print(
+            "error: this script takes no arguments; set the environment variable BRANCH_NAME",
+            file=sys.stderr,
+        )
         return 2
     if "BRANCH_NAME" not in environ:
-        print("error: no branch name given; set the environment variable BRANCH_NAME", file=sys.stderr)
+        print(
+            "error: no branch name given; set the environment variable BRANCH_NAME",
+            file=sys.stderr,
+        )
         return 2
     mode = environ.get("BRANCH_GATE_MODE", "")
     if mode not in ("", "exempt-only"):
@@ -104,7 +113,9 @@ def main(argv=None, environ=None):
         return 0
     # Invalid. Re-use the validator's own (escaped, bounded) explanation, then add a FIXED annotation.
     validator.main([], {"BRANCH_NAME": name})
-    print("::error title=Branch name::The PR branch name does not follow <type>/KAN-<number>-<description>. See CONTRIBUTING.md (Branching).")
+    print(
+        "::error title=Branch name::The PR branch name does not follow <type>/KAN-<number>-<description>. See CONTRIBUTING.md (Branching)."
+    )
     return 1
 
 

@@ -11,6 +11,7 @@ Caveats (stated, not hidden):
     ``keywords`` prefiltering and entropy are not modelled.
   * The harness needs ``tomllib`` (Python 3.11+).
 """
+
 from __future__ import annotations
 
 import re
@@ -57,7 +58,12 @@ def load_gitleaks_rules(path: Path) -> Dict[str, GitleaksRule]:
         for al in item.get("allowlists", []):
             if al.get("regexTarget", "secret") == "match":
                 allow.extend(re.compile(r) for r in al.get("regexes", []))
-        rules[item["id"]] = GitleaksRule(item["id"], re.compile(item["regex"]), int(item.get("secretGroup", 0)), tuple(allow))
+        rules[item["id"]] = GitleaksRule(
+            item["id"],
+            re.compile(item["regex"]),
+            int(item.get("secretGroup", 0)),
+            tuple(allow),
+        )
     return rules
 
 
@@ -82,54 +88,131 @@ def _python_secret(patterns: PatternSet, rule_id: str, sample: str) -> Optional[
 
 # -------------------------------------------------------------------------------- corpus -------
 def _ctx(secret: str) -> List[str]:
-    return [secret, f"key = {secret}", f'"{secret}"', f"prefix text {secret} suffix text", f"line one\n{secret}\nline three"]
+    return [
+        secret,
+        f"key = {secret}",
+        f'"{secret}"',
+        f"prefix text {secret} suffix text",
+        f"line one\n{secret}\nline three",
+    ]
 
 
 def _gen_xai() -> tuple:
     pos = [c for n in (40, 41, 55, 80) for c in _ctx("xai-" + random_chars(n))]
-    neg = ["xai-" + random_chars(39), "XAI-" + random_chars(50), "a" + "xai-" + random_chars(50), "xa1-" + random_chars(50), "xai" + random_chars(50)]
+    neg = [
+        "xai-" + random_chars(39),
+        "XAI-" + random_chars(50),
+        "a" + "xai-" + random_chars(50),
+        "xa1-" + random_chars(50),
+        "xai" + random_chars(50),
+    ]
     return pos, neg
 
 
 def _gen_nvidia() -> tuple:
     mixed = lambda n: "".join(random_chars(1) if i % 7 else "-" for i in range(n))
-    pos = [c for s in ("nvapi-" + random_chars(40), "nvapi-" + mixed(52), "nvapi-" + random_chars(60) + "_") for c in _ctx(s)]
-    neg = ["nvapi-" + random_chars(39), "nvapi_" + random_chars(50), "NVAPI-" + random_chars(50), "x" + "nvapi-" + random_chars(50)]
+    pos = [
+        c
+        for s in (
+            "nvapi-" + random_chars(40),
+            "nvapi-" + mixed(52),
+            "nvapi-" + random_chars(60) + "_",
+        )
+        for c in _ctx(s)
+    ]
+    neg = [
+        "nvapi-" + random_chars(39),
+        "nvapi_" + random_chars(50),
+        "NVAPI-" + random_chars(50),
+        "x" + "nvapi-" + random_chars(50),
+    ]
     return pos, neg
 
 
 def _gen_tavily() -> tuple:
     pos = [c for n in (20, 28, 45) for c in _ctx("tvly-" + random_chars(n))]
-    neg = ["tvly-" + random_chars(19), "tvly" + random_chars(30), "TVLY-" + random_chars(30), "q" + "tvly-" + random_chars(30)]
+    neg = [
+        "tvly-" + random_chars(19),
+        "tvly" + random_chars(30),
+        "TVLY-" + random_chars(30),
+        "q" + "tvly-" + random_chars(30),
+    ]
     return pos, neg
 
 
 def _gen_atlassian() -> tuple:
-    pos = [c for s in ("ATATT3" + random_chars(50), "ATATT3" + random_chars(70) + "=", "ATATT3" + random_chars(25) + "-_" + random_chars(30)) for c in _ctx(s)]
-    neg = ["ATATT3" + random_chars(49), "atatt3" + random_chars(60), "ATATT2" + random_chars(60), "Z" + "ATATT3" + random_chars(60)]
+    pos = [
+        c
+        for s in (
+            "ATATT3" + random_chars(50),
+            "ATATT3" + random_chars(70) + "=",
+            "ATATT3" + random_chars(25) + "-_" + random_chars(30),
+        )
+        for c in _ctx(s)
+    ]
+    neg = [
+        "ATATT3" + random_chars(49),
+        "atatt3" + random_chars(60),
+        "ATATT2" + random_chars(60),
+        "Z" + "ATATT3" + random_chars(60),
+    ]
     return pos, neg
 
 
 def _gen_nebius() -> tuple:
     pos = []
-    for name in ("NEBIUS_API_KEY", "nebius-token", "Nebius_Secret", "NEBIUS_SERVICE_ACCOUNT_KEY", "nebiusapikey"):
+    for name in (
+        "NEBIUS_API_KEY",
+        "nebius-token",
+        "Nebius_Secret",
+        "NEBIUS_SERVICE_ACCOUNT_KEY",
+        "nebiusapikey",
+    ):
         v = random_chars(24) + "-_.=+/"[: len(name) % 6]
         pos += [f"{name}={v}", f'{name}: "{v}"', f"export {name}='{v}'"]
-    neg = [f"NEBIUS_API_KEY={random_chars(19)}", f"NEBIUS_REGION={random_chars(30)}", "the nebius api key is stored elsewhere", f"OTHER_API_KEY={random_chars(30)}"]
+    neg = [
+        f"NEBIUS_API_KEY={random_chars(19)}",
+        f"NEBIUS_REGION={random_chars(30)}",
+        "the nebius api key is stored elsewhere",
+        f"OTHER_API_KEY={random_chars(30)}",
+    ]
     return pos, neg
 
 
 def _gen_url() -> tuple:
     pos = []
-    for scheme in ("postgres", "postgresql", "redis", "rediss", "amqp", "amqps", "mongodb", "mongodb+srv", "mysql", "https", "http"):
+    for scheme in (
+        "postgres",
+        "postgresql",
+        "redis",
+        "rediss",
+        "amqp",
+        "amqps",
+        "mongodb",
+        "mongodb+srv",
+        "mysql",
+        "https",
+        "http",
+    ):
         pw = random_chars(12)
         pos.append(f"{scheme}://svc:{pw}@db.example.invalid:5432/app")
     short_pw, long_pw = random_chars(6), random_chars(20)
     # URLs are assembled from parts so that no source line itself looks like a URL with an embedded password
-    pos += ["line\nrediss://u:" + short_pw + "@h/0\nline", "x = 'https://user:" + long_pw + "@host.example.invalid/path'"]
+    pos += [
+        "line\nrediss://u:" + short_pw + "@h/0\nline",
+        "x = 'https://user:" + long_pw + "@host.example.invalid/path'",
+    ]
     neg = [
-        "postgres://user:changeme@localhost/db", "redis://u:${REDIS_PASSWORD}@h/0", "https://u:<password>@h/", "http://u:example@h/", "http://u:xxxx@h/",
-        "http://u:****@h/", "postgres://user:pw@h/db", "postgres://localhost:5432/db", "ftp://u:" + random_chars(12) + "@h/", "https://example.invalid/a:b@c",
+        "postgres://user:changeme@localhost/db",
+        "redis://u:${REDIS_PASSWORD}@h/0",
+        "https://u:<password>@h/",
+        "http://u:example@h/",
+        "http://u:xxxx@h/",
+        "http://u:****@h/",
+        "postgres://user:pw@h/db",
+        "postgres://localhost:5432/db",
+        "ftp://u:" + random_chars(12) + "@h/",
+        "https://example.invalid/a:b@c",
     ]
     return pos, neg
 
@@ -137,8 +220,17 @@ def _gen_url() -> tuple:
 def _gen_private_key() -> tuple:
     begin = "-----BEGIN "  # assembled at runtime: no complete PEM header is committed
     pos = [f"{begin}{kind}PRIVATE KEY-----" for kind in ("", "RSA ", "EC ", "OPENSSH ")]
-    pos += [f"text\n{begin}{kind}PRIVATE KEY-----\n{random_chars(64)}\n" for kind in ("", "RSA ")]
-    neg = ["-----BEGIN PUBLIC KEY-----", "-----BEGIN CERTIFICATE-----", "-----BEGIN " + "DSA PRIVATE KEY-----", "BEGIN PRIVATE KEY", "-----BEGIN-----PRIVATE KEY"]
+    pos += [
+        f"text\n{begin}{kind}PRIVATE KEY-----\n{random_chars(64)}\n"
+        for kind in ("", "RSA ")
+    ]
+    neg = [
+        "-----BEGIN PUBLIC KEY-----",
+        "-----BEGIN CERTIFICATE-----",
+        "-----BEGIN " + "DSA PRIVATE KEY-----",
+        "BEGIN PRIVATE KEY",
+        "-----BEGIN-----PRIVATE KEY",
+    ]
     return pos, neg
 
 
@@ -163,7 +255,9 @@ def run_parity(toml_path: Path, patterns: Optional[PatternSet] = None) -> Parity
     for rid in sorted(set(gl) - mapped):
         report.problems.append(f"gitleaks rule has no redactor pattern: {rid}")
     for rid in sorted(mapped - set(gl)):
-        report.problems.append(f"redactor pattern maps to a gitleaks rule that does not exist: {rid}")
+        report.problems.append(
+            f"redactor pattern maps to a gitleaks rule that does not exist: {rid}"
+        )
     for rid in sorted(set(gl) & mapped):
         gen = CORPUS_GENERATORS.get(rid)
         if gen is None:
@@ -173,15 +267,26 @@ def run_parity(toml_path: Path, patterns: Optional[PatternSet] = None) -> Parity
         for kind, samples in (("positive", positives), ("negative", negatives)):
             for sample in samples:
                 report.samples += 1
-                g, p = _gitleaks_secret(gl[rid], sample), _python_secret(patterns, rid, sample)
+                g, p = (
+                    _gitleaks_secret(gl[rid], sample),
+                    _python_secret(patterns, rid, sample),
+                )
                 if (g is None) != (p is None):
-                    report.mismatches.append(f"{rid} [{kind}]: gitleaks={'match' if g is not None else 'no match'} python={'match' if p is not None else 'no match'}")
+                    report.mismatches.append(
+                        f"{rid} [{kind}]: gitleaks={'match' if g is not None else 'no match'} python={'match' if p is not None else 'no match'}"
+                    )
                 elif g is not None and gl[rid].secret_group > 0 and g != p:
                     # captured secret text is compared only for rules with a secretGroup; for whole-match rules the
                     # redactor may deliberately cover MORE than gitleaks reports (e.g. a whole PEM body vs its header)
-                    report.mismatches.append(f"{rid} [{kind}]: matched different text for the secret group")
+                    report.mismatches.append(
+                        f"{rid} [{kind}]: matched different text for the secret group"
+                    )
                 elif kind == "positive" and g is None:
-                    report.mismatches.append(f"{rid}: corpus positive matched on neither side (corpus bug)")
+                    report.mismatches.append(
+                        f"{rid}: corpus positive matched on neither side (corpus bug)"
+                    )
                 elif kind == "negative" and g is not None:
-                    report.mismatches.append(f"{rid}: corpus negative matched on both sides (corpus bug)")
+                    report.mismatches.append(
+                        f"{rid}: corpus negative matched on both sides (corpus bug)"
+                    )
     return report

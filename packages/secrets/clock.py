@@ -1,4 +1,5 @@
 """Clock abstraction (spec 5.2: monotonic clock for duration, wall clock recorded for audit)."""
+
 from __future__ import annotations
 
 import time

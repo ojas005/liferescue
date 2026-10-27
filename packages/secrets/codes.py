@@ -3,6 +3,7 @@
 Every reason that crosses a boundary (exception, audit event, log line) is one of these
 enum values, never free text, so no request content or secret can ride along in a reason.
 """
+
 from __future__ import annotations
 
 from enum import Enum

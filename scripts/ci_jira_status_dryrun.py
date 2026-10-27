@@ -23,6 +23,7 @@ is never copied into either: only the validated Jira key and fixed words are.
 Exit code: 0 record written; 1 a payload field was invalid (record written with status "rejected",
 field NAMES only); 3 DRY_RUN is not "true" (nothing written).
 """
+
 import json
 import os
 import re
@@ -30,10 +31,19 @@ import sys
 
 MARKER = "DRY-RUN, no posting"
 CONCLUSIONS = {
-    "success", "failure", "cancelled", "skipped", "neutral", "timed_out",
-    "action_required", "stale", "startup_failure",
+    "success",
+    "failure",
+    "cancelled",
+    "skipped",
+    "neutral",
+    "timed_out",
+    "action_required",
+    "stale",
+    "startup_failure",
 }
-KEY_FROM_BRANCH = re.compile(r"(?:feature|bugfix|security|chore|docs)/(KAN-[1-9][0-9]{0,8})-")
+KEY_FROM_BRANCH = re.compile(
+    r"(?:feature|bugfix|security|chore|docs)/(KAN-[1-9][0-9]{0,8})-"
+)
 RUN_ID = re.compile(r"[0-9]{1,20}")
 SHA = re.compile(r"[0-9a-f]{40}")
 EVENT = re.compile(r"[a-z_]{1,40}")
@@ -59,20 +69,35 @@ def build_record(env):
         bad.append("GITHUB_REPOSITORY")
     if pr != "" and PR_NUMBER.fullmatch(pr) is None:
         bad.append("CI_RUN_PR_NUMBER")
-    base = {"marker": MARKER, "dry_run": True, "reporter": "STUB (LR 04 Jira module not present)", "posted": False}
+    base = {
+        "marker": MARKER,
+        "dry_run": True,
+        "reporter": "STUB (LR 04 Jira module not present)",
+        "posted": False,
+    }
     if bad:
-        base.update({"status": "rejected", "invalid_fields": sorted(bad), "would_post": None})
+        base.update(
+            {"status": "rejected", "invalid_fields": sorted(bad), "would_post": None}
+        )
         return base, 1
     # Re.match on the branch: fixed pattern, takes at most the key; nothing else of the branch is kept.
     m = KEY_FROM_BRANCH.match(env.get("CI_RUN_HEAD_BRANCH", ""))
     key = m.group(1) if m else None
     run_url = f"https://github.com/{repo}/actions/runs/{run_id}"
-    base.update({
-        "status": "recorded",
-        "ci_run": {"id": run_id, "event": event, "conclusion": conclusion, "head_sha": sha, "url": run_url},
-        "pr_number": int(pr) if pr else None,
-        "jira_key": key,
-    })
+    base.update(
+        {
+            "status": "recorded",
+            "ci_run": {
+                "id": run_id,
+                "event": event,
+                "conclusion": conclusion,
+                "head_sha": sha,
+                "url": run_url,
+            },
+            "pr_number": int(pr) if pr else None,
+            "jira_key": key,
+        }
+    )
     if key is None:
         base["would_post"] = None
         base["note"] = "no Jira key in the branch name; nothing would be posted"
@@ -87,29 +112,48 @@ def build_record(env):
 
 
 def summary_lines(record):
-    lines = [f"### CI to Jira status - {MARKER}", "", "Nothing was posted to Jira. This is a stub; no Jira credentials exist in this workflow.", ""]
+    lines = [
+        f"### CI to Jira status - {MARKER}",
+        "",
+        "Nothing was posted to Jira. This is a stub; no Jira credentials exist in this workflow.",
+        "",
+    ]
     if record["status"] == "rejected":
-        lines.append("Record REJECTED. Invalid payload fields: " + ", ".join(f"`{f}`" for f in record["invalid_fields"]))
+        lines.append(
+            "Record REJECTED. Invalid payload fields: "
+            + ", ".join(f"`{f}`" for f in record["invalid_fields"])
+        )
         return lines
     run = record["ci_run"]
     lines += [
         f"- CI run `{run['id']}`: event `{run['event']}`, conclusion `{run['conclusion']}`, head `{run['head_sha'][:7]}`",
-        f"- Jira key from branch: `{record['jira_key']}`" if record["jira_key"] else "- Jira key from branch: none",
+        f"- Jira key from branch: `{record['jira_key']}`"
+        if record["jira_key"]
+        else "- Jira key from branch: none",
     ]
     wp = record["would_post"]
-    lines.append(f"- WOULD post to `{wp['target']}`: `{wp['text']}`" if wp else "- WOULD post: nothing")
+    lines.append(
+        f"- WOULD post to `{wp['target']}`: `{wp['text']}`"
+        if wp
+        else "- WOULD post: nothing"
+    )
     return lines
 
 
 def main(environ=None):
     env = os.environ if environ is None else environ
     if env.get("DRY_RUN") != "true":
-        print("error: refusing to run: DRY_RUN must be exactly 'true' (real posting is not implemented)", file=sys.stderr)
+        print(
+            "error: refusing to run: DRY_RUN must be exactly 'true' (real posting is not implemented)",
+            file=sys.stderr,
+        )
         return 3
     record, rc = build_record(env)
     out_dir = env.get("DRYRUN_OUT_DIR", "jira-dryrun")
     os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "jira-status-dryrun.json"), "w", encoding="utf-8") as fh:
+    with open(
+        os.path.join(out_dir, "jira-status-dryrun.json"), "w", encoding="utf-8"
+    ) as fh:
         json.dump(record, fh, indent=2, sort_keys=True)
         fh.write("\n")
     lines = summary_lines(record)

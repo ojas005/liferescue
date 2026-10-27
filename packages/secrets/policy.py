@@ -9,6 +9,7 @@ standard library has no YAML parser, so the policy is JSON (``policy.json``).
 PROPOSED ASSUMPTION - REQUIRES HUMAN APPROVAL: the grants in ``policy.json`` (agent ids and
 mock secret names) are an illustrative mock-only set; Ojas approves real grant changes (spec Q6).
 """
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,9 @@ from .secret_types import Environment, Purpose, SecretRef, _ID_RE, _NAME_RE
 MAX_POLICY_BYTES = 64 * 1024
 MAX_GRANTS = 200
 MAX_NAMES_PER_GRANT = 50
-MAX_NAME_SEGMENT = 16  # heuristic: a name segment longer than this looks like a value, not a name
+MAX_NAME_SEGMENT = (
+    16  # heuristic: a name segment longer than this looks like a value, not a name
+)
 MAX_GRANT_TTL_SECONDS = 24 * 3600
 DEFAULT_POLICY_PATH = Path(__file__).with_name("policy.json")
 
@@ -121,7 +124,11 @@ def policy_from_mapping(doc: Any) -> Policy:
 
 
 def _grant_from_mapping(item: Any) -> Grant:
-    if not isinstance(item, Mapping) or not set(item) <= _GRANT_KEYS or not {"agent_id", "purpose", "names", "environments"} <= set(item):
+    if (
+        not isinstance(item, Mapping)
+        or not set(item) <= _GRANT_KEYS
+        or not {"agent_id", "purpose", "names", "environments"} <= set(item)
+    ):
         raise PolicyError("grant has missing or unknown fields")
     agent_id = item["agent_id"]
     if not isinstance(agent_id, str) or not _ID_RE.match(agent_id):
@@ -149,7 +156,11 @@ def _grant_from_mapping(item: Any) -> Grant:
     max_ttl = None
     if "max_ttl_seconds" in item:
         secs = item["max_ttl_seconds"]
-        if isinstance(secs, bool) or not isinstance(secs, int) or not 0 < secs <= MAX_GRANT_TTL_SECONDS:
+        if (
+            isinstance(secs, bool)
+            or not isinstance(secs, int)
+            or not 0 < secs <= MAX_GRANT_TTL_SECONDS
+        ):
             raise PolicyError("grant max_ttl_seconds invalid")
         max_ttl = timedelta(seconds=secs)
     return Grant(agent_id, purpose, frozenset(names), frozenset(envs), max_ttl)

@@ -3,6 +3,7 @@
 
 Run from the repository root:  python3 -m unittest -v scripts/test_ci_helpers.py
 """
+
 import contextlib
 import importlib.util
 import io
@@ -32,13 +33,19 @@ def needs(node=False, python=False, overrides=None, detect_result="success"):
     n = {
         "secret-scan": {"result": "success", "outputs": {}},
         "repo-validation": {"result": "success", "outputs": {}},
-        "detect": {"result": detect_result, "outputs": {"node": str(node).lower(), "python": str(python).lower()}},
+        "detect": {
+            "result": detect_result,
+            "outputs": {"node": str(node).lower(), "python": str(python).lower()},
+        },
         "python-unit-tests": {"result": "success", "outputs": {}},
         "branch-name": {"result": "success", "outputs": {}},
         "pr-link-check": {"result": "success", "outputs": {}},
         "node-checks": {"result": "success" if node else "skipped", "outputs": {}},
         "python-checks": {"result": "success" if python else "skipped", "outputs": {}},
-        "dependency-scan": {"result": "success" if (node or python) else "skipped", "outputs": {}},
+        "dependency-scan": {
+            "result": "success" if (node or python) else "skipped",
+            "outputs": {},
+        },
         "sbom": {"result": "success" if (node or python) else "skipped", "outputs": {}},
     }
     for k, v in (overrides or {}).items():
@@ -50,7 +57,13 @@ def needs(node=False, python=False, overrides=None, detect_result="success"):
 
 
 def push_needs(**kw):
-    return needs(overrides=dict({"branch-name": "skipped", "pr-link-check": "skipped"}, **kw.pop("overrides", {})), **kw)
+    return needs(
+        overrides=dict(
+            {"branch-name": "skipped", "pr-link-check": "skipped"},
+            **kw.pop("overrides", {}),
+        ),
+        **kw,
+    )
 
 
 class GateTests(unittest.TestCase):
@@ -75,20 +88,37 @@ class GateTests(unittest.TestCase):
                     self.assertFalse(self.ok(needs(overrides={job: bad})))
 
     def test_skipped_required_job_is_not_a_pass(self):
-        for job in ("secret-scan", "repo-validation", "detect", "python-unit-tests", "branch-name", "pr-link-check"):
+        for job in (
+            "secret-scan",
+            "repo-validation",
+            "detect",
+            "python-unit-tests",
+            "branch-name",
+            "pr-link-check",
+        ):
             self.assertFalse(self.ok(needs(overrides={job: "skipped"})), job)
 
     def test_pr_only_job_must_be_skipped_on_push(self):
         self.assertFalse(self.ok(needs(), "push"))
-        self.assertFalse(self.ok(push_needs(overrides={"branch-name": "success"}), "push"))
+        self.assertFalse(
+            self.ok(push_needs(overrides={"branch-name": "success"}), "push")
+        )
 
     def test_conditional_job_that_should_run_but_is_skipped_fails(self):
-        self.assertFalse(self.ok(needs(node=True, overrides={"node-checks": "skipped"})))
-        self.assertFalse(self.ok(needs(python=True, overrides={"python-checks": "skipped"})))
+        self.assertFalse(
+            self.ok(needs(node=True, overrides={"node-checks": "skipped"}))
+        )
+        self.assertFalse(
+            self.ok(needs(python=True, overrides={"python-checks": "skipped"}))
+        )
 
     def test_conditional_job_failure_fails(self):
-        self.assertFalse(self.ok(needs(node=True, overrides={"node-checks": "failure"})))
-        self.assertFalse(self.ok(needs(python=True, overrides={"dependency-scan": "failure"})))
+        self.assertFalse(
+            self.ok(needs(node=True, overrides={"node-checks": "failure"}))
+        )
+        self.assertFalse(
+            self.ok(needs(python=True, overrides={"dependency-scan": "failure"}))
+        )
 
     def test_conditional_job_ran_although_detect_said_no_fails(self):
         self.assertFalse(self.ok(needs(overrides={"sbom": "success"})))
@@ -117,23 +147,44 @@ class GateTests(unittest.TestCase):
     def run_cli(self, env):
         full = {"PATH": os.environ.get("PATH", "")}
         full.update(env)
-        return subprocess.run([sys.executable, os.path.join(HERE, "ci_gate.py")], env=full, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE, universal_newlines=True)
+        return subprocess.run(
+            [sys.executable, os.path.join(HERE, "ci_gate.py")],
+            env=full,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
 
     def test_cli_exit_codes(self):
-        good = self.run_cli({"NEEDS_JSON": json.dumps(needs()), "EVENT_NAME": "pull_request"})
+        good = self.run_cli(
+            {"NEEDS_JSON": json.dumps(needs()), "EVENT_NAME": "pull_request"}
+        )
         self.assertEqual(good.returncode, 0, good.stdout + good.stderr)
         self.assertIn("ci-gate: PASS", good.stdout)
-        bad = self.run_cli({"NEEDS_JSON": json.dumps(needs(overrides={"branch-name": "failure"})), "EVENT_NAME": "pull_request"})
+        bad = self.run_cli(
+            {
+                "NEEDS_JSON": json.dumps(needs(overrides={"branch-name": "failure"})),
+                "EVENT_NAME": "pull_request",
+            }
+        )
         self.assertEqual(bad.returncode, 1)
         self.assertIn("ci-gate: FAIL", bad.stdout)
-        for env in ({}, {"EVENT_NAME": "push"}, {"NEEDS_JSON": "not json", "EVENT_NAME": "push"}, {"NEEDS_JSON": "[]", "EVENT_NAME": "push"}):
+        for env in (
+            {},
+            {"EVENT_NAME": "push"},
+            {"NEEDS_JSON": "not json", "EVENT_NAME": "push"},
+            {"NEEDS_JSON": "[]", "EVENT_NAME": "push"},
+        ):
             self.assertEqual(self.run_cli(env).returncode, 2, env)
 
     def test_cli_output_never_contains_event_text(self):
-        proc = self.run_cli({"NEEDS_JSON": json.dumps(needs()), "EVENT_NAME": "x\n::error::pwn"})
+        proc = self.run_cli(
+            {"NEEDS_JSON": json.dumps(needs()), "EVENT_NAME": "x\n::error::pwn"}
+        )
         self.assertNotIn("pwn", proc.stdout)
-        self.assertNotEqual(proc.returncode, 0)  # an unknown event kind is never a pass (PR-only jobs expected skipped)
+        self.assertNotEqual(
+            proc.returncode, 0
+        )  # an unknown event kind is never a pass (PR-only jobs expected skipped)
 
 
 GOOD_ENV = {
@@ -151,8 +202,15 @@ GOOD_ENV = {
 class DryRunTests(unittest.TestCase):
     def run_main(self, env):
         with tempfile.TemporaryDirectory() as tmp:
-            full = dict(env, DRYRUN_OUT_DIR=os.path.join(tmp, "out"), GITHUB_STEP_SUMMARY=os.path.join(tmp, "summary.md"))
-            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            full = dict(
+                env,
+                DRYRUN_OUT_DIR=os.path.join(tmp, "out"),
+                GITHUB_STEP_SUMMARY=os.path.join(tmp, "summary.md"),
+            )
+            with (
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(io.StringIO()),
+            ):
                 rc = dryrun.main(full)
             record, summary = None, None
             rec_path = os.path.join(tmp, "out", "jira-status-dryrun.json")
@@ -188,7 +246,14 @@ class DryRunTests(unittest.TestCase):
             self.assertIsNone(rec)  # nothing written
 
     def test_branch_without_key_posts_nothing(self):
-        for branch in ("main", "zz-test-bad-branch-name", "dependabot/pip/x", "", "feature/KAN-0-x", "Feature/KAN-20-x"):
+        for branch in (
+            "main",
+            "zz-test-bad-branch-name",
+            "dependabot/pip/x",
+            "",
+            "feature/KAN-0-x",
+            "Feature/KAN-20-x",
+        ):
             rc, rec, _ = self.run_main(dict(GOOD_ENV, CI_RUN_HEAD_BRANCH=branch))
             self.assertEqual(rc, 0, branch)
             self.assertIsNone(rec["would_post"], branch)
@@ -196,7 +261,11 @@ class DryRunTests(unittest.TestCase):
 
     def test_hostile_branch_text_is_never_copied(self):
         canary = "EVILTEXT-7c1d"
-        for branch in ("feature/KAN-20-x\n::error::" + canary, "feature/KAN-20-`" + canary + "`", "chore/KAN-7-[x](http://" + canary + ")"):
+        for branch in (
+            "feature/KAN-20-x\n::error::" + canary,
+            "feature/KAN-20-`" + canary + "`",
+            "chore/KAN-7-[x](http://" + canary + ")",
+        ):
             rc, rec, summary = self.run_main(dict(GOOD_ENV, CI_RUN_HEAD_BRANCH=branch))
             self.assertEqual(rc, 0)
             self.assertNotIn(canary, json.dumps(rec) + summary)
@@ -226,10 +295,23 @@ class DryRunTests(unittest.TestCase):
         self.assertIsNone(rec["pr_number"])
 
     def test_script_cannot_post(self):
-        with open(os.path.join(HERE, "ci_jira_status_dryrun.py"), encoding="utf-8") as fh:
+        with open(
+            os.path.join(HERE, "ci_jira_status_dryrun.py"), encoding="utf-8"
+        ) as fh:
             src = fh.read()
         code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
-        for needle in ("import urllib", "import http", "import socket", "import requests", "import subprocess", "os.system", "urlopen", "Authorization", "JIRA_", "secrets."):
+        for needle in (
+            "import urllib",
+            "import http",
+            "import socket",
+            "import requests",
+            "import subprocess",
+            "os.system",
+            "urlopen",
+            "Authorization",
+            "JIRA_",
+            "secrets.",
+        ):
             self.assertNotIn(needle, code, needle)
 
 

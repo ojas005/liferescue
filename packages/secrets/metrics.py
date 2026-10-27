@@ -1,4 +1,5 @@
 """Counters only (spec section 11): no labels with task text or identifiers beyond closed-list codes."""
+
 from __future__ import annotations
 
 import threading
@@ -24,4 +25,7 @@ class Metrics:
 
     def snapshot(self) -> dict:
         with self._lock:
-            return {f"{n}{{{l}}}" if l else n: v for (n, l), v in sorted(self._counts.items())}
+            return {
+                f"{n}{{{l}}}" if l else n: v
+                for (n, l), v in sorted(self._counts.items())
+            }
