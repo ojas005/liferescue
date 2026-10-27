@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     demo_require_token: bool = Field(default=False)
     # SEC-06: explicit CORS allowlist (comma-separated). Empty -> localhost/127.0.0.1 on `port`.
     cors_origins: str = Field(default="")
+    # KAN-50: per-client-IP limit on POST create/analyze/scenario-run/reset (0 disables).
+    rate_limit_requests: int = Field(default=20, ge=0, le=10_000)
+    rate_limit_window_s: float = Field(default=60.0, ge=1.0, le=86_400.0)
+    # Honor the rightmost (proxy-appended) X-Forwarded-For hop only behind a trusted proxy (e.g. Render): TRUST_PROXY=1.
+    trust_proxy: bool = Field(default=False)
+    # Global per-minute rate limit on outbound model calls (all clients, all workers sharing db_path); 0 = no cap.
+    ai_global_calls_per_minute: int = Field(default=30, ge=0, le=10_000)
+    # Model calls per rolling 24 h window, all clients/workers; 0 = no live model calls at all.
+    ai_daily_call_budget: int = Field(default=500, ge=0, le=1_000_000)
 
     def cors_allowlist(self) -> list[str]:
         if self.cors_origins.strip():

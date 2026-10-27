@@ -12,7 +12,7 @@ import json
 import logging
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, Literal
 
 from packages.domain.interfaces import AIProvider
@@ -526,7 +526,10 @@ class NVIDIAAIProvider(AIProvider):
         base_url: str | None = None,
         timeout_s: float | None = None,
         transport: object | None = None,
+        call_gate: Callable[[], str | None] | None = None,
     ):
+        # KAN-50: call_gate() returns None to allow a model call, or a denial reason label.
+        self._call_gate = call_gate
         # LR 08 N-03: an explicit api_key (even "") is authoritative; env is read only when omitted.
         self.api_key = (
             api_key
@@ -601,6 +604,12 @@ class NVIDIAAIProvider(AIProvider):
                 "Refusing non-https NVIDIA_BASE_URL; key not sent; labelled mock fallback"
             )
             return self._fallback(incident, profile, contacts, "insecure_base_url")
+        denied = self._call_gate() if self._call_gate is not None else None
+        if denied:
+            logger.warning(
+                "Model call not permitted (%s); labelled mock fallback", denied
+            )
+            return self._fallback(incident, profile, contacts, denied)
         import httpx
 
         try:
@@ -696,5 +705,44 @@ def create_ai_provider(
             model=getattr(settings, "nvidia_model", None),
             base_url=getattr(settings, "nvidia_base_url", None),
             timeout_s=getattr(settings, "ai_timeout_s", None),
+            call_gate=_global_call_gate(settings),
         )
     return MockAIProvider()
+
+
+def _global_call_gate(settings: object) -> Callable[[], str | None] | None:
+    """Global (all clients, all workers sharing db_path) model-call limits, checked before Nebius.
+
+    - ai_global_calls_per_minute: rate limit (0 = no per-minute limit)
+    - ai_daily_call_budget: calls per rolling 24 h window (0 = no live calls at all)
+    Both live in the SQLite limiter store, which is wiped with the disk: these are rate limits,
+    not a hard spending cap. Store errors fail closed (no Nebius call).
+    """
+    per_min = int(getattr(settings, "ai_global_calls_per_minute", 0) or 0)
+    daily = int(getattr(settings, "ai_daily_call_budget", 0) or 0)
+    from packages.storage.rate_limit import (
+        DAILY_AI_KEY,
+        GLOBAL_AI_KEY,
+        RateLimiter,
+        RateLimitUnavailable,
+        store_path_for,
+    )
+
+    path = store_path_for(str(getattr(settings, "db_path", "")))
+    minute = RateLimiter(per_min, 60.0, db_path=path) if per_min > 0 else None
+    day = RateLimiter(daily, 86_400.0, db_path=path) if daily > 0 else None
+
+    def gate() -> str | None:
+        if daily <= 0:
+            return "daily_budget_exhausted"  # budget 0 = live calls disabled
+        try:
+            if minute is not None and not minute.allow(GLOBAL_AI_KEY)[0]:
+                return "global_rate_limit"
+            if day is not None and not day.allow(DAILY_AI_KEY)[0]:
+                return "daily_budget_exhausted"
+        except RateLimitUnavailable:
+            logger.warning("model-call limiter unavailable; labelled mock fallback")
+            return "rate_limit_unavailable"
+        return None
+
+    return gate

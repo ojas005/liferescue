@@ -64,5 +64,6 @@ terraform.rc
 *.log
 tmp/
 *.db
+*.db.ratelimit*
 *.sqlite
 *.sqlite3

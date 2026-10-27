@@ -1,0 +1,35 @@
+# Render Blueprint for the LifeRescue judging demo. Contains NO secrets:
+# NEBIUS_API_KEY and DEMO_ACCESS_TOKEN are entered in the Render dashboard (sync: false).
+services:
+  - type: web
+    name: liferescue
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt -r apps/api/requirements.txt
+    startCommand: python apps/api/run.py   # single uvicorn worker (run.py passes no workers option)
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+      - key: HOST
+        value: 0.0.0.0          # Render sets PORT; the app reads it from the environment
+      - key: AI_PROVIDER
+        value: nvidia
+      - key: DB_PATH
+        value: ./liferescue.db  # ephemeral on Render free: reset on restart/redeploy/spin-down
+      - key: DEMO_MODE
+        value: "true"
+      - key: TRUST_PROXY
+        value: "1"              # behind Render's proxy: rate-limit on the rightmost (proxy-appended) X-Forwarded-For hop
+      - key: RATE_LIMIT_REQUESTS
+        value: "20"
+      - key: RATE_LIMIT_WINDOW_S
+        value: "60"
+      - key: AI_GLOBAL_CALLS_PER_MINUTE
+        value: "30"             # global per-minute rate limit on Nebius calls (all visitors)
+      - key: AI_DAILY_CALL_BUDGET
+        value: "500"            # Nebius calls per rolling 24 h; 0 = no live calls. Resets on disk wipe: NOT a spending cap
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: DEMO_ACCESS_TOKEN
+        sync: false

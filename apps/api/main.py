@@ -15,6 +15,7 @@ from apps.api.access import DemoTokenMiddleware, TokenLogFilter, enforce_bind_po
 from apps.api.config import Settings, get_settings
 from apps.api.dependencies import init_dependencies
 from apps.api.middleware import SecurityAndCorrelationMiddleware, setup_secure_logging
+from apps.api.ratelimit import RateLimiter, RateLimitMiddleware, store_path_for
 from apps.api.routes import (
     audit_router,
     demo_router,
@@ -55,6 +56,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             lg.addFilter(token_filter)
             for h in lg.handlers:
                 h.addFilter(token_filter)
+    # KAN-50 rate limit (inside the token gate: unauthenticated requests are rejected first)
+    app.add_middleware(
+        RateLimitMiddleware,
+        limiter=RateLimiter(
+            cfg.rate_limit_requests,
+            cfg.rate_limit_window_s,
+            db_path=store_path_for(cfg.db_path),
+        ),
+        trust_proxy=cfg.trust_proxy,
+    )
     app.add_middleware(DemoTokenMiddleware, token=cfg.demo_access_token)
 
     # 1. CORS
