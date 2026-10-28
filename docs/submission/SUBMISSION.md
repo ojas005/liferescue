@@ -5,7 +5,7 @@
 
 ## Track
 
-**Best Apps and Agents** (proposed; final choice is Ojas's). The rules describe this track as "any app or agent someone would actually use … Power it with Nemotron models on Nebius through Token Factory", which matches LifeRescue: a user-facing app calling Nemotron 3 Super through Token Factory.
+**Best Apps and Agents**. The rules describe this track as "any app or agent someone would actually use … Power it with Nemotron models on Nebius through Token Factory", which matches LifeRescue: a user-facing app calling Nemotron 3 Super through Token Factory.
 
 ## Project origin
 
@@ -32,6 +32,10 @@ Verified on 2026-10-27 (IST):
 - All three scenarios ran live through the HTTP API, with `/health` reporting `ai_mode: live`.
 
 **Built with:** Python, FastAPI, Pydantic, SQLite, vanilla JS, NVIDIA Nemotron 3 Super, Nebius Token Factory.
+
+**Video:** https://youtu.be/h99e8sIr2JQ
+
+**Try it:** https://liferescue-z4jc.onrender.com (demo token in the testing instructions) · Code: https://github.com/ojas005/liferescue
 
 **Quality:**
 - 323 automated tests: 322 pass, and 1 is skipped only when the gitleaks binary is absent.
@@ -63,12 +67,12 @@ These were captured headless in **mock mode** (badge reads MOCK). Re-capture in 
 | Public code repository (GitHub) | ✅ Public since 2026-10-27 (IST): https://github.com/ojas005/liferescue (published at commit `2146883`) |
 | Open source license file, visible in the repo's About section | ✅ MIT `LICENSE`; GitHub API reports license `MIT` for the public repo |
 | README with setup instructions and NVIDIA/Nebius usage | ✅ README.md |
-| URL to working demo / hosted app / test build | **PENDING (human)**: no public deployment yet. If hosted, set `DEMO_ACCESS_TOKEN` and give judges the token in the testing instructions |
-| Demo video < 3 min, public on YouTube | **PENDING (human)**: record using the ≤ 3:00 cut in `docs/DEMO_SCRIPT.md` |
-| Track selection | **PENDING (human)**: proposed Best Apps and Agents |
+| URL to working demo / hosted app / test build | ✅ https://liferescue-z4jc.onrender.com (token-gated; give judges the token privately in the Devpost testing instructions). **PENDING (human):** paste the token into the testing instructions |
+| Demo video < 3 min, public on YouTube | ✅ https://youtu.be/h99e8sIr2JQ (public, 2:48, channel @ojassharma961) |
+| Track selection | Best Apps and Agents (matches the rules' description, quoted above). **PENDING (human):** select it on Devpost |
 | Feedback on Token Factory / NVIDIA tools | **PENDING (human)**: draft notes below |
 | Explanation of updates during the Submission Period (if the project pre-existed) | ✅ Not applicable: LifeRescue was **created during the hackathon Submission Period**; it is not a pre-existing project |
-| Free access for judges until judging ends (Dec 15 2026) | **PENDING (human)**: depends on deployment choice |
+| Free access for judges until judging ends (Dec 15 2026) | Render free tier with demo token. **PENDING (human):** keep the service and the Nebius key active until Dec 15 2026 |
 
 ## Feedback draft (for Ojas to edit; facts from our usage only)
 
