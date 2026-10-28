@@ -269,6 +269,12 @@ HOST=0.0.0.0 python apps/api/run.py
 - When no token is set, `run.py` prints a startup warning that the gate is open.
 - CORS is an explicit allowlist (`http://localhost:<port>`, `http://127.0.0.1:<port>`; override with `CORS_ORIGINS`).
 
+## 7b-2. Live demo for judges
+
+- **URL:** https://liferescue-z4jc.onrender.com (Render free tier, so the first request after idle can take ~35 s).
+- **Access:** the hosted demo requires a demo access token, sent as `X-Demo-Token` (the UI asks for it). The token is **not in this repository**. Judges receive it privately in the Devpost testing instructions.
+- All emergency actions are **simulated**. Nothing contacts real services.
+
 ## 7c. Known Limitations (LR 08 reverify-2, open)
 
 - **R-02 (Low):** the pytest network guard in `tests/conftest.py` is best-effort (bypassable via `connect_ex`/`sendto`/raw `_socket`/subprocess/DNS) and does not apply under `unittest`/CI.
@@ -278,7 +284,10 @@ HOST=0.0.0.0 python apps/api/run.py
 
 - **Invalid-JSON fallback (Low):** Nemotron occasionally returns a reply that is not valid JSON. LifeRescue then falls back to deterministic triage and the UI shows a **MOCK fallback** badge — expected, but it can appear during a live demo. (A crash on this path was fixed in PR #27.)
 - **Usage limits are not a spending cap (Medium for a public demo):** per visitor IP, 20 requests/min on the AI and demo POST routes; globally, 30 model calls/min and a 500-call rolling daily budget. All counters live in a SQLite file next to the database (`<DB_PATH>.ratelimit`), so they are shared by every worker on one host, but they are **reset on restart, redeploy or disk wipe** (Render free has an ephemeral disk) and are not shared across hosts. They bound the call rate; they cannot guarantee total spend. If the limiter store errors, limited routes return 503 and model calls fall back to the labelled mock (fail closed). Use a dedicated Nebius key for the public demo, watch usage in the Nebius console, keep the account balance low, and revoke the key after judging; Nebius documents account-level (not per-key) rate limits, and a per-key spending cap is not documented.
-- **Render free hosting (if used):** the service spins down after 15 min idle (about 1 min cold start) and its filesystem is ephemeral, so the SQLite demo data resets on restart, redeploy or spin-down (demo data is re-seeded at startup). See `render.yaml`.
+- **Render free hosting:** the service spins down after 15 min idle. The measured cold start on 2026-10-27 was about 35 s for the first `/health` after 16 min idle; later requests took under 0.3 s. Its filesystem is ephemeral, so the SQLite demo data **and the usage-limit counters** reset on restart, redeploy or spin-down (demo data is re-seeded at startup). See `render.yaml`.
+- **Rate-limit verification scope:** the per-visitor limiter is covered by unit, integration and concurrency tests in CI. One public check on 2026-10-28 (22 POSTs over one reused connection, within 3 s) returned 20× 422 followed by 2× 429. It has not been load-tested publicly.
+- **Security headers:** `X-Content-Type-Options` and `X-Frame-Options` are set; HSTS and a Content-Security-Policy header are **not** set by the app.
+- **No hard spend cap:** no monetary cap is enforced by LifeRescue, and a Nebius per-key spending cap is not documented.
 - **Startup refusal output (Low):** when the bind policy refuses to start (non-localhost without `DEMO_ACCESS_TOKEN`), the message is shown inside a Python stack trace rather than as a clean one-line error.
 
 ## 8. License
