@@ -1,6 +1,6 @@
-# LifeRescue — Devpost Submission Pack (draft)
+# LifeRescue — Devpost Submission Pack
 
-> Draft only. Nothing here has been submitted. Items marked **PENDING (human)** need Ojas.
+> Final submission text. Nothing here has been submitted yet; Ojas submits it on Devpost. Items marked **PENDING (human)** need Ojas.
 > Deadline: **Fri Oct 30 2026, 10:00 PT = 22:30 IST** (official rules §1).
 
 ## Track
@@ -9,7 +9,7 @@
 
 ## Project origin
 
-LifeRescue was **created during the hackathon Submission Period** (which opened Aug 26, 2026). It is not a pre-existing project.
+LifeRescue was built for the **NVIDIA × Nebius Global AI Hackathon** and **created during the hackathon Submission Period** (which opened Aug 26, 2026). It is not a pre-existing project.
 
 ## Tagline
 
@@ -19,12 +19,12 @@ Emergency triage and response coordination where **AI proposes and deterministic
 
 **The problem.** In the first minutes of a cardiac event, a road collision or a wildfire, people panic and lose time. An LLM chatbot can help, but on its own it can under-rate a life threat, be prompt-injected, or invent actions.
 
-**What LifeRescue does.** One workflow, **PREPARE → EMERGENCY → UNDERSTAND → DECIDE SAFELY → RESPOND → LEARN**:
+**What LifeRescue does.** One workflow, **PREPARE → EMERGENCY → UNDERSTAND → DECIDE SAFELY → RESPOND → PREPARE BETTER** (the six steps shown in the app):
 - **Prepare:** an emergency profile, contacts and a readiness score with gaps.
 - **Understand:** NVIDIA Nemotron (`nvidia/nemotron-3-super-120b-a12b`) on Nebius Token Factory turns free text into a structured, schema-validated analysis (category, severity, missing info).
 - **Decide safely:** the deterministic `SafetyPolicyEngine` enforces a life-threat urgency floor (the model can only raise urgency), an action allowlist, prohibited-action patterns and prompt-injection flagging. Steps come from a vetted library, and "call 112/911" is always shown.
 - **Respond:** the `ResponseOrchestrator` runs the vetted plan as **clearly labelled simulations** ([SIMULATED DISPATCH], [SIMULATED SMS]). Nothing contacts real services.
-- **Learn:** every analysis, decision and action goes to an append-only audit log, with secret redaction on logs, DB and API responses.
+- **Prepare better:** post-incident gap closure and audit transparency. Every analysis, decision and action goes to an append-only audit log, with secret redaction on logs, DB and API responses.
 
 **How we use NVIDIA and Nebius.** Each incident analysis is a runtime call to the Nebius Token Factory OpenAI-compatible API (`https://api.tokenfactory.nebius.com/v1/`) serving Nemotron 3 Super. If the call fails or returns invalid JSON, the app falls back to deterministic triage and labels it visibly (badge "MOCK fallback", `/health` `ai_mode: fallback`).
 Verified on 2026-10-27 (IST):

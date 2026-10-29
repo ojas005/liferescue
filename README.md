@@ -87,7 +87,7 @@ flowchart LR
   RED -.guards.-> API
 ```
 
-Workflow: **PREPARE → EMERGENCY → UNDERSTAND → DECIDE SAFELY → RESPOND → LEARN/PREPARE**.
+Workflow: **PREPARE → EMERGENCY → UNDERSTAND → DECIDE SAFELY → RESPOND → PREPARE BETTER**.
 
 ### Safety differentiator — "AI proposes. Deterministic safety policy decides."
 
