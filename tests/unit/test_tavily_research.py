@@ -119,6 +119,11 @@ class TestTavilyToolMockedBoundary(unittest.TestCase):
             "https://www.redcross.org.uk/first-aid/heart-attack",
         )
         self.assertLessEqual(len(out["results"][0]["snippet"]), SNIPPET_MAX)
+        self.assertEqual(out["results"][0]["domain"], "redcross.org.uk")
+        self.assertEqual(out["results"][0]["score"], 0.94)
+        self.assertIn("Clinical first aid", out["results"][0]["relevance_note"])
+        self.assertIn("retrieved_at", out)
+        self.assertIn("disclaimer", out)
         self.assertIn("Untrusted third-party evidence", out["note"])
 
         # Verify request wire contract

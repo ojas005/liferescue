@@ -464,13 +464,17 @@
                 <ul id="analysis-steps-list" class="steps-list"></ul>
               </div>
 
-              <!-- KAN-50: untrusted third-party evidence (display only) -->
-              <div id="research-evidence-box" class="result-section" style="display: none;">
+              <!-- LifeRescue Evidence Intelligence: Untrusted external search evidence (Layer B) -->
+              <div id="research-evidence-box" class="result-section" style="display: none; border-left: 3px solid #3b82f6;">
                 <div class="section-tag-row">
-                  <span class="result-tag tag-policy" id="research-evidence-label">Research evidence (Tavily, live)</span>
+                  <span class="result-tag tag-policy" id="research-evidence-label">EVIDENCE INTELLIGENCE (Tavily, Live)</span>
+                  <span class="policy-rule-badge" style="border-color: rgba(59,130,246,0.4); color: #93c5fd;">LAYER B: EXTERNAL RESEARCH</span>
                 </div>
-                <p style="font-size: 0.75rem; color: var(--text-muted);">Third-party web results for reference only. They do not change triage, safety policy or the response plan.</p>
-                <ul id="research-evidence-list" class="steps-list"></ul>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.3rem 0 0.6rem;">
+                  <strong>Architecture:</strong> Nemotron interprets. Tavily researches. Deterministic safety policy decides.
+                  <em>External search results are unverified third-party references for situational awareness only; they do not alter triage urgency, safety policy rules, or response actions.</em>
+                </p>
+                <ul id="research-evidence-list" class="steps-list" style="padding-left: 0;"></ul>
               </div>
 
               <!-- Point 7: Deterministic Safety Decision -->

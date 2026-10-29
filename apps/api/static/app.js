@@ -356,20 +356,67 @@ function renderResearchEvidence(research) {
   const list = document.getElementById('research-evidence-list');
   if (!research) { box.style.display = 'none'; return; }
   box.style.display = 'block';
-  label.textContent = research.label || 'research unavailable: unknown';
-  const items = research.status === 'live' && Array.isArray(research.results) ? research.results : [];
-  if (items.length > 0) {
-    list.innerHTML = items.map(r => {
+
+  const isLive = research.status === 'live';
+  const items = isLive && Array.isArray(research.results) ? research.results : [];
+
+  if (isLive && items.length > 0) {
+    label.className = 'result-tag tag-policy';
+    label.innerHTML = `<span>🌐</span> EVIDENCE INTELLIGENCE (Tavily Live) — ${items.length} Source(s)`;
+
+    const queryHeader = research.query ? `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 6px; padding: 0.4rem 0.6rem;">
+        <span style="font-size: 0.75rem; color: var(--text-secondary);"><strong style="color: #60a5fa;">Search Intent:</strong> <code>${escapeHtml(research.query)}</code></span>
+        <span style="font-size: 0.7rem; color: var(--text-muted);">${research.retrieved_at ? new Date(research.retrieved_at).toLocaleTimeString() : 'Live'}</span>
+      </div>
+    ` : '';
+
+    const cardsHtml = items.map(r => {
       const url = String(r.url || '');
       const safeUrl = /^https?:\/\//.test(url) ? url : '#';
-      return `<li style="margin-bottom: 0.6rem;">
-        <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow" style="color: #60a5fa; font-weight: 500; text-decoration: underline;">${escapeHtml(r.title || url)}</a>
-        <div style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all; margin: 2px 0;">${escapeHtml(url)}</div>
-        <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: block;">${escapeHtml(r.snippet || '')}</span>
-      </li>`;
+      const domain = escapeHtml(r.domain || 'External source');
+      const scoreBadge = (r.score !== undefined && r.score !== null)
+        ? `<span class="badge badge-low" style="font-size: 0.65rem; padding: 1px 5px;">Relevance ${(r.score * 100).toFixed(0)}%</span>`
+        : '';
+      const publishedBadge = r.published_date
+        ? `<span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 0.4rem;">📅 ${escapeHtml(r.published_date)}</span>`
+        : '';
+      const relevanceNote = r.relevance_note
+        ? `<div style="font-size: 0.72rem; color: #93c5fd; margin-top: 0.25rem;">📌 <em>${escapeHtml(r.relevance_note)}</em></div>`
+        : '';
+
+      return `
+        <li style="list-style: none; margin-bottom: 0.75rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 6px; padding: 0.65rem 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.3rem;">
+            <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow" style="color: #60a5fa; font-size: 0.88rem; font-weight: 600; text-decoration: underline; line-height: 1.3;">
+              ${escapeHtml(r.title || url)} ↗
+            </a>
+            <div style="display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0;">
+              ${scoreBadge}
+              <span class="badge badge-medium" style="font-size: 0.65rem; padding: 1px 5px;">${domain}</span>
+            </div>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all; margin-bottom: 0.35rem;">
+            ${escapeHtml(url)} ${publishedBadge}
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45;">
+            ${escapeHtml(r.snippet || '')}
+          </div>
+          ${relevanceNote}
+        </li>
+      `;
     }).join('');
+
+    list.innerHTML = queryHeader + cardsHtml;
   } else {
-    list.innerHTML = `<li style="list-style: none; color: var(--text-muted); font-size: 0.82rem; font-style: italic; padding: 0.3rem 0;">External research unavailable (${escapeHtml(research.label || 'not configured')}). LifeRescue deterministic safety policy and response coordination proceed without external evidence.</li>`;
+    label.className = 'result-tag tag-policy';
+    label.textContent = research.label || 'Research unavailable';
+    list.innerHTML = `
+      <li style="list-style: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 6px; padding: 0.75rem; color: var(--text-muted); font-size: 0.82rem;">
+        <div style="font-weight: 500; color: var(--text-secondary); margin-bottom: 0.2rem;">External Research Status: ${escapeHtml(research.label || 'Not available')}</div>
+        <div>LifeRescue deterministic safety policy and response coordination proceed without external evidence. No evidence is fabricated.</div>
+      </li>
+    `;
   }
 }
 

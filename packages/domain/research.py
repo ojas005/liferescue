@@ -17,8 +17,11 @@ import logging
 import os
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
+
+from packages.domain.models import utcnow
 
 logger = logging.getLogger("liferescue.research")
 
@@ -42,6 +45,30 @@ def unavailable(reason: str) -> dict[str, Any]:
         "label": f"research unavailable: {reason}",
         "results": [],
     }
+
+
+def _extract_domain(url: str) -> str:
+    try:
+        host = urlparse(url).netloc.lower()
+        host = host.removeprefix("www.")
+        return host or "external-source"
+    except Exception:  # noqa: BLE001
+        return "external-source"
+
+
+def _relevance_for_category(category: str) -> str:
+    cat = str(category or "").lower()
+    if any(k in cat for k in ("cardiac", "heart", "chest", "medical", "breathing")):
+        return "Clinical first aid and emergency response protocol reference"
+    if any(k in cat for k in ("accident", "collision", "vehicle", "crash", "trauma")):
+        return "Roadside collision safety and trauma response reference"
+    if any(k in cat for k in ("fire", "wildfire", "smoke", "burn")):
+        return "Fire containment, evacuation advisory, and burn safety reference"
+    if any(k in cat for k in ("hazmat", "chemical", "spill", "gas")):
+        return "Hazardous materials isolation and exposure safety reference"
+    if any(k in cat for k in ("flood", "storm", "water", "weather")):
+        return "Severe weather and flood evacuation preparedness reference"
+    return "Public safety emergency protocol reference"
 
 
 def build_query(category: str, urgency: str) -> str:
@@ -98,7 +125,7 @@ class TavilyResearchTool:
                 return unavailable("rate limit (http 429)")
             if resp.status_code != 200:
                 return unavailable(f"http {resp.status_code}")
-            return self._parse(resp, query)
+            return self._parse(resp, query, category=category)
         except httpx.TimeoutException:
             reason = "timeout"
         except httpx.HTTPError as err:
@@ -109,7 +136,7 @@ class TavilyResearchTool:
         return unavailable(reason)
 
     @staticmethod
-    def _parse(resp: httpx.Response, query: str) -> dict[str, Any]:
+    def _parse(resp: httpx.Response, query: str, category: str = "") -> dict[str, Any]:
         try:
             data = resp.json()
         except ValueError:
@@ -124,11 +151,24 @@ class TavilyResearchTool:
             url = _clean(item.get("url"), URL_MAX)
             if not url.startswith(("https://", "http://")):
                 continue
+            title = _clean(item.get("title"), TITLE_MAX)
+            snippet = _clean(item.get("content"), SNIPPET_MAX)
+            published = item.get("published_date")
+            domain = _extract_domain(url)
+            score = item.get("score")
+            score_val = (
+                round(float(score), 2) if isinstance(score, (int, float)) else None
+            )
+
             results.append(
                 {
-                    "title": _clean(item.get("title"), TITLE_MAX),
+                    "title": title or f"External reference ({domain})",
                     "url": url,
-                    "snippet": _clean(item.get("content"), SNIPPET_MAX),
+                    "snippet": snippet,
+                    "domain": domain,
+                    "published_date": _clean(published, 40) if published else None,
+                    "relevance_note": _relevance_for_category(category),
+                    "score": score_val,
                 }
             )
         if not results:
@@ -137,6 +177,8 @@ class TavilyResearchTool:
             "status": "live",
             "label": LIVE_LABEL,
             "query": query,
+            "retrieved_at": utcnow().isoformat(),
             "results": results,
             "note": "Untrusted third-party evidence for reference only; it does not change triage, safety policy or the response plan.",
+            "disclaimer": "External search results are unverified third-party references. They do not constitute official emergency instructions and never override deterministic safety policies.",
         }

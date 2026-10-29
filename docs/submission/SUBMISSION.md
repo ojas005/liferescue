@@ -43,9 +43,17 @@ Verified on 2026-10-27 (IST):
 
 **Limitations (honest):** this is a prototype and not a medical device, and all actions are simulated. Nemotron occasionally returns invalid JSON; the fallback is labelled. See README §7c.
 
-## Tavily research evidence (optional, KAN-50)
+## LifeRescue Evidence Intelligence — Target Award: Best Use of Tavily ($3,000 cash)
 
-If `TAVILY_API_KEY` is set (environment only, e.g. Render dashboard `sync: false`), each triage makes **one** `POST https://api.tavily.com/search` call (`search_depth: basic`, `max_results: 3`, 8 s timeout, at most 1 retry). The query is built only from the coarse incident category and urgency (for example `first aid safety guidance cardiac emergency critical`); no names, phone numbers, locations or free text are sent. Results are reduced to title, URL and a truncated snippet and shown as **"Research evidence (Tavily, live)"** in the API response (`research`), the incident timeline (`research_evidence`) and the UI. They are untrusted reference material only: they are never sent to the model and never change triage, the safety policy or the response plan. Without a key, or on any error, the step is skipped and labelled `research unavailable: <reason>`; nothing is fabricated.
+Full architectural and evaluation documentation: [EVIDENCE_INTELLIGENCE.md](EVIDENCE_INTELLIGENCE.md) and [EVIDENCE_INTELLIGENCE_EVAL.md](EVIDENCE_INTELLIGENCE_EVAL.md).
+
+LifeRescue features a distinctive three-layer architecture:
+> **"Nemotron interprets. Tavily researches. The deterministic safety policy decides."**
+
+- **Layer A (Interpretation):** NVIDIA Nemotron parses unstructured emergency reports into structured category, severity, and missing info.
+- **Layer B (External Research):** The server-side Tavily Search API (`POST https://api.tavily.com/search`) performs bounded, real-time retrieval (`search_depth: basic`, `max_results: 3`, single bounded attempt, 8.0 s timeout) of official clinical first aid, road safety protocols, and evacuation advisories. Queries are sanitized to category/urgency enums with zero PII. Results include title, clickable URL, publisher domain, snippet, category relevance justification, publication timestamp, and explicit unverified third-party disclaimers. Displayed in both the Command Center triage panel and the persistent Incident Timeline.
+- **Layer C (Deterministic Safety):** The deterministic `SafetyPolicyEngine` independently evaluates life threats and dictates actions. External search results and LLM outputs are strictly quarantined: they **never** alter urgency, override safety rules, or authorize real-world actions.
+- **Graceful Fallback & Resilience:** When `TAVILY_API_KEY` is unset or an upstream outage occurs (e.g. 503 or timeout), the system honestly displays `research unavailable: <reason>`; no evidence is fabricated, and safety triage proceeds without interruption.
 
 ## Screenshots (`docs/submission/screenshots/`)
 

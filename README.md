@@ -242,9 +242,20 @@ Only incident triage (analysis) is model-backed; response plans and readiness st
 
 ---
 
-## 7a. Tavily research evidence (optional, KAN-50)
+## 7a. LifeRescue Evidence Intelligence (Tavily Search API — Target Award: Best Use of Tavily)
 
-If `TAVILY_API_KEY` is set (environment only, e.g. Render dashboard `sync: false`), each triage makes **one** `POST https://api.tavily.com/search` call (`search_depth: basic`, `max_results: 3`, 8 s timeout, at most 1 retry). The query is built only from the coarse incident category and urgency (for example `first aid safety guidance cardiac emergency critical`); no names, phone numbers, locations or free text are sent. Results are reduced to title, URL and a truncated snippet and shown as **"Research evidence (Tavily, live)"** in the API response (`research`), the incident timeline (`research_evidence`) and the UI. They are untrusted reference material only: they are never sent to the model and never change triage, the safety policy or the response plan. Without a key, or on any error, the step is skipped and labelled `research unavailable: <reason>`; nothing is fabricated.
+Full documentation and evaluation benchmark: [docs/submission/EVIDENCE_INTELLIGENCE.md](docs/submission/EVIDENCE_INTELLIGENCE.md) and [docs/submission/EVIDENCE_INTELLIGENCE_EVAL.md](docs/submission/EVIDENCE_INTELLIGENCE_EVAL.md).
+
+LifeRescue features a distinctive three-layer architecture:
+> **"Nemotron interprets. Tavily researches. The deterministic safety policy decides."**
+
+- **Layer A — AI Interpretation (NVIDIA Nemotron):** Unstructured emergency descriptions are structured into category, severity score, and missing critical information.
+- **Layer B — External Evidence (Tavily Search API):** The server-side integration performs **one bounded search request** (`POST https://api.tavily.com/search`, `search_depth: basic`, `max_results: 3`, timeout 8.0s, at most 1 attempt) to retrieve official public safety advisories, road collision protocols, and clinical first-aid guidelines.
+  - **Zero PII Leakage:** Search queries are built solely from sanitized emergency category and urgency enums (e.g. `first aid safety guidance cardiac emergency critical`); free text, locations, names, and contact details are strictly excluded.
+  - **Traceable Attribution:** Extracted results provide source title, clickable URL, publisher domain (e.g., `redcross.org.uk`, `ready.gov`), snippet passage, category relevance justification, and publication timestamps.
+  - **Clear Labeling:** Labeled as `"EVIDENCE INTELLIGENCE (Tavily, Live)"` and explicitly marked with an unverified third-party disclaimer.
+- **Layer C — Deterministic Safety Policy (`SafetyPolicyEngine`):** Safety decisions remain **100% independent** of external search results. An empirical benchmark across 5 scenarios (including adversarial prompt injection in retrieved snippets and upstream 503 outages) proves that urgency floors, life-threat condition detections, and vetted simulated dispatches are completely invariant to search outputs.
+- **Resilience & Honest Fallback:** If `TAVILY_API_KEY` is not configured or an API error occurs, the UI displays `External Research Status: research unavailable: <reason>`. No sources are fabricated, and emergency triage proceeds uninterrupted.
 
 ## 7b. Exposing the Demo Beyond Localhost (Access Token)
 
