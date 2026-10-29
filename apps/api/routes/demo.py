@@ -98,6 +98,7 @@ def run_demo_scenario(
         risk=risk,
         plan=executed_plan,
         timeline=timeline,
+        research=orch.latest_research(incident.incident_id),
     )
 
 

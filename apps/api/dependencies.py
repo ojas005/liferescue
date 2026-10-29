@@ -8,6 +8,7 @@ from apps.api.config import Settings, get_settings
 from packages.domain.ai import create_ai_provider
 from packages.domain.models import EmergencyContact, EmergencyProfile, User
 from packages.domain.orchestrator import MockNotificationProvider, ResponseOrchestrator
+from packages.domain.research import TavilyResearchTool
 from packages.domain.safety_policy import SafetyPolicyEngine
 from packages.secrets.leased_values import LeasedValues
 from packages.secrets.redaction import PatternSet, Redactor
@@ -150,6 +151,7 @@ def get_orchestrator() -> ResponseOrchestrator:
             ai_provider=ai,
             safety_engine=safety,
             notification_provider=notifications,
+            research_tool=TavilyResearchTool(),  # key from env TAVILY_API_KEY only
         )
     return _orchestrator
 

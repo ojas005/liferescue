@@ -107,6 +107,7 @@ class ResponseOrchestrator:
         ai_provider: AIProvider,
         safety_engine: SafetyPolicyEngine | None = None,
         notification_provider: NotificationProvider | None = None,
+        research_tool=None,
     ):
         self.incident_repo = incident_repo
         self.profile_repo = profile_repo
@@ -115,6 +116,8 @@ class ResponseOrchestrator:
         self.ai = ai_provider
         self.safety = safety_engine or SafetyPolicyEngine()
         self.notifications = notification_provider or MockNotificationProvider()
+        # Optional constrained Tavily tool (KAN-50). Evidence only: never alters risk or plan.
+        self.research_tool = research_tool
 
     def create_incident(
         self,
@@ -217,6 +220,10 @@ class ResponseOrchestrator:
             )
         )
 
+        # KAN-50: optional research evidence, AFTER risk is fixed; output is display-only data.
+        if self.research_tool is not None:
+            self._record_research(incident_id, analysis.category, risk.urgency.value)
+
         # Audit event
         self.audit_repo.record(
             AuditEvent(
@@ -236,6 +243,34 @@ class ResponseOrchestrator:
         )
 
         return analysis, risk
+
+    def _record_research(self, incident_id: str, category: str, urgency: str) -> None:
+        try:
+            research = self.research_tool.search(category, urgency)
+        except Exception as exc:  # noqa: BLE001 - research must never break triage
+            research = {
+                "status": "unavailable",
+                "label": f"research unavailable: {type(exc).__name__}",
+                "results": [],
+            }
+        seq = len(self.incident_repo.get_timeline(incident_id)) + 1
+        self.incident_repo.append_event(
+            IncidentEvent(
+                incident_id=incident_id,
+                seq=seq,
+                event_type="research_evidence",
+                actor="tavily_research",
+                summary=str(research.get("label", ""))[:300],
+                payload=research,
+            )
+        )
+
+    def latest_research(self, incident_id: str) -> dict | None:
+        """Most recent Tavily evidence payload for the incident (None if the step did not run)."""
+        for ev in reversed(self.incident_repo.get_timeline(incident_id)):
+            if ev.event_type == "research_evidence":
+                return ev.payload
+        return None
 
     def plan_response(self, incident_id: str) -> ResponsePlan:
         """Generate structured response plan vetted by safety policy."""

@@ -68,7 +68,9 @@ def analyze_incident(
     """Trigger AI triage and deterministic risk assessment."""
     try:
         analysis, risk = orch.analyze_incident(incident_id)
-        return IncidentAnalysisResponse(analysis=analysis, risk=risk)
+        return IncidentAnalysisResponse(
+            analysis=analysis, risk=risk, research=orch.latest_research(incident_id)
+        )
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
 
