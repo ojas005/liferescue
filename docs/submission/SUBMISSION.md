@@ -33,12 +33,12 @@ Verified on 2026-10-27 (IST):
 
 **Built with:** Python, FastAPI, Pydantic, SQLite, vanilla JS, NVIDIA Nemotron 3 Super, Nebius Token Factory.
 
-**Video:** https://youtu.be/h99e8sIr2JQ
+**Project Demo Video:** https://youtu.be/Hy8Mn2FTDRY
 
 **Try it:** https://liferescue-z4jc.onrender.com (demo token in the testing instructions) · Code: https://github.com/ojas005/liferescue
 
 **Quality:**
-- 323 automated tests: 322 pass, and 1 is skipped only when the gitleaks binary is absent.
+- 323 automated tests (historical result recorded for PR #33; not re-run for this docs-only video update): 322 pass, and 1 is skipped only when the gitleaks binary is absent.
 - ruff, mypy, gitleaks over the full history, pip-audit and a CycloneDX SBOM all run in CI.
 
 **Limitations (honest):** this is a prototype and not a medical device, and all actions are simulated. Nemotron occasionally returns invalid JSON; the fallback is labelled. See README §7c.
@@ -68,7 +68,7 @@ These were captured headless in **mock mode** (badge reads MOCK). Re-capture in 
 | Open source license file, visible in the repo's About section | ✅ MIT `LICENSE`; GitHub API reports license `MIT` for the public repo |
 | README with setup instructions and NVIDIA/Nebius usage | ✅ README.md |
 | URL to working demo / hosted app / test build | ✅ https://liferescue-z4jc.onrender.com (token-gated; give judges the token privately in the Devpost testing instructions). **PENDING (human):** paste the token into the testing instructions |
-| Demo video < 3 min, public on YouTube | ✅ https://youtu.be/h99e8sIr2JQ (public, 2:48, channel @ojassharma961) |
+| Demo video < 3 min, public on YouTube | ✅ Project Demo Video: https://youtu.be/Hy8Mn2FTDRY (public, 2:53, channel @ojassharma961) |
 | Track selection | Best Apps and Agents (matches the rules' description, quoted above). **PENDING (human):** select it on Devpost |
 | Feedback on Token Factory / NVIDIA tools | **PENDING (human)**: draft notes below |
 | Explanation of updates during the Submission Period (if the project pre-existed) | ✅ Not applicable: LifeRescue was **created during the hackathon Submission Period**; it is not a pre-existing project |
