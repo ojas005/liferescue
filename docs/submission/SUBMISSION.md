@@ -33,7 +33,7 @@ Verified on 2026-10-27 (IST):
 
 **Built with:** Python, FastAPI, Pydantic, SQLite, vanilla JS, NVIDIA Nemotron 3 Super, Nebius Token Factory.
 
-**Project Demo Video:** https://youtu.be/Hy8Mn2FTDRY
+**Project Demo Video:** https://youtu.be/6Pf-E9yNiNo
 
 **Try it:** https://liferescue-z4jc.onrender.com (demo token in the testing instructions) · Code: https://github.com/ojas005/liferescue
 
@@ -68,7 +68,7 @@ These were captured headless in **mock mode** (badge reads MOCK). Re-capture in 
 | Open source license file, visible in the repo's About section | ✅ MIT `LICENSE`; GitHub API reports license `MIT` for the public repo |
 | README with setup instructions and NVIDIA/Nebius usage | ✅ README.md |
 | URL to working demo / hosted app / test build | ✅ https://liferescue-z4jc.onrender.com (token-gated; give judges the token privately in the Devpost testing instructions). **PENDING (human):** paste the token into the testing instructions |
-| Demo video < 3 min, public on YouTube | ✅ Project Demo Video: https://youtu.be/Hy8Mn2FTDRY (public, 2:53, channel @ojassharma961) |
+| Demo video < 3 min, public on YouTube | ✅ Project Demo Video: https://youtu.be/6Pf-E9yNiNo (public, channel @ojassharma961) |
 | Track selection | Best Apps and Agents (matches the rules' description, quoted above). **PENDING (human):** select it on Devpost |
 | Feedback on Token Factory / NVIDIA tools | **PENDING (human)**: draft notes below |
 | Explanation of updates during the Submission Period (if the project pre-existed) | ✅ Not applicable: LifeRescue was **created during the hackathon Submission Period**; it is not a pre-existing project |
