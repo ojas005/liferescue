@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from apps.api.dependencies import get_db, get_orchestrator
 from apps.api.schemas import (
@@ -131,7 +131,12 @@ def update_contact(
     return db.update_contact(existing)
 
 
-@router.delete("/contacts/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/contacts/{contact_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+    response_class=Response,
+)
 def delete_contact(
     contact_id: str,
     db: Annotated[SQLiteDatabase, Depends(get_db)],

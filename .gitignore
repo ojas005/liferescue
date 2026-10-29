@@ -3,6 +3,7 @@
 Thumbs.db
 .idea/
 .vscode/
+.vs/
 *.swp
 
 # Secrets and environment files (never commit)

@@ -358,11 +358,19 @@ function renderResearchEvidence(research) {
   box.style.display = 'block';
   label.textContent = research.label || 'research unavailable: unknown';
   const items = research.status === 'live' && Array.isArray(research.results) ? research.results : [];
-  list.innerHTML = items.map(r => {
-    const url = String(r.url || '');
-    const safeUrl = /^https?:\/\//.test(url) ? url : '#';
-    return `<li><a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(r.title || url)}</a><br><span style="font-size:0.8rem;color:var(--text-muted);">${escapeHtml(r.snippet || '')}</span></li>`;
-  }).join('');
+  if (items.length > 0) {
+    list.innerHTML = items.map(r => {
+      const url = String(r.url || '');
+      const safeUrl = /^https?:\/\//.test(url) ? url : '#';
+      return `<li style="margin-bottom: 0.6rem;">
+        <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow" style="color: #60a5fa; font-weight: 500; text-decoration: underline;">${escapeHtml(r.title || url)}</a>
+        <div style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all; margin: 2px 0;">${escapeHtml(url)}</div>
+        <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: block;">${escapeHtml(r.snippet || '')}</span>
+      </li>`;
+    }).join('');
+  } else {
+    list.innerHTML = `<li style="list-style: none; color: var(--text-muted); font-size: 0.82rem; font-style: italic; padding: 0.3rem 0;">External research unavailable (${escapeHtml(research.label || 'not configured')}). LifeRescue deterministic safety policy and response coordination proceed without external evidence.</li>`;
+  }
 }
 
 function renderEmergencyResultCard(incident, analysis, risk, plan, research) {
@@ -564,22 +572,73 @@ async function loadSelectedTimeline() {
       return;
     }
 
-    container.innerHTML = data.events.map(e => `
-      <div class="timeline-item">
-        <div class="timeline-dot"></div>
-        <div class="timeline-header">
-          <span class="timeline-actor">${escapeHtml(e.actor.toUpperCase())}</span>
-          <span class="badge badge-medium" style="font-size: 0.7rem;">${escapeHtml(e.event_type)}</span>
-          <span class="timeline-time">${new Date(e.timestamp).toLocaleTimeString()}</span>
+    container.innerHTML = data.events.map(e => {
+      const isResearch = e.event_type === 'research_evidence';
+      let bodyHtml = `<strong>Step ${parseInt(e.seq, 10)}:</strong> ${escapeHtml(e.summary)}`;
+
+      if (isResearch && e.payload) {
+        const isLive = e.payload.status === 'live';
+        const results = Array.isArray(e.payload.results) ? e.payload.results : [];
+        const queryHtml = e.payload.query ? `<div style="font-size:0.75rem; color:var(--text-muted); margin:0.4rem 0 0.5rem;"><strong>Query:</strong> <code>${escapeHtml(e.payload.query)}</code></div>` : '';
+        const disclaimerHtml = `<div style="font-size:0.75rem; color:var(--text-muted); background:rgba(59,130,246,0.08); border-left:3px solid #3b82f6; padding:0.4rem 0.6rem; margin-top:0.5rem; border-radius:2px;">
+          ⚠️ <em>Untrusted third-party evidence for reference only; never alters deterministic triage, safety policies, or response actions.</em>
+        </div>`;
+
+        if (isLive && results.length > 0) {
+          bodyHtml += `
+            <div style="margin-top: 0.5rem;">
+              <span class="badge badge-ai" style="font-size: 0.68rem; margin-bottom: 0.3rem;">UNTRUSTED EXTERNAL EVIDENCE</span>
+              ${queryHtml}
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                ${results.map(r => {
+                  const url = String(r.url || '');
+                  const safeUrl = /^https?:\/\//.test(url) ? url : '#';
+                  return `
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass); border-radius: 4px; padding: 0.5rem 0.65rem;">
+                      <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow" style="color: #60a5fa; font-size: 0.85rem; font-weight: 500; text-decoration: underline;">${escapeHtml(r.title || url)}</a>
+                      <div style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all; margin: 2px 0;">${escapeHtml(url)}</div>
+                      <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; margin-top: 2px;">${escapeHtml(r.snippet || '')}</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+              ${disclaimerHtml}
+            </div>
+          `;
+        } else {
+          bodyHtml += `
+            <div style="margin-top: 0.4rem; font-size: 0.82rem; color: var(--text-muted); font-style: italic;">
+              External research unavailable (${escapeHtml(e.payload.label || 'not configured')}). Safety policy and response coordination proceed deterministically without external evidence.
+            </div>
+          `;
+        }
+
+        bodyHtml += `
+          <details style="margin-top: 0.5rem;">
+            <summary style="font-size: 0.72rem; color: var(--text-muted); cursor: pointer;">View Raw Payload JSON</summary>
+            <pre style="margin-top: 0.3rem; font-size: 0.72rem; background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 4px; overflow-x: auto; color: var(--text-secondary); font-family: var(--font-mono);">${escapeHtml(JSON.stringify(e.payload, null, 2))}</pre>
+          </details>
+        `;
+      } else if (e.payload && Object.keys(e.payload).length > 0) {
+        bodyHtml += `
+          <pre style="margin-top: 0.5rem; font-size: 0.75rem; background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 4px; overflow-x: auto; color: var(--text-secondary); font-family: var(--font-mono);">${escapeHtml(JSON.stringify(e.payload, null, 2))}</pre>
+        `;
+      }
+
+      return `
+        <div class="timeline-item">
+          <div class="timeline-dot" style="${isResearch ? 'background: #3b82f6;' : ''}"></div>
+          <div class="timeline-header">
+            <span class="timeline-actor">${escapeHtml(e.actor.toUpperCase())}</span>
+            <span class="badge ${isResearch ? 'badge-ai' : 'badge-medium'}" style="font-size: 0.7rem;">${escapeHtml(e.event_type)}</span>
+            <span class="timeline-time">${new Date(e.timestamp).toLocaleTimeString()}</span>
+          </div>
+          <div class="timeline-body">
+            ${bodyHtml}
+          </div>
         </div>
-        <div class="timeline-body">
-          <strong>Step ${parseInt(e.seq, 10)}:</strong> ${escapeHtml(e.summary)}
-          ${e.payload && Object.keys(e.payload).length > 0 ? `
-            <pre style="margin-top: 0.5rem; font-size: 0.75rem; background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 4px; overflow-x: auto; color: var(--text-secondary); font-family: var(--font-mono);">${escapeHtml(JSON.stringify(e.payload, null, 2))}</pre>
-          ` : ''}
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   } catch (err) {
     container.innerHTML = `<p style="color: var(--accent-emergency);">Failed to load timeline: ${escapeHtml(err.message)}</p>`;
   }

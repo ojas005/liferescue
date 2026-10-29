@@ -62,6 +62,7 @@ def init_dependencies(
         ai_provider=ai,
         safety_engine=safety,
         notification_provider=notifications,
+        research_tool=TavilyResearchTool(api_key=s.tavily_api_key),
     )
     return _db, _orchestrator
 
@@ -132,33 +133,16 @@ def _seed_demo_data(db: SQLiteDatabase, force: bool = False) -> None:
 
 
 def get_orchestrator() -> ResponseOrchestrator:
-    global _orchestrator
     if _orchestrator is None:
-        s = get_settings()
-        db = get_db()
-        inc_repo, _user_repo, profile_repo, contact_repo, audit_repo = (
-            create_repositories(db)
-        )
-        ai = create_ai_provider(s.ai_provider, s)
-        safety = SafetyPolicyEngine()
-        notifications = MockNotificationProvider()
-
-        _orchestrator = ResponseOrchestrator(
-            incident_repo=inc_repo,
-            profile_repo=profile_repo,
-            contact_repo=contact_repo,
-            audit_repo=audit_repo,
-            ai_provider=ai,
-            safety_engine=safety,
-            notification_provider=notifications,
-            research_tool=TavilyResearchTool(),  # key from env TAVILY_API_KEY only
-        )
+        init_dependencies()
+    assert _orchestrator is not None
     return _orchestrator
 
 
 def reset_for_tests(
     db_path: str = ":memory:",
     redactor: Redactor | None = None,
+    research_tool=None,
 ) -> ResponseOrchestrator:
     """Reset singletons with an isolated in-memory database for testing."""
     global _db, _orchestrator, _redactor, _leased_values
@@ -183,5 +167,6 @@ def reset_for_tests(
         ai_provider=ai,
         safety_engine=safety,
         notification_provider=notifications,
+        research_tool=research_tool,
     )
     return _orchestrator

@@ -26,7 +26,7 @@ TAVILY_ENDPOINT = "https://api.tavily.com/search"
 LIVE_LABEL = "Research evidence (Tavily, live)"
 MAX_RESULTS = 3
 TIMEOUT_S = 8.0
-MAX_ATTEMPTS = 2  # 1 retry
+MAX_ATTEMPTS = 1  # Exactly 1 bounded attempt per submission; no unbounded retries
 QUERY_MAX = 120
 TITLE_MAX = 120
 URL_MAX = 300
@@ -89,22 +89,23 @@ class TavilyResearchTool:
         kwargs: dict[str, Any] = {"timeout": httpx.Timeout(TIMEOUT_S)}
         if self._transport is not None:
             kwargs["transport"] = self._transport
+
         reason = "unknown error"
-        for attempt in range(MAX_ATTEMPTS):
-            try:
-                with httpx.Client(**kwargs) as client:
-                    resp = client.post(TAVILY_ENDPOINT, json=body, headers=headers)
-                if resp.status_code >= 500 or resp.status_code == 429:
-                    reason = f"http {resp.status_code}"
-                    continue
-                if resp.status_code != 200:
-                    return unavailable(f"http {resp.status_code}")
-                return self._parse(resp, query)
-            except httpx.TimeoutException:
-                reason = "timeout"
-            except httpx.HTTPError as err:
-                reason = f"network error ({type(err).__name__})"
-            logger.warning("Tavily research attempt %d failed: %s", attempt + 1, reason)
+        try:
+            with httpx.Client(**kwargs) as client:
+                resp = client.post(TAVILY_ENDPOINT, json=body, headers=headers)
+            if resp.status_code == 429:
+                return unavailable("rate limit (http 429)")
+            if resp.status_code != 200:
+                return unavailable(f"http {resp.status_code}")
+            return self._parse(resp, query)
+        except httpx.TimeoutException:
+            reason = "timeout"
+        except httpx.HTTPError as err:
+            reason = f"network error ({type(err).__name__})"
+        except Exception as err:  # noqa: BLE001 - research must never break triage
+            reason = f"unexpected error ({type(err).__name__})"
+        logger.warning("Tavily research failed: %s", reason)
         return unavailable(reason)
 
     @staticmethod
