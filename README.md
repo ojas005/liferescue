@@ -271,7 +271,7 @@ HOST=0.0.0.0 python apps/api/run.py
 
 ## 7b-2. Live demo for judges
 
-- **Project Demo Video (2:53):** https://youtu.be/Hy8Mn2FTDRY
+- **Project Demo Video:** https://youtu.be/6Pf-E9yNiNo
 - **URL:** https://liferescue-z4jc.onrender.com (Render free tier, so the first request after idle can take ~35 s).
 - **Access:** the hosted demo requires a demo access token, sent as `X-Demo-Token` (the UI asks for it). The token is **not in this repository**. Judges receive it privately in the Devpost testing instructions.
 - All emergency actions are **simulated**. Nothing contacts real services.
