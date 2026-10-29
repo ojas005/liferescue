@@ -1,5 +1,5 @@
 # Render Blueprint for the LifeRescue judging demo. Contains NO secrets:
-# NEBIUS_API_KEY and DEMO_ACCESS_TOKEN are entered in the Render dashboard (sync: false).
+# NEBIUS_API_KEY, DEMO_ACCESS_TOKEN and TAVILY_API_KEY are entered in the Render dashboard (sync: false).
 services:
   - type: web
     name: liferescue
@@ -33,3 +33,5 @@ services:
         sync: false
       - key: DEMO_ACCESS_TOKEN
         sync: false
+      - key: TAVILY_API_KEY
+        sync: false           # optional: enables the Tavily research-evidence step (KAN-50)

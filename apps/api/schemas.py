@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -52,6 +52,9 @@ class RespondIncidentRequest(BaseSchema):
 class IncidentAnalysisResponse(BaseSchema):
     analysis: AIAnalysis
     risk: RiskAssessment
+    research: dict[str, Any] | None = (
+        None  # KAN-50: untrusted Tavily evidence, display only
+    )
 
 
 class IncidentTimelineResponse(BaseSchema):
@@ -115,6 +118,9 @@ class RunDemoResponse(BaseSchema):
     risk: RiskAssessment
     plan: ResponsePlan
     timeline: list[IncidentEvent]
+    research: dict[str, Any] | None = (
+        None  # KAN-50: untrusted Tavily evidence, display only
+    )
 
 
 # -----------------------------------------------------------------------------

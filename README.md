@@ -242,6 +242,10 @@ Only incident triage (analysis) is model-backed; response plans and readiness st
 
 ---
 
+## 7a. Tavily research evidence (optional, KAN-50)
+
+If `TAVILY_API_KEY` is set (environment only, e.g. Render dashboard `sync: false`), each triage makes **one** `POST https://api.tavily.com/search` call (`search_depth: basic`, `max_results: 3`, 8 s timeout, at most 1 retry). The query is built only from the coarse incident category and urgency (for example `first aid safety guidance cardiac emergency critical`); no names, phone numbers, locations or free text are sent. Results are reduced to title, URL and a truncated snippet and shown as **"Research evidence (Tavily, live)"** in the API response (`research`), the incident timeline (`research_evidence`) and the UI. They are untrusted reference material only: they are never sent to the model and never change triage, the safety policy or the response plan. Without a key, or on any error, the step is skipped and labelled `research unavailable: <reason>`; nothing is fabricated.
+
 ## 7b. Exposing the Demo Beyond Localhost (Access Token)
 
 By default the server binds to `127.0.0.1` and needs no token. If you bind to anything else

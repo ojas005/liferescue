@@ -304,7 +304,7 @@ async function handleEmergencySubmit(event) {
     const latencyEl = document.getElementById('stat-latency');
     if (latencyEl) latencyEl.innerText = `${elapsed}ms`;
 
-    renderEmergencyResultCard(incident, triageData.analysis, triageData.risk, plan);
+    renderEmergencyResultCard(incident, triageData.analysis, triageData.risk, plan, triageData.research);
   } catch (err) {
     alert(`Emergency submission error: ${err.message}`);
   } finally {
@@ -338,7 +338,7 @@ async function runScenario(scenarioId) {
     document.getElementById('inc-desc').value = data.incident.description;
     document.getElementById('inc-location').value = data.incident.location || '';
 
-    renderEmergencyResultCard(data.incident, data.analysis, data.risk, data.plan);
+    renderEmergencyResultCard(data.incident, data.analysis, data.risk, data.plan, data.research);
   } catch (err) {
     alert(`Demo scenario error: ${err.message}`);
   }
@@ -348,7 +348,25 @@ async function runScenario(scenarioId) {
 // 9-Point High Impact Emergency Result Card Renderer
 // -----------------------------------------------------------------------------
 
-function renderEmergencyResultCard(incident, analysis, risk, plan) {
+function renderResearchEvidence(research) {
+  // KAN-50: untrusted Tavily evidence, rendered as escaped text only; never alters triage or plan.
+  const box = document.getElementById('research-evidence-box');
+  if (!box) return;
+  const label = document.getElementById('research-evidence-label');
+  const list = document.getElementById('research-evidence-list');
+  if (!research) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  label.textContent = research.label || 'research unavailable: unknown';
+  const items = research.status === 'live' && Array.isArray(research.results) ? research.results : [];
+  list.innerHTML = items.map(r => {
+    const url = String(r.url || '');
+    const safeUrl = /^https?:\/\//.test(url) ? url : '#';
+    return `<li><a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(r.title || url)}</a><br><span style="font-size:0.8rem;color:var(--text-muted);">${escapeHtml(r.snippet || '')}</span></li>`;
+  }).join('');
+}
+
+function renderEmergencyResultCard(incident, analysis, risk, plan, research) {
+  renderResearchEvidence(research);
   document.getElementById('triage-placeholder').style.display = 'none';
   const container = document.getElementById('triage-active-container');
   container.style.display = 'block';
