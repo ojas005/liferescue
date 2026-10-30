@@ -106,6 +106,7 @@ def health_check(
                 "ai_live": "mock_fallback" not in analysis.provider_name,
                 "ai_urgency": analysis.urgency.value,
                 "ai_severity": analysis.severity_score,
+                "ai_summary": analysis.summary,
                 "safety_rule": risk.policy_rule_triggered,
                 "safety_urgency": risk.urgency.value,
                 "escalation_required": risk.requires_escalation,
@@ -113,6 +114,7 @@ def health_check(
                 "tavily_results_count": len(res_payload.get("results", []))
                 if res_payload
                 else 0,
+                "tavily_results": res_payload.get("results", []) if res_payload else [],
             }
         except Exception as exc:  # noqa: BLE001
             diagnostics["scenario_test"] = {
