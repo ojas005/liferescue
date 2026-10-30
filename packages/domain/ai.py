@@ -582,6 +582,7 @@ class NVIDIAAIProvider(AIProvider):
         # KAN-50: call_gate() returns None to allow a model call, or a denial reason label.
         self._call_gate = call_gate
         # LR 08 N-03: an explicit api_key (even "") is authoritative; env is read only when omitted.
+        self.api_key: str | None
         if api_key is not None:
             if api_key == "":
                 self.api_key = ""
