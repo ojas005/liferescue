@@ -242,7 +242,7 @@ Only incident triage (analysis) is model-backed; response plans and readiness st
 
 ---
 
-## 7a. LifeRescue Evidence Intelligence (Tavily Search API — Target Award: Best Use of Tavily)
+## 7a. LifeRescue Evidence Intelligence (Tavily Search API)
 
 Full documentation and evaluation benchmark: [docs/submission/EVIDENCE_INTELLIGENCE.md](docs/submission/EVIDENCE_INTELLIGENCE.md) and [docs/submission/EVIDENCE_INTELLIGENCE_EVAL.md](docs/submission/EVIDENCE_INTELLIGENCE_EVAL.md).
 
@@ -286,7 +286,7 @@ HOST=0.0.0.0 python apps/api/run.py
 
 ## 7b-2. Live demo for judges
 
-- **Project Demo Video:** https://youtu.be/6Pf-E9yNiNo
+- **Project Demo Video:** [https://youtu.be/6Pf-E9yNiNo](https://youtu.be/eoQ4pXvOAz8)
 - **URL:** https://liferescue-z4jc.onrender.com (Render free tier, so the first request after idle can take ~35 s).
 - **Access:** the hosted demo requires a demo access token, sent as `X-Demo-Token` (the UI asks for it). The token is **not in this repository**. Judges receive it privately in the Devpost testing instructions.
 - All emergency actions are **simulated**. Nothing contacts real services.
