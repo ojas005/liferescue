@@ -24,8 +24,19 @@ class Settings(BaseSettings):
     nebius_api_key: str | None = Field(default=None, repr=False)
     nvidia_api_key: str | None = Field(default=None, repr=False)
     nvidia_model: str = Field(default="nvidia/nemotron-3-super-120b-a12b")
+    nebius_model: str | None = Field(default=None)
     nvidia_base_url: str = Field(default="https://api.tokenfactory.nebius.com/v1/")
+    nebius_base_url: str | None = Field(default=None)
     ai_timeout_s: float = Field(default=20.0, ge=1.0, le=60.0)
+
+    @property
+    def effective_model(self) -> str:
+        return self.nebius_model or self.nvidia_model
+
+    @property
+    def effective_base_url(self) -> str:
+        return self.nebius_base_url or self.nvidia_base_url
+
     # KAN-50: Tavily Search API key for live external research evidence (optional).
     tavily_api_key: str | None = Field(default=None, repr=False)
     # SEC-04: shared demo token. REQUIRED when host is not 127.0.0.1/localhost. Env var only; never commit.

@@ -92,16 +92,87 @@ class TavilyResearchTool:
     def __init__(
         self, api_key: str | None = None, transport: httpx.BaseTransport | None = None
     ):
-        self._api_key = (
+        raw_key = (
             api_key if api_key is not None else os.environ.get("TAVILY_API_KEY", "")
         )
+        if raw_key:
+            k = str(raw_key).strip().strip("'\"")
+            if k.lower().startswith("bearer "):
+                k = k[7:].strip()
+            self._api_key = k
+        else:
+            self._api_key = ""
         self._transport = transport
+        self.last_status: str = "not_called"
+
+    def test_connection(self) -> dict[str, Any]:
+        """Minimal safe search to Tavily API (1 result). Never exposes the key."""
+        if not self._api_key:
+            return {
+                "configured": False,
+                "status": "not_configured",
+                "detail": "TAVILY_API_KEY is not set",
+            }
+        import time
+
+        t0 = time.perf_counter()
+        kwargs: dict[str, Any] = {"timeout": httpx.Timeout(10.0)}
+        if self._transport is not None:
+            kwargs["transport"] = self._transport
+        try:
+            with httpx.Client(**kwargs) as client:
+                resp = client.post(
+                    TAVILY_ENDPOINT,
+                    json={
+                        "api_key": self._api_key,
+                        "query": "first aid emergency",
+                        "max_results": 1,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {self._api_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+            latency_ms = round((time.perf_counter() - t0) * 1000)
+            if resp.status_code == 200:
+                data = resp.json()
+                results_count = (
+                    len(data.get("results", [])) if isinstance(data, dict) else 0
+                )
+                self.last_status = "live_ok"
+                return {
+                    "configured": True,
+                    "status": "live_ok",
+                    "http_status": 200,
+                    "latency_ms": latency_ms,
+                    "results_count": results_count,
+                }
+            self.last_status = f"http_{resp.status_code}"
+            err_text = resp.text[:200].replace(self._api_key, "[REDACTED]")
+            return {
+                "configured": True,
+                "status": f"http_{resp.status_code}",
+                "http_status": resp.status_code,
+                "latency_ms": latency_ms,
+                "detail": err_text,
+            }
+        except Exception as e:  # noqa: BLE001
+            latency_ms = round((time.perf_counter() - t0) * 1000)
+            self.last_status = f"error_{type(e).__name__}"
+            return {
+                "configured": True,
+                "status": f"error_{type(e).__name__}",
+                "latency_ms": latency_ms,
+                "detail": str(e)[:200],
+            }
 
     def search(self, category: str, urgency: str) -> dict[str, Any]:
         if not self._api_key:
+            self.last_status = "not_configured"
             return unavailable("TAVILY_API_KEY not configured")
         query = build_query(category, urgency)
         body = {
+            "api_key": self._api_key,
             "query": query,
             "search_depth": "basic",
             "max_results": MAX_RESULTS,
@@ -122,16 +193,26 @@ class TavilyResearchTool:
             with httpx.Client(**kwargs) as client:
                 resp = client.post(TAVILY_ENDPOINT, json=body, headers=headers)
             if resp.status_code == 429:
+                self.last_status = "rate_limited"
                 return unavailable("rate limit (http 429)")
             if resp.status_code != 200:
+                self.last_status = f"http_{resp.status_code}"
+                err_snip = resp.text[:200].replace(self._api_key, "[REDACTED]")
+                logger.warning("Tavily HTTP %d: %s", resp.status_code, err_snip)
                 return unavailable(f"http {resp.status_code}")
-            return self._parse(resp, query, category=category)
+            parsed = self._parse(resp, query, category=category)
+            if parsed.get("status") == "live":
+                self.last_status = "live_ok"
+            else:
+                self.last_status = parsed.get("label", "parse_failed")
+            return parsed
         except httpx.TimeoutException:
             reason = "timeout"
         except httpx.HTTPError as err:
             reason = f"network error ({type(err).__name__})"
         except Exception as err:  # noqa: BLE001 - research must never break triage
             reason = f"unexpected error ({type(err).__name__})"
+        self.last_status = reason
         logger.warning("Tavily research failed: %s", reason)
         return unavailable(reason)
 

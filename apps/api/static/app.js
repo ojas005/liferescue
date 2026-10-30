@@ -7,6 +7,22 @@ let activeIncidentId = null;
 
 // SEC-04: optional demo access token. Kept in sessionStorage only (cleared when the tab closes).
 const DEMO_TOKEN_KEY = 'liferescue.demoToken';
+
+try {
+  const urlParams = new URLSearchParams(window.location.search);
+  const qToken = urlParams.get('token') || urlParams.get('demo_token');
+  if (qToken) {
+    sessionStorage.setItem(DEMO_TOKEN_KEY, qToken.trim());
+    urlParams.delete('token');
+    urlParams.delete('demo_token');
+    const newSearch = urlParams.toString();
+    const cleanUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+} catch (e) {
+  // Fail-safe
+}
+
 const _rawFetch = window.fetch.bind(window);
 window.fetch = async (url, opts = {}) => {
   const token = sessionStorage.getItem(DEMO_TOKEN_KEY);
@@ -466,7 +482,9 @@ function renderEmergencyResultCard(incident, analysis, risk, plan, research) {
   // 2. What AI Understood (Category, Severity, Confidence, Threat)
   {
     const pn = String(analysis.provider_name || '');
-    const mode = pn.includes('mock_fallback') ? 'MOCK fallback' : (pn.startsWith('nvidia_ai (') ? 'LIVE' : 'MOCK');
+    const isFallback = pn.includes('mock_fallback');
+    const isLive = !isFallback && (pn.startsWith('nvidia_ai') || pn.startsWith('nvidia/'));
+    const mode = isFallback ? 'MOCK fallback' : (isLive ? 'LIVE' : 'MOCK');
     document.getElementById('analysis-provider-badge').textContent = `${mode} · Provider: ${pn}`;
   }
   checkSystemHealth();
@@ -480,8 +498,14 @@ function renderEmergencyResultCard(incident, analysis, risk, plan, research) {
   const triggersList = document.getElementById('analysis-triggers-list');
   const triggers = [];
   if (risk.escalation_reason) triggers.push(risk.escalation_reason);
-  if (analysis.extracted_facts && analysis.extracted_facts.length > 0) {
-    triggers.push(...analysis.extracted_facts);
+  if (analysis.extracted_facts) {
+    if (Array.isArray(analysis.extracted_facts)) {
+      triggers.push(...analysis.extracted_facts.map(f => String(f)));
+    } else if (typeof analysis.extracted_facts === 'object') {
+      for (const [k, v] of Object.entries(analysis.extracted_facts)) {
+        triggers.push(`${k}: ${v}`);
+      }
+    }
   }
   triggersList.innerHTML = triggers.map(t => `<li>${escapeHtml(t)}</li>`).join('');
 
