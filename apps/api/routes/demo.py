@@ -48,6 +48,16 @@ DEMO_SCENARIOS = [
 ]
 
 
+@router.get("/auth/status")
+def demo_auth_status() -> dict[str, Any]:
+    """Verify demo token authentication status. Protected by DemoTokenMiddleware."""
+    return {
+        "authenticated": True,
+        "user": "usr_demo",
+        "message": "Authentication successful",
+    }
+
+
 @router.get("/scenarios", response_model=list[DemoScenario])
 def list_demo_scenarios() -> list[DemoScenario]:
     """Get predefined realistic demonstration scenarios."""

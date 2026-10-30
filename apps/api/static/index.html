@@ -9,12 +9,28 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
 </head>
 <body>
-  <!-- SEC-04 demo access token entry (shown only after a 401). Stored in sessionStorage only. -->
-  <form id="demo-token-box" hidden onsubmit="saveDemoToken(event)" style="padding:8px 16px;background:#3b1d1d;color:#fff">
-    <label for="demo-token-input">Demo access token required:</label>
-    <input id="demo-token-input" type="password" autocomplete="off" aria-label="Demo access token">
-    <button type="submit">Unlock</button>
-  </form>
+  <!-- SEC-04 demo access token entry (shown when auth required or on 401). Stored in sessionStorage only. -->
+  <div id="demo-token-box" hidden class="demo-auth-banner">
+    <div class="demo-auth-content">
+      <div class="demo-auth-header">
+        <span class="auth-icon">🔒</span>
+        <div class="auth-title-group">
+          <strong>DEMO ACCESS TOKEN REQUIRED</strong>
+          <span>This deployment requires a Demo Access Token (<code>X-Demo-Token</code>) to access emergency intelligence and scenario execution.</span>
+        </div>
+      </div>
+      <form id="demo-token-form" onsubmit="saveDemoToken(event)" class="demo-auth-form">
+        <input id="demo-token-input" type="password" placeholder="Enter Demo Access Token..." autocomplete="off" aria-label="Demo access token" spellcheck="false">
+        <button id="demo-token-submit" type="submit" class="btn-auth-unlock">
+          <span>🔓</span> Unlock Command Center
+        </button>
+        <button type="button" class="btn-auth-cancel" onclick="hideTokenPrompt()" title="Dismiss prompt">
+          ✕
+        </button>
+      </form>
+      <div id="demo-token-status" class="token-status" aria-live="polite"></div>
+    </div>
+  </div>
   <!-- Header -->
   <header>
     <a href="#" class="brand" onclick="switchTab('dashboard')">
@@ -54,6 +70,9 @@
       <span class="status-pill pill-sim">
         <span class="pill-dot"></span> Simulation Sandbox Active
       </span>
+      <button id="btn-auth-gate" class="btn-reset-demo" onclick="toggleTokenPrompt()" title="Authentication Status">
+        <span>🔑</span> <span id="auth-status-text">Auth: Checking...</span>
+      </button>
       <button class="btn-reset-demo" onclick="resetDemoState()" title="Reset demo records to pristine baseline">
         <span>🔄</span> Reset Demo
       </button>

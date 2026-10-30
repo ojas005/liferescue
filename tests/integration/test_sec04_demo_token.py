@@ -72,6 +72,66 @@ class TestTokenGate(unittest.TestCase):
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertEqual(self.client.get("/static/app.js").status_code, 200)
 
+    def test_quoted_and_whitespace_token_variants_accepted(self):
+        variants = [
+            f'"{TOKEN}"',
+            f"'{TOKEN}'",
+            f"  {TOKEN}  ",
+            f"\r\n{TOKEN}\n",
+            f'  "{TOKEN}" \r\n',
+        ]
+        for variant in variants:
+            with self.subTest(variant=variant):
+                r = self.client.get("/incidents", headers={"X-Demo-Token": variant})
+                self.assertEqual(r.status_code, 200)
+
+    def test_server_configured_with_quotes_or_whitespace(self):
+        for conf_variant in (
+            f'"{TOKEN}"',
+            f"'{TOKEN}'",
+            f"  {TOKEN}\n",
+            f'  "{TOKEN}"  ',
+        ):
+            with self.subTest(conf_variant=conf_variant):
+                reset_for_tests(":memory:")
+                c = TestClient(
+                    create_app(
+                        Settings(
+                            db_path=":memory:",
+                            ai_provider="mock",
+                            demo_access_token=conf_variant,
+                        )
+                    )
+                )
+                # Client supplies standard clean token without quotes
+                self.assertEqual(
+                    c.get("/incidents", headers={"X-Demo-Token": TOKEN}).status_code,
+                    200,
+                )
+
+    def test_authorization_bearer_header_accepted(self):
+        r = self.client.get("/incidents", headers={"Authorization": f"Bearer {TOKEN}"})
+        self.assertEqual(r.status_code, 200)
+
+    def test_query_param_token_accepted(self):
+        r = self.client.get(f"/incidents?token={TOKEN}")
+        self.assertEqual(r.status_code, 200)
+        r2 = self.client.get(f"/incidents?demo_token={TOKEN}")
+        self.assertEqual(r2.status_code, 200)
+
+    def test_demo_auth_status_endpoint(self):
+        self.assertEqual(self.client.get("/demo/auth/status").status_code, 401)
+        self.assertEqual(
+            self.client.get(
+                "/demo/auth/status", headers={"X-Demo-Token": "bad-token"}
+            ).status_code,
+            401,
+        )
+        r = self.client.get("/demo/auth/status", headers={"X-Demo-Token": TOKEN})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data.get("authenticated"))
+
     def test_token_never_in_responses_or_logs(self):
         bodies = []
         for headers in ({}, {"X-Demo-Token": "wrong"}, {"X-Demo-Token": TOKEN}):

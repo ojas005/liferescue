@@ -77,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=[
             "Content-Type",
             "X-Demo-Token",
+            "Authorization",
             "X-Request-ID",
             "X-Correlation-ID",
         ],

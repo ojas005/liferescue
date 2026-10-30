@@ -8,11 +8,40 @@ let activeIncidentId = null;
 // SEC-04: optional demo access token. Kept in sessionStorage only (cleared when the tab closes).
 const DEMO_TOKEN_KEY = 'liferescue.demoToken';
 
+function cleanTokenString(val) {
+  if (!val) return '';
+  let s = String(val).trim().replace(/[\r\n\t]/g, '').trim();
+  const quotePairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’'], ['`', '`']];
+  let changed = true;
+  while (changed && s.length >= 2) {
+    changed = false;
+    for (const [qStart, qEnd] of quotePairs) {
+      if (s.startsWith(qStart) && s.endsWith(qEnd)) {
+        s = s.slice(qStart.length, -qEnd.length).trim();
+        changed = true;
+        break;
+      }
+    }
+  }
+  return s;
+}
+
+function getStoredToken() {
+  try {
+    return cleanTokenString(sessionStorage.getItem(DEMO_TOKEN_KEY) || '');
+  } catch (_) {
+    return '';
+  }
+}
+
 try {
   const urlParams = new URLSearchParams(window.location.search);
   const qToken = urlParams.get('token') || urlParams.get('demo_token');
   if (qToken) {
-    sessionStorage.setItem(DEMO_TOKEN_KEY, qToken.trim());
+    const cleaned = cleanTokenString(qToken);
+    if (cleaned) {
+      sessionStorage.setItem(DEMO_TOKEN_KEY, cleaned);
+    }
     urlParams.delete('token');
     urlParams.delete('demo_token');
     const newSearch = urlParams.toString();
@@ -25,28 +54,132 @@ try {
 
 const _rawFetch = window.fetch.bind(window);
 window.fetch = async (url, opts = {}) => {
-  const token = sessionStorage.getItem(DEMO_TOKEN_KEY);
+  const token = getStoredToken();
   const headers = new Headers(opts.headers || {});
   if (token) headers.set('X-Demo-Token', token);
   const res = await _rawFetch(url, { ...opts, headers });
-  if (res.status === 401) showTokenPrompt();
+  if (res.status === 401 && !url.includes('/demo/auth/status')) {
+    updateAuthButtonStatus(false);
+    showTokenPrompt('Authentication required: Token missing or rejected by server.');
+  } else if (res.ok && res.status !== 401) {
+    updateAuthButtonStatus(true);
+  }
   return res;
 };
 
-function showTokenPrompt() {
+function showTokenPrompt(message) {
   const box = document.getElementById('demo-token-box');
+  const statusEl = document.getElementById('demo-token-status');
   if (box) box.hidden = false;
+  if (statusEl && message) {
+    statusEl.className = 'token-status token-status-error';
+    statusEl.innerHTML = `⚠️ ${escapeHtml(message)}`;
+  }
 }
 
-function saveDemoToken(event) {
+function hideTokenPrompt() {
+  const box = document.getElementById('demo-token-box');
+  if (box) box.hidden = true;
+}
+
+function toggleTokenPrompt() {
+  const box = document.getElementById('demo-token-box');
+  if (box) {
+    box.hidden = !box.hidden;
+    if (!box.hidden) {
+      const input = document.getElementById('demo-token-input');
+      if (input) input.focus();
+    }
+  }
+}
+
+function updateAuthButtonStatus(isAuthenticated) {
+  const textEl = document.getElementById('auth-status-text');
+  const btn = document.getElementById('btn-auth-gate');
+  if (!textEl || !btn) return;
+  if (isAuthenticated) {
+    textEl.textContent = 'Auth: Unlocked';
+    btn.style.borderColor = 'rgba(74, 222, 128, 0.4)';
+    btn.style.color = '#4ade80';
+  } else {
+    textEl.textContent = 'Auth: Locked';
+    btn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+    btn.style.color = '#f87171';
+  }
+}
+
+async function checkAuthStatus() {
+  const stored = getStoredToken();
+  try {
+    const res = await _rawFetch('/demo/auth/status', {
+      headers: stored ? { 'X-Demo-Token': stored } : {},
+    });
+    if (res.status === 200) {
+      updateAuthButtonStatus(true);
+      hideTokenPrompt();
+    } else {
+      updateAuthButtonStatus(false);
+      showTokenPrompt();
+    }
+  } catch (_) {
+    // Keep current state on network failure
+  }
+}
+
+async function saveDemoToken(event) {
   if (event) event.preventDefault();
   const input = document.getElementById('demo-token-input');
-  const value = (input.value || '').trim();
-  if (value) sessionStorage.setItem(DEMO_TOKEN_KEY, value);
-  else sessionStorage.removeItem(DEMO_TOKEN_KEY);
-  input.value = '';
-  document.getElementById('demo-token-box').hidden = true;
-  window.location.reload();
+  const submitBtn = document.getElementById('demo-token-submit');
+  const statusEl = document.getElementById('demo-token-status');
+  const rawValue = (input.value || '').trim();
+  const token = cleanTokenString(rawValue);
+
+  if (!token) {
+    if (statusEl) {
+      statusEl.className = 'token-status token-status-error';
+      statusEl.innerHTML = '⚠️ <strong>Token missing:</strong> Please enter the demo access token configured in Render.';
+    }
+    return;
+  }
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (statusEl) {
+    statusEl.className = 'token-status token-status-pending';
+    statusEl.innerHTML = '⏳ <strong>Verifying token:</strong> Validating credentials with server...';
+  }
+
+  try {
+    const res = await _rawFetch('/demo/auth/status', {
+      headers: { 'X-Demo-Token': token },
+    });
+    if (res.status === 200) {
+      sessionStorage.setItem(DEMO_TOKEN_KEY, token);
+      input.value = '';
+      updateAuthButtonStatus(true);
+      if (statusEl) {
+        statusEl.className = 'token-status token-status-success';
+        statusEl.innerHTML = '✓ <strong>Authentication successful!</strong> Access granted. Loading Command Center...';
+      }
+      setTimeout(async () => {
+        hideTokenPrompt();
+        await loadDashboard();
+      }, 450);
+    } else {
+      sessionStorage.removeItem(DEMO_TOKEN_KEY);
+      updateAuthButtonStatus(false);
+      if (statusEl) {
+        statusEl.className = 'token-status token-status-error';
+        statusEl.innerHTML = '❌ <strong>Token rejected:</strong> Invalid demo access token. Please verify <code>DEMO_ACCESS_TOKEN</code> configured on Render.';
+      }
+    }
+  } catch (err) {
+    if (statusEl) {
+      statusEl.className = 'token-status token-status-error';
+      statusEl.innerHTML = `⚠️ <strong>Network error:</strong> ${escapeHtml(err.message)}`;
+    }
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
 }
 
 // Tab Switching
@@ -113,23 +246,31 @@ async function loadDashboard() {
 }
 
 async function loadReadinessScore() {
+  const circle = document.getElementById('dash-score-circle');
+  const statusEl = document.getElementById('dash-readiness-status');
+  const gapsEl = document.getElementById('dash-readiness-gaps');
   try {
     const res = await fetch('/readiness?user_id=usr_demo');
-    if (!res.ok) return;
+    if (res.status === 401) {
+      if (statusEl) statusEl.innerText = 'Authentication required';
+      if (gapsEl) gapsEl.innerText = 'Please enter your Demo Access Token above to unlock readiness intelligence.';
+      return;
+    }
+    if (!res.ok) {
+      if (statusEl) statusEl.innerText = 'Readiness unavailable';
+      return;
+    }
     const data = await res.json();
 
-    const circle = document.getElementById('dash-score-circle');
     if (circle) {
       circle.style.setProperty('--score', data.score);
       circle.setAttribute('data-score', data.score);
     }
 
-    const statusEl = document.getElementById('dash-readiness-status');
     if (statusEl) {
       statusEl.innerText = `Preparedness: ${data.status.toUpperCase()} (${data.score}/100)`;
     }
 
-    const gapsEl = document.getElementById('dash-readiness-gaps');
     if (gapsEl) {
       if (data.gaps && data.gaps.length > 0) {
         gapsEl.innerText = `${data.gaps.length} attention item(s): ${data.gaps[0]}`;
@@ -143,12 +284,23 @@ async function loadReadinessScore() {
 }
 
 async function loadContactsOverview() {
+  const container = document.getElementById('dash-contacts-list');
   try {
     const res = await fetch('/contacts?user_id=usr_demo');
-    if (!res.ok) return;
+    if (res.status === 401) {
+      if (container) {
+        container.innerHTML = '<p style="color: var(--accent-warning, #f59e0b); font-size: 0.85rem; padding: 0.75rem 0;">🔒 <strong>Authentication required:</strong> Enter Demo Access Token above to load contacts.</p>';
+      }
+      return;
+    }
+    if (!res.ok) {
+      if (container) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">Failed to load contacts overview.</p>';
+      }
+      return;
+    }
     const contacts = await res.json();
 
-    const container = document.getElementById('dash-contacts-list');
     if (!container) return;
 
     if (contacts.length === 0) {
@@ -173,12 +325,29 @@ async function loadContactsOverview() {
 }
 
 async function loadIncidents() {
+  const container = document.getElementById('dash-incidents-list');
   try {
     const res = await fetch('/incidents?limit=10');
-    if (!res.ok) return;
+    if (res.status === 401) {
+      if (container) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 2rem 1rem; color: var(--accent-warning, #f59e0b);">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔒</div>
+            <p style="font-size: 0.95rem; font-weight: 600;">Authentication Required</p>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.3rem;">Please enter your Demo Access Token in the prompt above to unlock Command Center incidents.</p>
+          </div>
+        `;
+      }
+      return;
+    }
+    if (!res.ok) {
+      if (container) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1.5rem;">Failed to load incidents.</p>';
+      }
+      return;
+    }
     const incidents = await res.json();
 
-    const container = document.getElementById('dash-incidents-list');
     if (!container) return;
 
     if (incidents.length === 0) {
@@ -299,13 +468,25 @@ async function handleEmergencySubmit(event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, description, location, input_type, user_id: 'usr_demo' }),
     });
-    if (!createRes.ok) throw new Error('Failed to create emergency incident');
+    if (!createRes.ok) {
+      let detail = 'Failed to create emergency incident';
+      try { const errJson = await createRes.json(); detail = errJson.detail || errJson.error || detail; } catch (_) {}
+      if (createRes.status === 401) {
+        showTokenPrompt('Authentication required: Token missing or rejected.');
+        throw new Error(`HTTP 401 Unauthorized: ${detail}`);
+      }
+      throw new Error(`HTTP ${createRes.status}: ${detail}`);
+    }
     const incident = await createRes.json();
     activeIncidentId = incident.incident_id;
 
     // 2. Trigger Triage & Analysis
     const analyzeRes = await fetch(`/incidents/${incident.incident_id}/analyze`, { method: 'POST' });
-    if (!analyzeRes.ok) throw new Error('Failed to analyze emergency');
+    if (!analyzeRes.ok) {
+      let detail = 'Failed to analyze emergency';
+      try { const errJson = await analyzeRes.json(); detail = errJson.detail || errJson.error || detail; } catch (_) {}
+      throw new Error(`HTTP ${analyzeRes.status}: ${detail}`);
+    }
     const triageData = await analyzeRes.json();
 
     // 3. Trigger Response Coordination Plan
@@ -314,13 +495,19 @@ async function handleEmergencySubmit(event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ confirm_all: true }),
     });
-    if (!respondRes.ok) throw new Error('Failed to plan response');
+    if (!respondRes.ok) {
+      let detail = 'Failed to plan response';
+      try { const errJson = await respondRes.json(); detail = errJson.detail || errJson.error || detail; } catch (_) {}
+      throw new Error(`HTTP ${respondRes.status}: ${detail}`);
+    }
     const plan = await respondRes.json();
     const elapsed = Math.round(performance.now() - t0);
     const latencyEl = document.getElementById('stat-latency');
     if (latencyEl) latencyEl.innerText = `${elapsed}ms`;
 
     renderEmergencyResultCard(incident, triageData.analysis, triageData.risk, plan, triageData.research);
+    loadTimelineDropdown();
+    loadIncidents();
   } catch (err) {
     alert(`Emergency submission error: ${err.message}`);
   } finally {
@@ -334,17 +521,34 @@ async function handleEmergencySubmit(event) {
 // -----------------------------------------------------------------------------
 
 async function runScenario(scenarioId) {
-  switchTab('emergency');
   const container = document.getElementById('triage-active-container');
   const placeholder = document.getElementById('triage-placeholder');
-  placeholder.style.display = 'none';
-  container.style.display = 'block';
 
   try {
     const t0 = performance.now();
     const res = await fetch(`/demo/scenarios/${scenarioId}/run`, { method: 'POST' });
-    if (!res.ok) throw new Error('Scenario execution failed');
+    if (!res.ok) {
+      let detail = 'Scenario execution failed';
+      try {
+        const errJson = await res.json();
+        detail = errJson.detail || errJson.error || detail;
+      } catch (_) {
+        const txt = await res.text();
+        if (txt) detail = txt.slice(0, 150);
+      }
+      if (res.status === 401) {
+        showTokenPrompt('Token rejected or missing. Please enter your Demo Access Token to execute scenarios.');
+        throw new Error(`HTTP 401 Unauthorized: ${detail}`);
+      } else if (res.status === 429) {
+        throw new Error(`HTTP 429 Rate Limit Exceeded: ${detail}`);
+      } else {
+        throw new Error(`HTTP ${res.status}: ${detail}`);
+      }
+    }
     const data = await res.json();
+    switchTab('emergency');
+    if (placeholder) placeholder.style.display = 'none';
+    if (container) container.style.display = 'block';
     const elapsed = Math.round(performance.now() - t0);
     const latencyEl = document.getElementById('stat-latency');
     if (latencyEl) latencyEl.innerText = `${elapsed}ms`;
@@ -355,6 +559,8 @@ async function runScenario(scenarioId) {
     document.getElementById('inc-location').value = data.incident.location || '';
 
     renderEmergencyResultCard(data.incident, data.analysis, data.risk, data.plan, data.research);
+    loadTimelineDropdown();
+    loadIncidents();
   } catch (err) {
     alert(`Demo scenario error: ${err.message}`);
   }
@@ -603,12 +809,17 @@ function viewActiveTimeline() {
 // -----------------------------------------------------------------------------
 
 async function loadTimelineDropdown() {
+  const select = document.getElementById('timeline-incident-select');
   try {
     const res = await fetch('/incidents?limit=30');
+    if (res.status === 401) {
+      if (select) select.innerHTML = '<option value="">🔒 Authentication required — enter Demo Access Token</option>';
+      return;
+    }
     if (!res.ok) return;
     const incidents = await res.json();
 
-    const select = document.getElementById('timeline-incident-select');
+    if (!select) return;
     select.innerHTML = '<option value="">Select an Incident...</option>' +
       incidents.map(inc => `<option value="${escapeHtml(inc.incident_id)}" ${inc.incident_id === activeIncidentId ? 'selected' : ''}>${escapeHtml(inc.title)} (${escapeHtml(inc.incident_id)})</option>`).join('');
 
@@ -952,10 +1163,15 @@ Urgency Overridden: -> CRITICAL`;
 
 async function loadAuditEvents() {
   const tbody = document.getElementById('audit-events-body');
+  if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Fetching append-only audit trail...</td></tr>';
 
   try {
     const res = await fetch('/audit/events?limit=50');
+    if (res.status === 401) {
+      tbody.innerHTML = '<tr><td colspan="7" style="padding: 1.5rem; text-align: center; color: var(--accent-warning, #f59e0b);">🔒 Authentication required — please enter your Demo Access Token above to inspect audit events.</td></tr>';
+      return;
+    }
     if (!res.ok) throw new Error('Failed to load audit events');
     const events = await res.json();
 
@@ -1008,6 +1224,7 @@ function escapeHtml(str) {
 }
 
 // Initial Page Load
-window.addEventListener('DOMContentLoaded', () => {
-  loadDashboard();
+window.addEventListener('DOMContentLoaded', async () => {
+  await checkAuthStatus();
+  await loadDashboard();
 });
