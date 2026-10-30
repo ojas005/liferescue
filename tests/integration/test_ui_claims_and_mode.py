@@ -50,7 +50,7 @@ class TestUiClaims(unittest.TestCase):
 
 class TestAuditAppendOnly(unittest.TestCase):
     def test_db_rejects_update_and_delete(self):
-        with tempfile.TemporaryDirectory() as d:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
             path = str(Path(d) / "a.db")
             reset_for_tests(path)
             c = TestClient(create_app(Settings(db_path=path, ai_provider="mock")))

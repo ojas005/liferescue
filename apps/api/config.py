@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     nvidia_model: str = Field(default="nvidia/nemotron-3-super-120b-a12b")
     nvidia_base_url: str = Field(default="https://api.tokenfactory.nebius.com/v1/")
     ai_timeout_s: float = Field(default=20.0, ge=1.0, le=60.0)
+    # KAN-50: Tavily Search API key for live external research evidence (optional).
+    tavily_api_key: str | None = Field(default=None, repr=False)
     # SEC-04: shared demo token. REQUIRED when host is not 127.0.0.1/localhost. Env var only; never commit.
     demo_access_token: str | None = Field(default=None, repr=False)
     # LR 08 N-05: DEMO_REQUIRE_TOKEN=1 forces the token even on localhost (use with any tunnel/proxy).

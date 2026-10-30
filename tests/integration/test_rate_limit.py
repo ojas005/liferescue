@@ -505,7 +505,7 @@ class TestTransientLocks(unittest.TestCase):
 
 class TestStartup(unittest.TestCase):
     def test_app_starts_with_file_db_and_creates_store(self):
-        with tempfile.TemporaryDirectory() as d:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
             db = os.path.join(d, "app.db")
             reset_for_tests(":memory:")
             app = create_app(

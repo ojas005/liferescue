@@ -356,13 +356,68 @@ function renderResearchEvidence(research) {
   const list = document.getElementById('research-evidence-list');
   if (!research) { box.style.display = 'none'; return; }
   box.style.display = 'block';
-  label.textContent = research.label || 'research unavailable: unknown';
-  const items = research.status === 'live' && Array.isArray(research.results) ? research.results : [];
-  list.innerHTML = items.map(r => {
-    const url = String(r.url || '');
-    const safeUrl = /^https?:\/\//.test(url) ? url : '#';
-    return `<li><a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(r.title || url)}</a><br><span style="font-size:0.8rem;color:var(--text-muted);">${escapeHtml(r.snippet || '')}</span></li>`;
-  }).join('');
+
+  const isLive = research.status === 'live';
+  const items = isLive && Array.isArray(research.results) ? research.results : [];
+
+  if (isLive && items.length > 0) {
+    label.className = 'result-tag tag-policy';
+    label.innerHTML = `<span>🌐</span> EVIDENCE INTELLIGENCE (Tavily Live) — ${items.length} Source(s)`;
+
+    const queryHeader = research.query ? `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 6px; padding: 0.4rem 0.6rem;">
+        <span style="font-size: 0.75rem; color: var(--text-secondary);"><strong style="color: #60a5fa;">Search Intent:</strong> <code>${escapeHtml(research.query)}</code></span>
+        <span style="font-size: 0.7rem; color: var(--text-muted);">${research.retrieved_at ? new Date(research.retrieved_at).toLocaleTimeString() : 'Live'}</span>
+      </div>
+    ` : '';
+
+    const cardsHtml = items.map(r => {
+      const url = String(r.url || '');
+      const safeUrl = /^https?:\/\//.test(url) ? url : '#';
+      const domain = escapeHtml(r.domain || 'External source');
+      const scoreBadge = (r.score !== undefined && r.score !== null)
+        ? `<span class="badge badge-low" style="font-size: 0.65rem; padding: 1px 5px;">Relevance ${(r.score * 100).toFixed(0)}%</span>`
+        : '';
+      const publishedBadge = r.published_date
+        ? `<span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 0.4rem;">📅 ${escapeHtml(r.published_date)}</span>`
+        : '';
+      const relevanceNote = r.relevance_note
+        ? `<div style="font-size: 0.72rem; color: #93c5fd; margin-top: 0.25rem;">📌 <em>${escapeHtml(r.relevance_note)}</em></div>`
+        : '';
+
+      return `
+        <li style="list-style: none; margin-bottom: 0.75rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 6px; padding: 0.65rem 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.3rem;">
+            <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow" style="color: #60a5fa; font-size: 0.88rem; font-weight: 600; text-decoration: underline; line-height: 1.3;">
+              ${escapeHtml(r.title || url)} ↗
+            </a>
+            <div style="display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0;">
+              ${scoreBadge}
+              <span class="badge badge-medium" style="font-size: 0.65rem; padding: 1px 5px;">${domain}</span>
+            </div>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all; margin-bottom: 0.35rem;">
+            ${escapeHtml(url)} ${publishedBadge}
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45;">
+            ${escapeHtml(r.snippet || '')}
+          </div>
+          ${relevanceNote}
+        </li>
+      `;
+    }).join('');
+
+    list.innerHTML = queryHeader + cardsHtml;
+  } else {
+    label.className = 'result-tag tag-policy';
+    label.textContent = research.label || 'Research unavailable';
+    list.innerHTML = `
+      <li style="list-style: none; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 6px; padding: 0.75rem; color: var(--text-muted); font-size: 0.82rem;">
+        <div style="font-weight: 500; color: var(--text-secondary); margin-bottom: 0.2rem;">External Research Status: ${escapeHtml(research.label || 'Not available')}</div>
+        <div>LifeRescue deterministic safety policy and response coordination proceed without external evidence. No evidence is fabricated.</div>
+      </li>
+    `;
+  }
 }
 
 function renderEmergencyResultCard(incident, analysis, risk, plan, research) {
@@ -564,22 +619,73 @@ async function loadSelectedTimeline() {
       return;
     }
 
-    container.innerHTML = data.events.map(e => `
-      <div class="timeline-item">
-        <div class="timeline-dot"></div>
-        <div class="timeline-header">
-          <span class="timeline-actor">${escapeHtml(e.actor.toUpperCase())}</span>
-          <span class="badge badge-medium" style="font-size: 0.7rem;">${escapeHtml(e.event_type)}</span>
-          <span class="timeline-time">${new Date(e.timestamp).toLocaleTimeString()}</span>
+    container.innerHTML = data.events.map(e => {
+      const isResearch = e.event_type === 'research_evidence';
+      let bodyHtml = `<strong>Step ${parseInt(e.seq, 10)}:</strong> ${escapeHtml(e.summary)}`;
+
+      if (isResearch && e.payload) {
+        const isLive = e.payload.status === 'live';
+        const results = Array.isArray(e.payload.results) ? e.payload.results : [];
+        const queryHtml = e.payload.query ? `<div style="font-size:0.75rem; color:var(--text-muted); margin:0.4rem 0 0.5rem;"><strong>Query:</strong> <code>${escapeHtml(e.payload.query)}</code></div>` : '';
+        const disclaimerHtml = `<div style="font-size:0.75rem; color:var(--text-muted); background:rgba(59,130,246,0.08); border-left:3px solid #3b82f6; padding:0.4rem 0.6rem; margin-top:0.5rem; border-radius:2px;">
+          ⚠️ <em>Untrusted third-party evidence for reference only; never alters deterministic triage, safety policies, or response actions.</em>
+        </div>`;
+
+        if (isLive && results.length > 0) {
+          bodyHtml += `
+            <div style="margin-top: 0.5rem;">
+              <span class="badge badge-ai" style="font-size: 0.68rem; margin-bottom: 0.3rem;">UNTRUSTED EXTERNAL EVIDENCE</span>
+              ${queryHtml}
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                ${results.map(r => {
+                  const url = String(r.url || '');
+                  const safeUrl = /^https?:\/\//.test(url) ? url : '#';
+                  return `
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass); border-radius: 4px; padding: 0.5rem 0.65rem;">
+                      <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer nofollow" style="color: #60a5fa; font-size: 0.85rem; font-weight: 500; text-decoration: underline;">${escapeHtml(r.title || url)}</a>
+                      <div style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all; margin: 2px 0;">${escapeHtml(url)}</div>
+                      <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; margin-top: 2px;">${escapeHtml(r.snippet || '')}</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+              ${disclaimerHtml}
+            </div>
+          `;
+        } else {
+          bodyHtml += `
+            <div style="margin-top: 0.4rem; font-size: 0.82rem; color: var(--text-muted); font-style: italic;">
+              External research unavailable (${escapeHtml(e.payload.label || 'not configured')}). Safety policy and response coordination proceed deterministically without external evidence.
+            </div>
+          `;
+        }
+
+        bodyHtml += `
+          <details style="margin-top: 0.5rem;">
+            <summary style="font-size: 0.72rem; color: var(--text-muted); cursor: pointer;">View Raw Payload JSON</summary>
+            <pre style="margin-top: 0.3rem; font-size: 0.72rem; background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 4px; overflow-x: auto; color: var(--text-secondary); font-family: var(--font-mono);">${escapeHtml(JSON.stringify(e.payload, null, 2))}</pre>
+          </details>
+        `;
+      } else if (e.payload && Object.keys(e.payload).length > 0) {
+        bodyHtml += `
+          <pre style="margin-top: 0.5rem; font-size: 0.75rem; background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 4px; overflow-x: auto; color: var(--text-secondary); font-family: var(--font-mono);">${escapeHtml(JSON.stringify(e.payload, null, 2))}</pre>
+        `;
+      }
+
+      return `
+        <div class="timeline-item">
+          <div class="timeline-dot" style="${isResearch ? 'background: #3b82f6;' : ''}"></div>
+          <div class="timeline-header">
+            <span class="timeline-actor">${escapeHtml(e.actor.toUpperCase())}</span>
+            <span class="badge ${isResearch ? 'badge-ai' : 'badge-medium'}" style="font-size: 0.7rem;">${escapeHtml(e.event_type)}</span>
+            <span class="timeline-time">${new Date(e.timestamp).toLocaleTimeString()}</span>
+          </div>
+          <div class="timeline-body">
+            ${bodyHtml}
+          </div>
         </div>
-        <div class="timeline-body">
-          <strong>Step ${parseInt(e.seq, 10)}:</strong> ${escapeHtml(e.summary)}
-          ${e.payload && Object.keys(e.payload).length > 0 ? `
-            <pre style="margin-top: 0.5rem; font-size: 0.75rem; background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 4px; overflow-x: auto; color: var(--text-secondary); font-family: var(--font-mono);">${escapeHtml(JSON.stringify(e.payload, null, 2))}</pre>
-          ` : ''}
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   } catch (err) {
     container.innerHTML = `<p style="color: var(--accent-emergency);">Failed to load timeline: ${escapeHtml(err.message)}</p>`;
   }
