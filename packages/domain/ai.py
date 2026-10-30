@@ -510,6 +510,57 @@ def extract_json_object(content: str) -> dict:
     return parsed
 
 
+def _clean_urgency(val: Any) -> UrgencyLevel:
+    s = str(val or "").strip().lower()
+    if s == "urgent":
+        return UrgencyLevel.HIGH
+    if s == "severe":
+        return UrgencyLevel.CRITICAL
+    return UrgencyLevel(s)
+
+
+def _clean_severity(val: Any) -> int:
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        return round(val)
+    text = str(val or "")
+    digits = re.findall(r"\d+", text)
+    if digits:
+        return int(digits[0])
+    return int(val)
+
+
+def _normalize_confidence(val: Any) -> float:
+    if isinstance(val, (int, float)):
+        f = float(val)
+        return f / 100.0 if f > 1.0 else f
+    s = str(val or "").replace("%", "").strip()
+    try:
+        f = float(s)
+        return f / 100.0 if f > 1.0 else f
+    except ValueError:
+        return 0.85
+
+
+def _normalize_list(val: Any) -> list[str]:
+    if isinstance(val, list):
+        return [str(x) for x in val if x]
+    if isinstance(val, str) and val.strip():
+        return [val.strip()]
+    return []
+
+
+def _normalize_facts(val: Any) -> dict[str, Any]:
+    if isinstance(val, dict):
+        return {str(k): v for k, v in val.items()}
+    if isinstance(val, list):
+        return {f"fact_{i + 1}": str(item) for i, item in enumerate(val)}
+    if val:
+        return {"details": str(val)}
+    return {}
+
+
 class NVIDIAAIProvider(AIProvider):
     """NVIDIA Nemotron on Nebius Token Factory (OpenAI-compatible chat completions).
 
@@ -531,15 +582,42 @@ class NVIDIAAIProvider(AIProvider):
         # KAN-50: call_gate() returns None to allow a model call, or a denial reason label.
         self._call_gate = call_gate
         # LR 08 N-03: an explicit api_key (even "") is authoritative; env is read only when omitted.
-        self.api_key = (
-            api_key
-            if api_key is not None
-            else (os.environ.get("NEBIUS_API_KEY") or os.environ.get("NVIDIA_API_KEY"))
+        if api_key is not None:
+            if api_key == "":
+                self.api_key = ""
+            else:
+                k = str(api_key).strip().strip("'\"")
+                if k.lower().startswith("bearer "):
+                    k = k[7:].strip()
+                self.api_key = k or ""
+        else:
+            env_key = os.environ.get("NEBIUS_API_KEY") or os.environ.get(
+                "NVIDIA_API_KEY"
+            )
+            if env_key:
+                k = str(env_key).strip().strip("'\"")
+                if k.lower().startswith("bearer "):
+                    k = k[7:].strip()
+                self.api_key = k or None
+            else:
+                self.api_key = None
+
+        raw_model = (
+            model
+            or os.environ.get("NEBIUS_MODEL")
+            or os.environ.get("NVIDIA_MODEL")
+            or DEFAULT_NEMOTRON_MODEL
         )
-        self.model = model or os.environ.get("NVIDIA_MODEL") or DEFAULT_NEMOTRON_MODEL
-        self.base_url = (
-            base_url or os.environ.get("NVIDIA_BASE_URL") or DEFAULT_NEBIUS_BASE_URL
+        self.model = str(raw_model).strip().strip("'\"")
+
+        raw_base_url = (
+            base_url
+            or os.environ.get("NEBIUS_BASE_URL")
+            or os.environ.get("NVIDIA_BASE_URL")
+            or DEFAULT_NEBIUS_BASE_URL
         )
+        self.base_url = str(raw_base_url).strip().strip("'\"")
+
         self.timeout_s = min(
             max(float(timeout_s or DEFAULT_PROVIDER_TIMEOUT_S), 1.0), 60.0
         )
@@ -588,6 +666,68 @@ class NVIDIAAIProvider(AIProvider):
             {"role": "user", "content": user},
         ]
 
+    def test_connection(self) -> dict[str, Any]:
+        """Minimal safe ping to Nebius Token Factory (5 tokens). Never exposes the key."""
+        if not self._is_configured():
+            return {
+                "configured": False,
+                "status": "not_configured",
+                "detail": "NEBIUS_API_KEY is not set",
+            }
+        if not self.base_url_is_safe():
+            return {
+                "configured": True,
+                "status": "insecure_base_url",
+                "detail": "base_url is not HTTPS",
+            }
+        import time
+
+        import httpx
+
+        t0 = time.perf_counter()
+        try:
+            client_kwargs: dict = {"timeout": httpx.Timeout(min(self.timeout_s, 10.0))}
+            if self._transport is not None:
+                client_kwargs["transport"] = self._transport
+            with httpx.Client(**client_kwargs) as client:
+                resp = client.post(
+                    f"{self.base_url.rstrip('/')}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [{"role": "user", "content": "ping"}],
+                        "max_tokens": 5,
+                    },
+                )
+            latency_ms = round((time.perf_counter() - t0) * 1000)
+            if resp.status_code == 200:
+                return {
+                    "configured": True,
+                    "status": "live_ok",
+                    "http_status": 200,
+                    "latency_ms": latency_ms,
+                    "model": self.model,
+                }
+            err_text = resp.text[:200].replace(self.api_key or "", "[REDACTED]")
+            return {
+                "configured": True,
+                "status": f"http_{resp.status_code}",
+                "http_status": resp.status_code,
+                "latency_ms": latency_ms,
+                "detail": err_text,
+            }
+        except Exception as e:  # noqa: BLE001
+            latency_ms = round((time.perf_counter() - t0) * 1000)
+            return {
+                "configured": True,
+                "status": f"error_{type(e).__name__}",
+                "latency_ms": latency_ms,
+                "detail": str(e)[:200],
+            }
+
     def analyze_emergency(
         self,
         incident: Incident,
@@ -616,6 +756,13 @@ class NVIDIAAIProvider(AIProvider):
             client_kwargs: dict = {"timeout": httpx.Timeout(self.timeout_s)}
             if self._transport is not None:
                 client_kwargs["transport"] = self._transport
+            req_body = {
+                "model": self.model,
+                "messages": self._prompt(incident),
+                "temperature": 0.2,
+                "max_tokens": 1024,
+                "response_format": {"type": "json_object"},
+            }
             with httpx.Client(**client_kwargs) as client:
                 resp = client.post(
                     f"{self.base_url.rstrip('/')}/chat/completions",
@@ -623,15 +770,24 @@ class NVIDIAAIProvider(AIProvider):
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
                     },
-                    json={
-                        "model": self.model,
-                        "messages": self._prompt(incident),
-                        "temperature": 0.2,
-                        "max_tokens": 1024,
-                        "response_format": {"type": "json_object"},
-                    },
+                    json=req_body,
                 )
+                if resp.status_code in (400, 422) and "response_format" in resp.text:
+                    logger.info("Nebius rejected response_format; retrying without it")
+                    req_body.pop("response_format", None)
+                    resp = client.post(
+                        f"{self.base_url.rstrip('/')}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json=req_body,
+                    )
             if resp.status_code >= 400:
+                err_snip = resp.text[:300].replace(self.api_key or "", "[REDACTED]")
+                logger.warning(
+                    "Nebius Token Factory HTTP %d: %s", resp.status_code, err_snip
+                )
                 return self._fallback(
                     incident, profile, contacts, f"http_{resp.status_code}"
                 )
@@ -641,19 +797,21 @@ class NVIDIAAIProvider(AIProvider):
             parsed = extract_json_object(content)
             analysis = AIAnalysis(
                 incident_id=incident.incident_id,
-                summary=str(parsed["summary"])[:1000],
-                category=str(parsed["category"])[:100],
-                urgency=UrgencyLevel(str(parsed["urgency"]).lower()),
-                severity_score=int(parsed["severity_score"]),
-                confidence=float(parsed["confidence"]),
+                summary=str(
+                    parsed.get("summary") or incident.description or incident.title
+                )[:1000],
+                category=str(parsed.get("category") or "general")[:100],
+                urgency=_clean_urgency(parsed.get("urgency")),
+                severity_score=_clean_severity(parsed.get("severity_score")),
+                confidence=_normalize_confidence(parsed.get("confidence")),
                 immediate_threat=bool(parsed.get("immediate_threat", False)),
-                extracted_facts=dict(parsed.get("extracted_facts") or {}),
-                missing_critical_info=[
-                    str(x) for x in parsed.get("missing_critical_info") or []
-                ],
-                recommended_immediate_steps=[
-                    str(x) for x in parsed.get("recommended_immediate_steps") or []
-                ],
+                extracted_facts=_normalize_facts(parsed.get("extracted_facts")),
+                missing_critical_info=_normalize_list(
+                    parsed.get("missing_critical_info")
+                ),
+                recommended_immediate_steps=_normalize_list(
+                    parsed.get("recommended_immediate_steps")
+                ),
                 provider_name=f"nvidia_ai ({self.model})",
             )
             self.last_status = "live_ok"
@@ -694,16 +852,26 @@ def create_ai_provider(
     provider_type: str = "mock", settings: object | None = None
 ) -> AIProvider:
     """Factory creating configured AI provider (settings: apps.api.config.Settings or None)."""
-    provider_type = provider_type.lower()
-    if provider_type in ("nvidia", "nebius"):
+    pt = (provider_type or "").strip().lower()
+    if pt in (
+        "nvidia",
+        "nebius",
+        "nvidia_ai",
+        "nebius_ai",
+        "nemotron",
+        "nvidia-nemotron",
+    ):
         if settings is None:
             return NVIDIAAIProvider()
+        key = getattr(settings, "nebius_api_key", None) or getattr(
+            settings, "nvidia_api_key", None
+        )
         return NVIDIAAIProvider(
-            api_key=getattr(settings, "nebius_api_key", None)
-            or getattr(settings, "nvidia_api_key", None)
-            or "",  # settings already reflect env/.env; never re-read env here (N-03)
-            model=getattr(settings, "nvidia_model", None),
-            base_url=getattr(settings, "nvidia_base_url", None),
+            api_key=key if key else None,
+            model=getattr(settings, "effective_model", None)
+            or getattr(settings, "nvidia_model", None),
+            base_url=getattr(settings, "effective_base_url", None)
+            or getattr(settings, "nvidia_base_url", None),
             timeout_s=getattr(settings, "ai_timeout_s", None),
             call_gate=_global_call_gate(settings),
         )

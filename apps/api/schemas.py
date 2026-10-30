@@ -137,6 +137,11 @@ class HealthResponse(BaseSchema):
     )
     ai_model: str | None = None
     ai_last_status: str | None = None
+    research_enabled: bool = False
+    research_mode: str = "unavailable"
+    research_last_status: str | None = None
+    commit_sha: str | None = None
+    diagnostics: dict[str, Any] | None = None
     demo_mode: bool
     version: str = "1.0.0"
 
